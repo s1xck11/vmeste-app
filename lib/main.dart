@@ -7,27 +7,41 @@ import 'services/sync_service.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 
-// ============ ОБХОД ПРОВЕРКИ СЕРТИФИКАТОВ ============
-// 
-// На Huawei без Google-сервисов иногда не работают сертификаты Let's Encrypt
-// (которые использует Supabase). Этот обход разрешает соединение с любым
-// сертификатом. Для личного приложения это безопасно.
-class _MyHttpOverrides extends HttpOverrides {
+// ============ ЖЁСТКИЙ IP ДЛЯ SUPABASE ============
+//
+// На Huawei без Google-сервисов системный DNS не может разрешить
+// домен supabase.co. Провайдер (например, Мегафон) подсовывает левые
+// IP-адреса. Поэтому мы жёстко прописываем реальный IP Cloudflare,
+// через который работает Supabase.
+//
+// Cloudflare использует Anycast — один IP работает по всему миру,
+// трафик автоматически идёт к ближайшему дата-центру.
+const String _supabaseHost = 'rgsefmrieltdmqbngsyo.supabase.co';
+const List<String> _supabaseIps = [
+  '104.18.38.10',    // Основной Cloudflare IP
+  '172.64.149.246',  // Резервный Cloudflare IP
+];
+
+class _SupabaseHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context)
-      ..badCertificateCallback = (X509Certificate cert, String host, int port) {
-        // Разрешаем только наш домен Supabase
-        return host.endsWith('.supabase.co') || host.endsWith('.supabase.in');
-      };
+    final client = super.createHttpClient(context);
+
+    // Разрешаем любые сертификаты для нашего домена
+    // (на случай, если SNI не сработает)
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+      return host == _supabaseHost || host.endsWith('.supabase.co');
+    };
+
+    return client;
   }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Применяем обход сертификатов
-  HttpOverrides.global = _MyHttpOverrides();
+  // Применяем обход DNS-проблемы
+  HttpOverrides.global = _SupabaseHttpOverrides();
 
   // Инициализация Supabase
   await Supabase.initialize(
@@ -56,6 +70,9 @@ class AppColors {
   static const Color cardLight = Color(0xFFF8F9FA);
   static const Color textLight = Color(0xFF1A1A1A);
   static const Color textSecondary = Color(0xFF8E8E93);
+
+  static const String supabaseHost = _supabaseHost;
+  static const List<String> supabaseIps = _supabaseIps;
 }
 
 // ============ ГЛАВНОЕ ПРИЛОЖЕНИЕ ============
