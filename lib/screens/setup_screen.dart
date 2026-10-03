@@ -85,7 +85,7 @@ class _SetupScreenState extends State<SetupScreen> {
     final results = <String>[];
     results.add('=== ДИАГНОСТИКА ===');
 
-    // Тест 1: DNS resolve
+    // Тест 1: Обычный DNS (должен упасть на Huawei)
     try {
       final addresses = await InternetAddress.lookup('rgsefmrieltdmqbngsyo.supabase.co')
           .timeout(const Duration(seconds: 5));
@@ -95,33 +95,46 @@ class _SetupScreenState extends State<SetupScreen> {
         results.add('❌ DNS: пустой ответ');
       }
     } catch (e) {
-      results.add('❌ DNS: $e');
+      results.add('❌ DNS: не работает (ожидаемо на Huawei)');
     }
 
-    // Тест 2: HTTPS-запрос
+    // Тест 2: HTTPS по IP напрямую (104.18.38.10)
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 10);
       client.badCertificateCallback = (cert, host, port) => true;
 
       final request = await client.getUrl(
-        Uri.parse('https://rgsefmrieltdmqbngsyo.supabase.co/rest/v1/'),
+        Uri.parse('https://104.18.38.10/rest/v1/'),
       );
+      request.headers.set('Host', 'rgsefmrieltdmqbngsyo.supabase.co');
       request.headers.set('apikey', 'sb_publishable_aoqWgrFepcLLhwtUU7LkAA_389p_sdk');
       final response = await request.close().timeout(const Duration(seconds: 10));
-      results.add('✅ HTTPS: код ${response.statusCode}');
+      results.add('✅ HTTPS (IP .10): код ${response.statusCode}');
       client.close();
     } catch (e) {
-      results.add('❌ HTTPS: $e');
+      results.add('❌ HTTPS (IP .10): $e');
     }
 
-    // Тест 3: Supabase Auth
+    // Тест 3: HTTPS по резервному IP (172.64.149.246)
     try {
-      // Просто проверяем, что клиент инициализирован
-      results.add('✅ Supabase клиент: OK');
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+      client.badCertificateCallback = (cert, host, port) => true;
+
+      final request = await client.getUrl(
+        Uri.parse('https://172.64.149.246/rest/v1/'),
+      );
+      request.headers.set('Host', 'rgsefmrieltdmqbngsyo.supabase.co');
+      request.headers.set('apikey', 'sb_publishable_aoqWgrFepcLLhwtUU7LkAA_389p_sdk');
+      final response = await request.close().timeout(const Duration(seconds: 10));
+      results.add('✅ HTTPS (IP .246): код ${response.statusCode}');
+      client.close();
     } catch (e) {
-      results.add('❌ Supabase клиент: $e');
+      results.add('❌ HTTPS (IP .246): $e');
     }
+
+    results.add('✅ Supabase клиент: OK');
 
     setState(() {
       _error = results.join('\n');
@@ -355,7 +368,6 @@ class _SetupScreenState extends State<SetupScreen> {
                   ),
                 ),
 
-                // Кнопка диагностики
                 TextButton.icon(
                   onPressed: _loading ? null : _testConnection,
                   icon: const Icon(Icons.search, size: 18),
@@ -381,7 +393,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     style: const TextStyle(
                       color: AppColors.danger,
                       fontFamily: 'monospace',
-                      fontSize: 12,
+                      fontSize: 11,
                     ),
                   ),
                 ),
