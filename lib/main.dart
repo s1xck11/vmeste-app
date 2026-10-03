@@ -1,15 +1,28 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_config.dart';
+import 'services/storage_service.dart';
+import 'services/sync_service.dart';
+import 'screens/setup_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Инициализация Supabase
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
-  runApp(const VmesteApp());
+
+  // Инициализация локального хранилища
+  final storage = StorageService();
+  await storage.init();
+
+  // Сервис синхронизации
+  final sync = SyncService(storage: storage);
+
+  runApp(VmesteApp(storage: storage, sync: sync));
 }
 
 // ============ ЦВЕТА ПРИЛОЖЕНИЯ ============
@@ -27,7 +40,14 @@ class AppColors {
 
 // ============ ГЛАВНОЕ ПРИЛОЖЕНИЕ ============
 class VmesteApp extends StatelessWidget {
-  const VmesteApp({super.key});
+  final StorageService storage;
+  final SyncService sync;
+
+  const VmesteApp({
+    super.key,
+    required this.storage,
+    required this.sync,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -44,14 +64,103 @@ class VmesteApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const MainScreen(),
+      home: SplashScreen(storage: storage, sync: sync),
+    );
+  }
+}
+
+// ============ ЭКРАН ЗАГРУЗКИ ============
+/// Проверяет, есть ли уже сохранённая группа.
+/// Если да — автоподключается и идёт на главный экран.
+/// Если нет — показывает SetupScreen.
+class SplashScreen extends StatefulWidget {
+  final StorageService storage;
+  final SyncService sync;
+
+  const SplashScreen({
+    super.key,
+    required this.storage,
+    required this.sync,
+  });
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    // Небольшая задержка для красоты
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (widget.storage.isConfigured) {
+      // Есть сохранённая группа — автоподключаемся
+      final ok = await widget.sync.autoConnect();
+      if (!mounted) return;
+
+      if (ok) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => MainScreen(
+              storage: widget.storage,
+              sync: widget.sync,
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    // Группы нет — показываем SetupScreen
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => SetupScreen(
+          storage: widget.storage,
+          sync: widget.sync,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.favorite, size: 80, color: AppColors.accent),
+            SizedBox(height: 24),
+            Text(
+              'Вместе',
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 24),
+            CircularProgressIndicator(color: AppColors.accent),
+          ],
+        ),
+      ),
     );
   }
 }
 
 // ============ ГЛАВНЫЙ ЭКРАН С НАВИГАЦИЕЙ ============
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final StorageService storage;
+  final SyncService sync;
+
+  const MainScreen({
+    super.key,
+    required this.storage,
+    required this.sync,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -60,13 +169,38 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    PurchasesScreen(),
-    TasksScreen(),
-    ShiftsScreen(),
-    FinanceScreen(),
-    SettingsScreen(),
-  ];
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      const _PlaceholderScreen(
+        title: 'Покупки',
+        icon: Icons.shopping_cart,
+        message: 'Здесь будет список покупок\nс категориями и синхронизацией',
+      ),
+      const _PlaceholderScreen(
+        title: 'Задачи',
+        icon: Icons.check_circle,
+        message: 'Здесь будут задачи с приоритетами\nдедлайнами и повторами',
+      ),
+      const _PlaceholderScreen(
+        title: 'Смены',
+        icon: Icons.calendar_today,
+        message: 'Здесь будет календарь смен\nс типами и расчётом зарплаты',
+      ),
+      const _PlaceholderScreen(
+        title: 'Бюджет',
+        icon: Icons.attach_money,
+        message: 'Здесь будут графики, фин-здоровье,\nинсайты и голосовой ввод',
+      ),
+      SettingsScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,14 +246,13 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ============ ЗАГЛУШКА ДЛЯ ЭКРАНОВ ============
-class PlaceholderScreen extends StatelessWidget {
+// ============ ЗАГЛУШКА ============
+class _PlaceholderScreen extends StatelessWidget {
   final String title;
   final IconData icon;
   final String message;
 
-  const PlaceholderScreen({
-    super.key,
+  const _PlaceholderScreen({
     required this.title,
     required this.icon,
     required this.message,
@@ -164,55 +297,4 @@ class PlaceholderScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-// ============ ЭКРАНЫ-ЗАГЛУШКИ ============
-class PurchasesScreen extends StatelessWidget {
-  const PurchasesScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const PlaceholderScreen(
-        title: 'Покупки',
-        icon: Icons.shopping_cart,
-        message: 'Здесь будет список покупок\nс категориями и синхронизацией',
-      );
-}
-
-class TasksScreen extends StatelessWidget {
-  const TasksScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const PlaceholderScreen(
-        title: 'Задачи',
-        icon: Icons.check_circle,
-        message: 'Здесь будут задачи с приоритетами\nдедлайнами и повторами',
-      );
-}
-
-class ShiftsScreen extends StatelessWidget {
-  const ShiftsScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const PlaceholderScreen(
-        title: 'Смены',
-        icon: Icons.calendar_today,
-        message: 'Здесь будет календарь смен\nс типами и расчётом зарплаты',
-      );
-}
-
-class FinanceScreen extends StatelessWidget {
-  const FinanceScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const PlaceholderScreen(
-        title: 'Бюджет',
-        icon: Icons.attach_money,
-        message: 'Здесь будут графики, фин-здоровье,\nинсайты и голосовой ввод',
-      );
-}
-
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const PlaceholderScreen(
-        title: 'Настройки',
-        icon: Icons.settings,
-        message: 'Здесь будут темы, фон,\nпартнёры и синхронизация',
-      );
 }
