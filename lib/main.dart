@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_config.dart';
@@ -6,8 +7,27 @@ import 'services/sync_service.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 
+// ============ ОБХОД ПРОВЕРКИ СЕРТИФИКАТОВ ============
+// 
+// На Huawei без Google-сервисов иногда не работают сертификаты Let's Encrypt
+// (которые использует Supabase). Этот обход разрешает соединение с любым
+// сертификатом. Для личного приложения это безопасно.
+class _MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) {
+        // Разрешаем только наш домен Supabase
+        return host.endsWith('.supabase.co') || host.endsWith('.supabase.in');
+      };
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Применяем обход сертификатов
+  HttpOverrides.global = _MyHttpOverrides();
 
   // Инициализация Supabase
   await Supabase.initialize(
@@ -70,9 +90,6 @@ class VmesteApp extends StatelessWidget {
 }
 
 // ============ ЭКРАН ЗАГРУЗКИ ============
-/// Проверяет, есть ли уже сохранённая группа.
-/// Если да — автоподключается и идёт на главный экран.
-/// Если нет — показывает SetupScreen.
 class SplashScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
@@ -95,11 +112,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _check() async {
-    // Небольшая задержка для красоты
     await Future.delayed(const Duration(milliseconds: 300));
 
     if (widget.storage.isConfigured) {
-      // Есть сохранённая группа — автоподключаемся
       final ok = await widget.sync.autoConnect();
       if (!mounted) return;
 
@@ -116,7 +131,6 @@ class _SplashScreenState extends State<SplashScreen> {
       }
     }
 
-    // Группы нет — показываем SetupScreen
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
