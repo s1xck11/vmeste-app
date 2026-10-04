@@ -4,9 +4,6 @@ import '../models/purchase_list.dart';
 import '../models/purchase_category.dart';
 
 /// Сервис локального хранения данных.
-/// 
-/// Сохраняет всё локально, чтобы приложение работало без интернета.
-/// Когда появится связь — данные синхронизируются с Supabase.
 class StorageService {
   static const String _boxName = 'vmeste_data';
   late Box _box;
@@ -24,11 +21,23 @@ class StorageService {
   String? get currentUserId => _box.get('currentUserId') as String?;
   set currentUserId(String? uid) => _box.put('currentUserId', uid);
 
-  /// Кто я в паре: 'partner1' или 'partner2'
+  /// Личный ключ партнёра (например, M-7X4K-9P2Q)
+  /// Используется для восстановления данных на новом устройстве.
+  String? get myKey => _box.get('myKey') as String?;
+  set myKey(String? k) => _box.put('myKey', k);
+
+  /// Моя роль в паре: 'partner1' или 'partner2'
   String? get myPartnerId => _box.get('myPartnerId') as String?;
   set myPartnerId(String? pid) => _box.put('myPartnerId', pid);
 
-  /// Участники группы (UID из Supabase)
+  /// Моё имя (видно партнёру)
+  String get myName => _box.get('myName') as String? ?? '';
+  set myName(String v) => _box.put('myName', v);
+
+  /// Имя партнёра (получено из profiles)
+  String get partnerName => _box.get('partnerName') as String? ?? 'Партнёр';
+  set partnerName(String v) => _box.put('partnerName', v);
+
   List<String> get members {
     final raw = _box.get('members');
     if (raw == null) return [];
@@ -37,13 +46,11 @@ class StorageService {
 
   set members(List<String> m) => _box.put('members', m);
 
-  /// Версия данных на сервере (для защиты от перезаписи)
   int get serverVersion => _box.get('serverVersion') as int? ?? 0;
   set serverVersion(int v) => _box.put('serverVersion', v);
 
   // ============ ПОКУПКИ ============
 
-  /// Все покупки (включая удалённые — для корректного merge)
   List<Purchase> get purchases {
     final raw = _box.get('purchases');
     if (raw == null) return [];
@@ -103,9 +110,8 @@ class StorageService {
     _box.put('purchaseCategories', cats.map((e) => e.toJson()).toList());
   }
 
-  // ============ JSON-СНИМОК ВСЕХ ДАННЫХ ============
+  // ============ SNAPSHOT ============
 
-  /// Собрать всё локальное состояние в один Map — для отправки в Supabase
   Map<String, dynamic> snapshot() {
     return {
       'purchases': _mapById(purchases.map((p) => p.toJson()).toList()),
@@ -114,7 +120,6 @@ class StorageService {
     };
   }
 
-  /// Восстановить всё состояние из Map — после получения от Supabase
   void restoreFromSnapshot(Map<String, dynamic> data) {
     if (data['purchases'] != null) {
       final map = data['purchases'] as Map;
@@ -136,14 +141,11 @@ class StorageService {
     }
   }
 
-  /// Преобразовать список объектов (у которых есть поле 'id') в Map по ID
   Map<String, dynamic> _mapById(List<Map<String, dynamic>> items) {
     final result = <String, dynamic>{};
     for (final item in items) {
       final id = item['id'];
-      if (id != null) {
-        result[id.toString()] = item;
-      }
+      if (id != null) result[id.toString()] = item;
     }
     return result;
   }
@@ -154,5 +156,5 @@ class StorageService {
     await _box.clear();
   }
 
-  bool get isConfigured => coupleCode != null && coupleCode!.isNotEmpty;
+  bool get isConfigured => coupleCode != null && coupleCode!.isNotEmpty && myKey != null;
 }
