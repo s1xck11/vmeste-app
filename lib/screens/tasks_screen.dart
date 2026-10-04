@@ -59,8 +59,6 @@ class _TasksScreenState extends State<TasksScreen> {
     });
   }
 
-  // ---------- ЛОГИКА ----------
-
   void _quickAdd() {
     final text = _quickController.text.trim();
     if (text.isEmpty) return;
@@ -83,6 +81,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final list = List<Task>.from(_tasks)..add(t);
     widget.storage.tasks = list;
     _quickController.clear();
+    FocusScope.of(context).unfocus();
     _load();
     widget.sync.schedulePush();
   }
@@ -119,6 +118,7 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   void _openAddModal() {
+    FocusScope.of(context).unfocus();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -137,6 +137,7 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   void _openEditModal(Task t) {
+    FocusScope.of(context).unfocus();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -149,8 +150,6 @@ class _TasksScreenState extends State<TasksScreen> {
       ),
     );
   }
-
-  // ---------- ФИЛЬТРАЦИЯ ----------
 
   List<Task> get _filtered {
     final now = DateTime.now();
@@ -188,8 +187,6 @@ class _TasksScreenState extends State<TasksScreen> {
     return _doneToday + _tasks.where((t) => !t.done && !t.archived && t.deadline == today).length;
   }
 
-  // ---------- UI ----------
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -203,7 +200,6 @@ class _TasksScreenState extends State<TasksScreen> {
             title: 'Задачи',
             onAvatarTap: widget.onAvatarTap,
             avatarEmoji: widget.storage.myAvatar,
-            onAdd: _openAddModal,
           ),
           Expanded(
             child: CustomScrollView(
@@ -375,8 +371,6 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 }
-
-// ============================================================
 
 class _TaskTile extends StatelessWidget {
   final Task task;
