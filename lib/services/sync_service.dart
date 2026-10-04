@@ -9,14 +9,12 @@ import '../models/task_category.dart';
 import '../models/shift.dart';
 import '../models/shift_type.dart';
 import '../models/partner.dart';
+import '../models/transaction.dart';
+import '../models/budget_category.dart';
 import 'storage_service.dart';
 
 typedef VoidCallback = void Function();
 
-/// Сервис синхронизации с Supabase.
-/// 
-/// Реализует merge-based синхронизацию: каждое изменение — отдельная
-/// запись с updatedAt, при слиянии берётся самая свежая версия.
 class SyncService {
   final StorageService storage;
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -388,12 +386,23 @@ class SyncService {
       onMerged: (items) => storage.shifts = items,
     );
 
+    // ТРАНЗАКЦИИ — merge по updatedAt
+    _mergeList<Transaction>(
+      data, 'transactions',
+      localItems: storage.transactions,
+      fromJson: (j) => Transaction.fromJson(j),
+      toJson: (item) => item.toJson(),
+      getUpdatedAt: (item) => item.updatedAt,
+      onMerged: (items) => storage.transactions = items,
+    );
+
     // Простые списки — заменяем целиком
     _replacePurchaseLists(data);
     _replacePurchaseCategories(data);
     _replaceTaskCategories(data);
     _replaceShiftTypes(data);
     _replacePartners(data);
+    _replaceBudgetCategories(data);
 
     // Обновляем profiles
     final profiles = data['profiles'] as Map?;
@@ -543,6 +552,20 @@ class SyncService {
       if (list.isNotEmpty) storage.partners = list;
     } catch (e) {
       print('replace partners error: $e');
+    }
+  }
+
+  void _replaceBudgetCategories(Map<String, dynamic> data) {
+    final raw = data['budgetCategories'];
+    if (raw == null) return;
+    try {
+      final map = raw as Map;
+      final list = map.values
+          .map((v) => BudgetCategory.fromJson(Map<String, dynamic>.from(v as Map)))
+          .toList();
+      if (list.isNotEmpty) storage.budgetCategories = list;
+    } catch (e) {
+      print('replace budgetCategories error: $e');
     }
   }
 
