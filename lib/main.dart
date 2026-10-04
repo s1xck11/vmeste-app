@@ -6,9 +6,11 @@ import 'services/storage_service.dart';
 import 'services/sync_service.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/purchases_screen.dart';
+import 'screens/tasks_screen.dart';
+import 'screens/shifts_screen.dart';
 
 // Разрешаем любые сертификаты для нашего Supabase
-// (на случай, если Huawei блокирует его сертификат)
 class _SupabaseHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
@@ -75,6 +77,9 @@ class VmesteApp extends StatelessWidget {
           backgroundColor: AppColors.accent,
           foregroundColor: Colors.white,
           elevation: 0,
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: Colors.transparent,
         ),
       ),
       home: SplashScreen(storage: storage, sync: sync),
@@ -158,7 +163,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// ============ ГЛАВНЫЙ ЭКРАН ============
+// ============ ГЛАВНЫЙ ЭКРАН С НАВИГАЦИЕЙ ============
 class MainScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
@@ -182,20 +187,17 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _screens = [
-      const _PlaceholderScreen(
-        title: 'Покупки',
-        icon: Icons.shopping_cart,
-        message: 'Здесь будет список покупок\nс категориями и синхронизацией',
+      PurchasesScreen(
+        storage: widget.storage,
+        sync: widget.sync,
       ),
-      const _PlaceholderScreen(
-        title: 'Задачи',
-        icon: Icons.check_circle,
-        message: 'Здесь будут задачи с приоритетами\nдедлайнами и повторами',
+      TasksScreen(
+        storage: widget.storage,
+        sync: widget.sync,
       ),
-      const _PlaceholderScreen(
-        title: 'Смены',
-        icon: Icons.calendar_today,
-        message: 'Здесь будет календарь смен\nс типами и расчётом зарплаты',
+      ShiftsScreen(
+        storage: widget.storage,
+        sync: widget.sync,
       ),
       const _PlaceholderScreen(
         title: 'Бюджет',
@@ -253,7 +255,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ============ ЗАГЛУШКА ============
+// ============ ЗАГЛУШКА ДЛЯ БУДУЩИХ ЭКРАНОВ ============
 class _PlaceholderScreen extends StatelessWidget {
   final String title;
   final IconData icon;
