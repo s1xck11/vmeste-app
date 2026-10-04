@@ -24,13 +24,12 @@ class AddTransactionModal extends StatefulWidget {
 class _AddTransactionModalState extends State<AddTransactionModal> {
   final _amountController = TextEditingController();
   final _commentController = TextEditingController();
-  
-  String _type = 'expense'; // 'expense' или 'income'
-  String _nature = 'conscious'; // 'obligatory', 'conscious', 'impulsive'
+
+  String _type = 'expense';
+  String _nature = 'conscious';
   String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
 
-  // Для голосового ввода
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
 
@@ -46,7 +45,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       _selectedCategoryId = t.categoryId;
       _selectedDate = t.date;
     } else {
-      // Если категорий нет, создадим дефолтную (на случай первого запуска)
       if (widget.categories.isNotEmpty) {
         _selectedCategoryId = widget.categories.first.id;
       }
@@ -61,7 +59,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     super.dispose();
   }
 
-  // --- ГОЛОСОВОЙ ВВОД ---
   Future<void> _listen() async {
     if (!_isListening) {
       bool available = await _speech.initialize(
@@ -83,7 +80,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
           onResult: (val) {
             setState(() {
               _commentController.text = val.recognizedWords;
-              // Если в тексте есть число, попробуем вытащить его в сумму
               final numberRegex = RegExp(r'\d+([.,]\d+)?');
               final match = numberRegex.firstMatch(val.recognizedWords);
               if (match != null && _amountController.text.isEmpty) {
@@ -104,7 +100,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     }
   }
 
-  // --- СОХРАНЕНИЕ ---
   void _save() {
     final amountText = _amountController.text.trim().replaceAll(',', '.');
     final amount = double.tryParse(amountText) ?? 0.0;
@@ -132,14 +127,13 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       nature: _nature,
       date: _selectedDate,
       createdAt: widget.initialTransaction?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
 
     widget.onSave(newTransaction);
     Navigator.pop(context);
   }
 
-  // --- ВЫБОР ДАТЫ ---
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -170,7 +164,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Заголовок
             Center(
               child: Container(
                 width: 40,
@@ -188,7 +181,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
             ),
             const SizedBox(height: 16),
 
-            // Переключатель Расход/Доход
             Row(
               children: [
                 Expanded(
@@ -218,7 +210,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
             ),
             const SizedBox(height: 16),
 
-            // Сумма и голосовой ввод
             Row(
               children: [
                 Expanded(
@@ -242,7 +233,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
             ),
             const SizedBox(height: 16),
 
-            // Комментарий
             TextField(
               controller: _commentController,
               decoration: const InputDecoration(
@@ -252,7 +242,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
             ),
             const SizedBox(height: 16),
 
-            // Категории
             const Text('Категория', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
             if (filteredCategories.isEmpty)
@@ -273,7 +262,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               ),
             const SizedBox(height: 16),
 
-            // Метка (Только для расходов)
             if (_type == 'expense') ...[
               const Text('Тип траты', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
@@ -300,7 +288,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               const SizedBox(height: 16),
             ],
 
-            // Дата
             InkWell(
               onTap: _pickDate,
               child: Container(
@@ -320,7 +307,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
             ),
             const SizedBox(height: 24),
 
-            // Кнопка Сохранить
             SizedBox(
               width: double.infinity,
               height: 50,
