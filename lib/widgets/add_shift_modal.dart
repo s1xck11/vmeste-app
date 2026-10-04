@@ -12,7 +12,7 @@ class AddShiftModal extends StatefulWidget {
   final List<Partner> partners;
   final List<Shift> existingShifts;
   final Function(Shift) onSave;
-  final Function(String) onDelete;
+  final Function(int) onDelete;
 
   const AddShiftModal({
     super.key,
@@ -146,7 +146,6 @@ class _AddShiftModalState extends State<AddShiftModal> {
               ),
               const SizedBox(height: 16),
 
-              // Существующие смены
               if (widget.existingShifts.isNotEmpty) ...[
                 _sectionLabel(cs, 'Смены в этот день'),
                 const SizedBox(height: 8),
@@ -157,7 +156,7 @@ class _AddShiftModalState extends State<AddShiftModal> {
                   );
                   final t = widget.types.firstWhere(
                     (x) => x.id == s.type,
-                    orElse: () => ShiftType(id: s.type, label: s.type, hours: s.hours, color: '#9E9E9E', order: 0),
+                    orElse: () => ShiftType(id: s.type, label: s.type, hours: s.hours, color: '#9E9E9E'),
                   );
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -307,7 +306,6 @@ class _AddShiftModalState extends State<AddShiftModal> {
               ),
               const SizedBox(height: 16),
 
-              // Сдельная сумма
               if (_partner.payType == 'piecework') ...[
                 _sectionLabel(cs, 'Сумма за смену (сдельная)'),
                 const SizedBox(height: 8),
