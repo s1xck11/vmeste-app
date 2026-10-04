@@ -1,26 +1,22 @@
+// lib/widgets/add_task_modal.dart
+
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../models/task_category.dart';
 import '../models/partner.dart';
-import '../main.dart' show AppColors;
 
-/// Модалка добавления/редактирования задачи.
 class AddTaskModal extends StatefulWidget {
-  final Task? existing;
-  final String listId;
-  final String defaultText;
   final List<TaskCategory> categories;
   final List<Partner> partners;
-  final String? Function() currentUserIdGetter;
+  final Task? initialTask;
+  final Function(Task) onSave;
 
   const AddTaskModal({
     super.key,
-    this.existing,
-    required this.listId,
-    this.defaultText = '',
     required this.categories,
     required this.partners,
-    required this.currentUserIdGetter,
+    this.initialTask,
+    required this.onSave,
   });
 
   @override
@@ -28,386 +24,274 @@ class AddTaskModal extends StatefulWidget {
 }
 
 class _AddTaskModalState extends State<AddTaskModal> {
-  late TextEditingController _textController;
-  late TextEditingController _commentController;
-
+  final _nameCtrl = TextEditingController();
+  final _commentCtrl = TextEditingController();
   String _priority = 'med';
-  String _category = 'home';
+  String _categoryId = 'home';
   String _assignee = 'any';
   String _repeat = 'none';
-  String _deadline = '';
+  DateTime? _deadline;
 
   @override
   void initState() {
     super.initState();
-    final t = widget.existing;
-    _textController = TextEditingController(text: t?.text ?? widget.defaultText);
-    _commentController = TextEditingController(text: t?.comment ?? '');
-    _priority = t?.priority ?? 'med';
-    _category = t?.category ?? 'home';
-    _assignee = t?.assignee ?? 'any';
-    _repeat = t?.repeat ?? 'none';
-    _deadline = t?.deadline ?? '';
+    if (widget.initialTask != null) {
+      final t = widget.initialTask!;
+      _nameCtrl.text = t.text;
+      _commentCtrl.text = t.comment;
+      _priority = t.priority;
+      _categoryId = t.category;
+      _assignee = t.assignee;
+      _repeat = t.repeat;
+      if (t.deadline.isNotEmpty) {
+        _deadline = DateTime.tryParse(t.deadline);
+      }
+    }
   }
 
   @override
   void dispose() {
-    _textController.dispose();
-    _commentController.dispose();
+    _nameCtrl.dispose();
+    _commentCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDeadline() async {
-    final now = DateTime.now();
-    final initial = _deadline.isNotEmpty
-        ? DateTime.tryParse(_deadline) ?? now
-        : now;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now.add(const Duration(days: 365 * 2)),
-      locale: const Locale('ru'),
+  void _save() {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final deadlineStr = _deadline == null
+        ? ''
+        : '${_deadline!.year}-${_two(_deadline!.month)}-${_two(_deadline!.day)}';
+
+    final t = Task(
+      id: widget.initialTask?.id ?? now,
+      text: name,
+      done: widget.initialTask?.done ?? false,
+      priority: _priority,
+      category: _categoryId,
+      assignee: _assignee,
+      deadline: deadlineStr,
+      repeat: _repeat,
+      comment: _commentCtrl.text.trim(),
+      order: widget.initialTask?.order ?? now,
+      archived: widget.initialTask?.archived ?? false,
+      doneAt: widget.initialTask?.doneAt,
+      createdAt: widget.initialTask?.createdAt ?? now,
+      updatedAt: now,
     );
-    if (picked != null) {
-      setState(() {
-        _deadline =
-            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-      });
-    }
+    widget.onSave(t);
+    Navigator.pop(context);
   }
 
-  void _save() {
-    final text = _textController.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введи название')),
-      );
-      return;
-    }
+  String _two(int n) => n < 10 ? '0$n' : '$n';
 
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final comment = _commentController.text.trim();
-
-    final result = widget.existing != null
-        ? widget.existing!.copyWith(
-            text: text,
-            priority: _priority,
-            category: _category,
-            assignee: _assignee,
-            deadline: _deadline,
-            repeat: _repeat,
-            comment: comment,
-            updatedAt: now,
-            updatedBy: widget.currentUserIdGetter(),
-          )
-        : Task(
-            id: now,
-            text: text,
-            priority: _priority,
-            category: _category,
-            assignee: _assignee,
-            deadline: _deadline,
-            repeat: _repeat,
-            comment: comment,
-            listId: widget.listId,
-            createdAt: now,
-            updatedAt: now,
-            updatedBy: widget.currentUserIdGetter(),
-          );
-
-    Navigator.of(context).pop(result);
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _deadline ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) setState(() => _deadline = picked);
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+      padding: EdgeInsets.only(bottom: bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Заголовок
-                Row(
-                  children: [
-                    Expanded(
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.outline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                widget.initialTask == null ? 'Новая задача' : 'Редактировать',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: cs.onSurface),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _nameCtrl,
+                autofocus: widget.initialTask == null,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(labelText: 'Название', hintText: 'Помыть посуду'),
+              ),
+              const SizedBox(height: 16),
+
+              _sectionLabel(cs, 'Приоритет'),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, children: [
+                _chip(cs, 'low', '🟢 Низкий', _priority, (v) => setState(() => _priority = v)),
+                _chip(cs, 'med', '🟡 Средний', _priority, (v) => setState(() => _priority = v)),
+                _chip(cs, 'high', '🔴 Высокий', _priority, (v) => setState(() => _priority = v)),
+              ]),
+              const SizedBox(height: 16),
+
+              _sectionLabel(cs, 'Категория'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.categories.map((c) {
+                  final sel = c.id == _categoryId;
+                  return GestureDetector(
+                    onTap: () => setState(() => _categoryId = c.id),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: sel ? cs.primaryContainer : cs.surfaceVariant,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: sel ? cs.primary : cs.outline),
+                      ),
                       child: Text(
-                        widget.existing == null ? 'Новая задача' : 'Редактировать',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        '${c.emoji} ${c.label}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                          color: sel ? cs.onPrimaryContainer : cs.onSurface,
                         ),
                       ),
                     ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              _sectionLabel(cs, 'Ответственный'),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, children: [
+                _chip(cs, 'any', '👥 Любой', _assignee, (v) => setState(() => _assignee = v)),
+                ...widget.partners.map((p) => _chip(cs, p.id, p.name, _assignee, (v) => setState(() => _assignee = v))),
+              ]),
+              const SizedBox(height: 16),
+
+              _sectionLabel(cs, 'Дедлайн'),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickDate,
+                      icon: const Icon(Icons.calendar_today, size: 18),
+                      label: Text(
+                        _deadline == null
+                            ? 'Без дедлайна'
+                            : '${_deadline!.day}.${_deadline!.month}.${_deadline!.year}',
+                      ),
+                    ),
+                  ),
+                  if (_deadline != null) ...[
+                    const SizedBox(width: 8),
                     IconButton(
+                      onPressed: () => setState(() => _deadline = null),
+                      icon: Icon(Icons.close, color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              _sectionLabel(cs, 'Повторять'),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, children: [
+                _chip(cs, 'none', 'Не повторять', _repeat, (v) => setState(() => _repeat = v)),
+                _chip(cs, 'daily', '🔁 Каждый день', _repeat, (v) => setState(() => _repeat = v)),
+                _chip(cs, 'weekly', '🔁 Каждую неделю', _repeat, (v) => setState(() => _repeat = v)),
+                _chip(cs, 'monthly', '🔁 Каждый месяц', _repeat, (v) => setState(() => _repeat = v)),
+              ]),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _commentCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Комментарий'),
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Название
-                TextField(
-                  controller: _textController,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    labelText: 'Название',
-                    hintText: 'Помыть посуду',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      child: const Text('Отмена'),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // Приоритет
-                _label('Приоритет'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _priorityChip('high', '🔴 Высокий', const Color(0xFFFF3B30)),
-                    _priorityChip('med', '🟡 Средний', const Color(0xFFFF9500)),
-                    _priorityChip('low', '🟢 Низкий', const Color(0xFF34C759)),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Категория
-                _label('Категория'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.categories.map((c) {
-                    final selected = _category == c.id;
-                    return GestureDetector(
-                      onTap: () => setState(() => _category = c.id),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? AppColors.accentLight
-                              : AppColors.cardLight,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: selected
-                                ? AppColors.accent
-                                : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(c.emoji),
-                            const SizedBox(width: 4),
-                            Text(c.label),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-
-                // Ответственный
-                _label('Ответственный'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _assigneeChip('any', '👥 Любой'),
-                    for (final p in widget.partners)
-                      _assigneeChip(p.id, p.name),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Дедлайн
-                _label('Дедлайн'),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _pickDeadline,
-                        icon: const Icon(Icons.calendar_today, size: 16),
-                        label: Text(
-                          _deadline.isEmpty ? 'Не задан' : _deadline,
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          foregroundColor: _deadline.isEmpty
-                              ? AppColors.textSecondary
-                              : AppColors.accent,
-                        ),
-                      ),
-                    ),
-                    if (_deadline.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: () => setState(() => _deadline = ''),
-                        icon: const Icon(Icons.close, color: AppColors.danger),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Повтор
-                _label('Повтор'),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _repeat,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Сохранить'),
                     ),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'none', child: Text('Не повторять')),
-                    DropdownMenuItem(value: 'daily', child: Text('Каждый день')),
-                    DropdownMenuItem(value: 'weekly', child: Text('Каждую неделю')),
-                    DropdownMenuItem(value: 'monthly', child: Text('Каждый месяц')),
-                  ],
-                  onChanged: (v) {
-                    if (v != null) setState(() => _repeat = v);
-                  },
-                ),
-                const SizedBox(height: 20),
-
-                // Комментарий
-                _label('Комментарий'),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _commentController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Детали, заметки...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Кнопки
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text('Отмена'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          'Сохранить',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _label(String text) {
+  Widget _sectionLabel(ColorScheme cs, String text) {
     return Text(
       text.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 12,
+      style: TextStyle(
+        fontSize: 11,
         fontWeight: FontWeight.w700,
-        color: AppColors.textSecondary,
+        color: cs.onSurfaceVariant,
         letterSpacing: 0.5,
       ),
     );
   }
 
-  Widget _priorityChip(String value, String label, Color color) {
-    final selected = _priority == value;
+  Widget _chip(
+    ColorScheme cs,
+    String value,
+    String label,
+    String current,
+    void Function(String) onTap,
+  ) {
+    final sel = value == current;
     return GestureDetector(
-      onTap: () => setState(() => _priority = value),
+      onTap: () => onTap(value),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? color : AppColors.cardLight,
+          color: sel ? cs.primaryContainer : cs.surfaceVariant,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? color : Colors.transparent,
-            width: 2,
-          ),
+          border: Border.all(color: sel ? cs.primary : cs.outline),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.white : null,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _assigneeChip(String value, String label) {
-    final selected = _assignee == value;
-    return GestureDetector(
-      onTap: () => setState(() => _assignee = value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentLight : AppColors.cardLight,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppColors.accent : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 13,
+            fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+            color: sel ? cs.onPrimaryContainer : cs.onSurface,
           ),
         ),
       ),
