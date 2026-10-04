@@ -5,7 +5,6 @@ import 'app_colors.dart';
 import 'app_theme_config.dart';
 
 class AppTheme {
-  /// Собирает ThemeData из конфига.
   static ThemeData build(AppThemeConfig config) {
     final p = config.palette;
     final isDark = config.brightness == Brightness.dark;
@@ -34,9 +33,7 @@ class AppTheme {
       scaffoldBackgroundColor: p.background,
       canvasColor: p.background,
       dividerColor: p.border,
-      splashFactory: InkSparkle.splashFactory,
 
-      // AppBar
       appBarTheme: AppBarTheme(
         backgroundColor: p.background,
         foregroundColor: p.text,
@@ -53,7 +50,6 @@ class AppTheme {
         iconTheme: IconThemeData(color: p.text),
       ),
 
-      // Navigation Bar (bottom)
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: p.cardElevated,
         indicatorColor: p.accentSoft,
@@ -77,8 +73,7 @@ class AppTheme {
         }),
       ),
 
-      // Card
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: p.cardElevated,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -89,7 +84,6 @@ class AppTheme {
         ),
       ),
 
-      // BottomSheet
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: p.cardElevated,
         surfaceTintColor: Colors.transparent,
@@ -100,8 +94,7 @@ class AppTheme {
         ),
       ),
 
-      // Dialog
-      dialogTheme: DialogThemeData(
+      dialogTheme: DialogTheme(
         backgroundColor: p.cardElevated,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -119,7 +112,6 @@ class AppTheme {
         ),
       ),
 
-      // Input
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: p.card,
@@ -143,7 +135,6 @@ class AppTheme {
         ),
       ),
 
-      // ElevatedButton
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: p.accent,
@@ -161,7 +152,6 @@ class AppTheme {
         ),
       ),
 
-      // TextButton
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: p.accent,
@@ -176,7 +166,6 @@ class AppTheme {
         ),
       ),
 
-      // OutlinedButton
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: p.accent,
@@ -192,7 +181,6 @@ class AppTheme {
         ),
       ),
 
-      // Chip
       chipTheme: ChipThemeData(
         backgroundColor: p.card,
         selectedColor: p.accentSoft,
@@ -205,7 +193,6 @@ class AppTheme {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       ),
 
-      // Snackbar
       snackBarTheme: SnackBarThemeData(
         backgroundColor: isDark ? p.cardElevated : p.text,
         contentTextStyle: TextStyle(
@@ -218,7 +205,6 @@ class AppTheme {
         ),
       ),
 
-      // FAB
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: p.accent,
         foregroundColor: isDark ? Colors.black : Colors.white,
@@ -231,7 +217,6 @@ class AppTheme {
         ),
       ),
 
-      // Text
       textTheme: TextTheme(
         headlineLarge: TextStyle(color: p.text, fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.5),
         headlineMedium: TextStyle(color: p.text, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.3),
@@ -242,7 +227,6 @@ class AppTheme {
         bodySmall: TextStyle(color: p.textSecondary, fontSize: 12),
       ),
 
-      // Icon
       iconTheme: IconThemeData(color: p.text),
     );
   }
