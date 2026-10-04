@@ -29,6 +29,24 @@ jobs:
       - name: Create Android project files
         run: flutter create --org com.vmeste --project-name vmeste_app .
       
+      - name: Add INTERNET permission to AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          echo "=== Перед изменением ==="
+          cat "$MANIFEST"
+          
+          # Проверяем, есть ли уже разрешение
+          if grep -q 'android.permission.INTERNET' "$MANIFEST"; then
+            echo "✅ Разрешение INTERNET уже есть"
+          else
+            echo "⚠️ Добавляем разрешение INTERNET..."
+            # Вставляем разрешение сразу после открывающего тега <manifest ...>
+            sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>|' "$MANIFEST"
+          fi
+          
+          echo "=== После изменения ==="
+          cat "$MANIFEST"
+      
       - name: Get dependencies
         run: flutter pub get
       
