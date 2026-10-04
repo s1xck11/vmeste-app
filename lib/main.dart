@@ -5,6 +5,9 @@ import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
 import 'services/debug_log_service.dart';
+import 'services/theme_service.dart';
+import 'theme/app_theme.dart';
+import 'theme/app_theme_config.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
@@ -13,6 +16,7 @@ import 'screens/shifts_screen.dart';
 import 'screens/budget_screen.dart';
 import 'screens/debug_screen.dart';
 import 'screens/data_management_screen.dart';
+import 'screens/theme_picker_screen.dart';
 
 class _SupabaseHttpOverrides extends HttpOverrides {
   @override
@@ -53,53 +57,43 @@ void main() async {
   await storage.init();
   logger.info('App', 'Storage инициализирован');
 
+  final themeService = ThemeService();
+  await themeService.init();
+  logger.info('App', 'ThemeService инициализирован');
+
   final sync = SyncService(storage: storage);
 
-  runApp(VmesteApp(storage: storage, sync: sync));
-}
-
-class AppColors {
-  static const Color accent = Color(0xFFFF8FAB);
-  static const Color accentLight = Color(0xFFFFE5EC);
-  static const Color danger = Color(0xFFFF3B30);
-  static const Color success = Color(0xFF34C759);
-  static const Color warning = Color(0xFFFF9500);
-  static const Color info = Color(0xFF5856D6);
-  static const Color bgLight = Color(0xFFFFFFFF);
-  static const Color cardLight = Color(0xFFF8F9FA);
-  static const Color textLight = Color(0xFF1A1A1A);
-  static const Color textSecondary = Color(0xFF8E8E93);
+  runApp(VmesteApp(storage: storage, sync: sync, themeService: themeService));
 }
 
 class VmesteApp extends StatelessWidget {
   final StorageService storage;
   final SyncService sync;
+  final ThemeService themeService;
 
   const VmesteApp({
     super.key,
     required this.storage,
     required this.sync,
+    required this.themeService,
   });
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Вместе',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.accent),
-        useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.bgLight,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.accent,
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: Colors.transparent,
-        ),
-      ),
-      home: SplashScreen(storage: storage, sync: sync),
+    return ValueListenableBuilder<AppThemeConfig>(
+      valueListenable: themeService.notifier,
+      builder: (context, config, _) {
+        return MaterialApp(
+          title: 'Вместе',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.build(config),
+          home: SplashScreen(
+            storage: storage,
+            sync: sync,
+            themeService: themeService,
+          ),
+        );
+      },
     );
   }
 }
@@ -107,11 +101,13 @@ class VmesteApp extends StatelessWidget {
 class SplashScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
+  final ThemeService themeService;
 
   const SplashScreen({
     super.key,
     required this.storage,
     required this.sync,
+    required this.themeService,
   });
 
   @override
@@ -142,6 +138,7 @@ class _SplashScreenState extends State<SplashScreen> {
             builder: (_) => MainScreen(
               storage: widget.storage,
               sync: widget.sync,
+              themeService: widget.themeService,
             ),
           ),
         );
@@ -164,20 +161,24 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.favorite, size: 80, color: AppColors.accent),
-            SizedBox(height: 24),
+            Icon(Icons.favorite, size: 80, color: cs.primary),
+            const SizedBox(height: 24),
             Text(
               'Вместе',
-              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface,
+              ),
             ),
-            SizedBox(height: 24),
-            CircularProgressIndicator(color: AppColors.accent),
+            const SizedBox(height: 24),
+            CircularProgressIndicator(color: cs.primary),
           ],
         ),
       ),
@@ -188,11 +189,13 @@ class _SplashScreenState extends State<SplashScreen> {
 class MainScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
+  final ThemeService themeService;
 
   const MainScreen({
     super.key,
     required this.storage,
     required this.sync,
+    required this.themeService,
   });
 
   @override
@@ -202,13 +205,13 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  late final List<Widget> _fixedScreens;
+  late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
 
-    _fixedScreens = [
+    _screens = [
       PurchasesScreen(storage: widget.storage, sync: widget.sync),
       TasksScreen(storage: widget.storage, sync: widget.sync),
       ShiftsScreen(storage: widget.storage, sync: widget.sync),
@@ -260,6 +263,27 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(
+          groupCode: widget.storage.coupleCode ?? '',
+          myKey: widget.storage.myKey ?? '',
+          myName: widget.storage.myName,
+          partnerName: widget.storage.partnerName,
+          dataVersion: widget.storage.serverVersion,
+          syncStatus: widget.sync.status,
+          onNameChanged: _changeName,
+          onDisconnect: _disconnect,
+          onReconnect: _reconnect,
+          onOpenDebug: _openDebug,
+          onOpenDataManagement: _openDataManagement,
+          onOpenThemePicker: _openThemePicker,
+        ),
+      ),
+    );
+  }
+
   void _openDebug() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const DebugScreen()),
@@ -277,80 +301,94 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildCurrentScreen() {
-    switch (_currentIndex) {
-      case 0:
-        return _fixedScreens[0];
-      case 1:
-        return _fixedScreens[1];
-      case 2:
-        return _fixedScreens[2];
-      case 3:
-        return _fixedScreens[3];
-      case 4:
-      default:
-        return SettingsScreen(
-          groupCode: widget.storage.coupleCode ?? '',
-          myKey: widget.storage.myKey ?? '',
-          myName: widget.storage.myName,
-          partnerName: widget.storage.partnerName,
-          dataVersion: widget.storage.serverVersion,
-          syncStatus: widget.sync.status,
-          onNameChanged: _changeName,
-          onDisconnect: _disconnect,
-          onReconnect: _reconnect,
-          onOpenDebug: _openDebug,
-          onOpenDataManagement: _openDataManagement,
-        );
-    }
+  void _openThemePicker() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ThemePickerScreen(themeService: widget.themeService),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
+      body: Stack(
         children: [
-          _fixedScreens[0],
-          _fixedScreens[1],
-          _fixedScreens[2],
-          _fixedScreens[3],
-          _buildCurrentScreen(),
+          IndexedStack(
+            index: _currentIndex,
+            children: _screens,
+          ),
+          // Аватарка поверх всего — открывает настройки
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, right: 8),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(50),
+                    onTap: _openSettings,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: cs.surfaceVariant,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: cs.outline),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _initial(),
+                          style: TextStyle(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        backgroundColor: Colors.white,
-        indicatorColor: AppColors.accentLight,
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.shopping_cart_outlined),
-            selectedIcon: Icon(Icons.shopping_cart, color: AppColors.accent),
+            icon: Icon(Icons.shopping_bag_outlined),
+            selectedIcon: Icon(Icons.shopping_bag),
             label: 'Покупки',
           ),
           NavigationDestination(
             icon: Icon(Icons.check_circle_outline),
-            selectedIcon: Icon(Icons.check_circle, color: AppColors.accent),
+            selectedIcon: Icon(Icons.check_circle),
             label: 'Задачи',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today, color: AppColors.accent),
+            selectedIcon: Icon(Icons.calendar_today),
             label: 'Смены',
           ),
           NavigationDestination(
-            icon: Icon(Icons.attach_money),
-            selectedIcon: Icon(Icons.attach_money, color: AppColors.accent),
+            icon: Icon(Icons.pie_chart_outline),
+            selectedIcon: Icon(Icons.pie_chart),
             label: 'Бюджет',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings, color: AppColors.accent),
-            label: 'Ещё',
           ),
         ],
       ),
     );
+  }
+
+  String _initial() {
+    final name = widget.storage.myName.trim();
+    if (name.isEmpty) return '👤';
+    return name.characters.first.toUpperCase();
   }
 }
