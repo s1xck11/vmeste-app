@@ -1,6 +1,7 @@
 // lib/screens/settings_screen.dart
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -97,27 +98,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
-        withData: false,
+        withData: true,
+        allowMultiple: false,
       );
-      if (result == null || result.files.single.path == null) return;
+      if (result == null || result.files.isEmpty) return;
 
-      final path = result.files.single.path!;
-      final file = File(path);
-      if (!await file.exists()) {
+      final picked = result.files.first;
+      Uint8List? bytes = picked.bytes;
+
+      if (bytes == null && picked.path != null) {
+        final f = File(picked.path!);
+        if (await f.exists()) {
+          bytes = await f.readAsBytes();
+        }
+      }
+
+      if (bytes == null || bytes.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Файл не найден')),
+          const SnackBar(content: Text('Не удалось прочитать изображение')),
         );
         return;
       }
 
-      final bytes = await file.readAsBytes();
-
-      // Ограничение 3 МБ
-      if (bytes.length > 3 * 1024 * 1024) {
+      if (bytes.length > 5 * 1024 * 1024) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Файл слишком большой (макс 3 МБ). Выбери другой.')),
+          const SnackBar(content: Text('Файл больше 5 МБ. Выбери поменьше.')),
         );
         return;
       }
@@ -129,7 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(content: Text('Фон сохранён')),
       );
     } catch (e, st) {
-      debugPrint('Background pick FAILED: $e\n$st');
+      debugPrint('BACKGROUND FAILED: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка: $e')),
