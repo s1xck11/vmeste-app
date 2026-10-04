@@ -1,7 +1,6 @@
 // lib/widgets/add_transaction_modal.dart
 
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
 
@@ -22,306 +21,247 @@ class AddTransactionModal extends StatefulWidget {
 }
 
 class _AddTransactionModalState extends State<AddTransactionModal> {
-  final _amountController = TextEditingController();
-  final _commentController = TextEditingController();
-
+  final _amountCtrl = TextEditingController();
+  final _commentCtrl = TextEditingController();
   String _type = 'expense';
   String _nature = 'conscious';
-  String? _selectedCategoryId;
-  DateTime _selectedDate = DateTime.now();
-
-  final stt.SpeechToText _speech = stt.SpeechToText();
-  bool _isListening = false;
+  String _categoryId = '';
+  DateTime _date = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     if (widget.initialTransaction != null) {
       final t = widget.initialTransaction!;
-      _amountController.text = t.amount.toString();
-      _commentController.text = t.comment;
+      _amountCtrl.text = t.amount.toStringAsFixed(0);
+      _commentCtrl.text = t.comment;
       _type = t.type;
       _nature = t.nature;
-      _selectedCategoryId = t.categoryId;
-      _selectedDate = t.date;
+      _categoryId = t.categoryId;
+      _date = t.date;
     } else {
-      if (widget.categories.isNotEmpty) {
-        _selectedCategoryId = widget.categories.first.id;
-      }
+      final first = widget.categories.where((c) => c.type == 'expense').toList();
+      if (first.isNotEmpty) _categoryId = first.first.id;
     }
   }
 
   @override
   void dispose() {
-    _amountController.dispose();
-    _commentController.dispose();
-    _speech.stop();
+    _amountCtrl.dispose();
+    _commentCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _listen() async {
-    if (!_isListening) {
-      bool available = await _speech.initialize(
-        onStatus: (val) {
-          if (val == 'done' || val == 'notListening') {
-            setState(() => _isListening = false);
-          }
-        },
-        onError: (val) {
-          setState(() => _isListening = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка распознавания: $val')),
-          );
-        },
-      );
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          onResult: (val) {
-            setState(() {
-              _commentController.text = val.recognizedWords;
-              final numberRegex = RegExp(r'\d+([.,]\d+)?');
-              final match = numberRegex.firstMatch(val.recognizedWords);
-              if (match != null && _amountController.text.isEmpty) {
-                _amountController.text = match.group(0)!.replaceAll(',', '.');
-              }
-            });
-          },
-          localeId: 'ru_RU',
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Голосовой ввод недоступен на этом устройстве')),
-        );
-      }
-    } else {
-      setState(() => _isListening = false);
-      _speech.stop();
-    }
-  }
-
   void _save() {
-    final amountText = _amountController.text.trim().replaceAll(',', '.');
-    final amount = double.tryParse(amountText) ?? 0.0;
-
-    if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введи сумму больше нуля')),
-      );
-      return;
-    }
-
-    if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выбери категорию')),
-      );
-      return;
-    }
-
-    final newTransaction = Transaction(
-      id: widget.initialTransaction?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+    final amount = double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0;
+    if (amount <= 0) return;
+    if (_categoryId.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final t = Transaction(
+      id: widget.initialTransaction?.id ?? now.toString(),
       type: _type,
       amount: amount,
-      categoryId: _selectedCategoryId!,
-      comment: _commentController.text.trim(),
+      categoryId: _categoryId,
+      comment: _commentCtrl.text.trim(),
       nature: _nature,
-      date: _selectedDate,
+      date: _date,
       createdAt: widget.initialTransaction?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now().millisecondsSinceEpoch,
+      updatedAt: now,
     );
-
-    widget.onSave(newTransaction);
+    widget.onSave(t);
     Navigator.pop(context);
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredCategories = widget.categories.where((c) => c.type == _type).toList();
+    final cs = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final filtered = widget.categories.where((c) => c.type == _type).toList();
 
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: cs.outline, borderRadius: BorderRadius.circular(2)),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.initialTransaction == null ? 'Новая транзакция' : 'Редактировать',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('Расход'),
-                    selected: _type == 'expense',
-                    onSelected: (val) => setState(() {
-                      _type = 'expense';
-                      _selectedCategoryId = null;
-                    }),
-                    selectedColor: Colors.red.withOpacity(0.2),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('Доход'),
-                    selected: _type == 'income',
-                    onSelected: (val) => setState(() {
-                      _type = 'income';
-                      _selectedCategoryId = null;
-                    }),
-                    selectedColor: Colors.green.withOpacity(0.2),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _amountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Сумма',
-                      border: OutlineInputBorder(),
-                      prefixText: '₽ ',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  onPressed: _listen,
-                  icon: Icon(_isListening ? Icons.mic : Icons.mic_none),
-                  color: _isListening ? Colors.red : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            TextField(
-              controller: _commentController,
-              decoration: const InputDecoration(
-                labelText: 'Комментарий (например, Пятёрочка)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            const Text('Категория', style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            if (filteredCategories.isEmpty)
-              const Text('Нет категорий. Создай их в разделе "Категории".', style: TextStyle(color: Colors.grey))
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: filteredCategories.map((cat) {
-                  final isSelected = cat.id == _selectedCategoryId;
-                  return ChoiceChip(
-                    label: Text('${cat.emoji} ${cat.name}'),
-                    selected: isSelected,
-                    onSelected: (val) => setState(() => _selectedCategoryId = cat.id),
-                    selectedColor: cat.color.withOpacity(0.3),
-                  );
-                }).toList(),
-              ),
-            const SizedBox(height: 16),
-
-            if (_type == 'expense') ...[
-              const Text('Тип траты', style: TextStyle(fontWeight: FontWeight.w500)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('🔴 Обязательное'),
-                    selected: _nature == 'obligatory',
-                    onSelected: (val) => setState(() => _nature = 'obligatory'),
-                  ),
-                  ChoiceChip(
-                    label: const Text('🟡 Осознанное'),
-                    selected: _nature == 'conscious',
-                    onSelected: (val) => setState(() => _nature = 'conscious'),
-                  ),
-                  ChoiceChip(
-                    label: const Text('🟢 Импульсивное'),
-                    selected: _nature == 'impulsive',
-                    onSelected: (val) => setState(() => _nature = 'impulsive'),
-                  ),
-                ],
               ),
               const SizedBox(height: 16),
-            ],
+              Text(
+                widget.initialTransaction == null ? 'Новая транзакция' : 'Редактировать',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: cs.onSurface),
+              ),
+              const SizedBox(height: 16),
 
-            InkWell(
-              onTap: _pickDate,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              // Тип
+              Container(
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[400]!),
-                  borderRadius: BorderRadius.circular(8),
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today, size: 20),
-                    const SizedBox(width: 8),
-                    Text('${_selectedDate.day}.${_selectedDate.month}.${_selectedDate.year}'),
+                    Expanded(child: _typeChip('expense', 'Расход', cs)),
+                    Expanded(child: _typeChip('income', 'Доход', cs)),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF8FAB),
-                  foregroundColor: Colors.white,
+              // Сумма
+              TextField(
+                controller: _amountCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                autofocus: widget.initialTransaction == null,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                decoration: const InputDecoration(
+                  labelText: 'Сумма',
+                  suffixText: '₽',
                 ),
-                child: const Text('Сохранить', style: TextStyle(fontSize: 16)),
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
+              const SizedBox(height: 12),
+
+              // Комментарий
+              TextField(
+                controller: _commentCtrl,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Комментарий',
+                  hintText: 'Пятёрочка',
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Категории
+              Text('КАТЕГОРИЯ',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                      color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: filtered.map((c) {
+                  final sel = c.id == _categoryId;
+                  return GestureDetector(
+                    onTap: () => setState(() => _categoryId = c.id),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: sel ? cs.primaryContainer : cs.surfaceVariant,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: sel ? cs.primary : cs.outline),
+                      ),
+                      child: Text('${c.emoji} ${c.name}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                            color: sel ? cs.onPrimaryContainer : cs.onSurface,
+                          )),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Метка
+              if (_type == 'expense') ...[
+                Text('ТИП ТРАТЫ',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                        color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, children: [
+                  _natureChip('obligatory', '🔴 Обязательное', cs),
+                  _natureChip('conscious', '🟡 Осознанное', cs),
+                  _natureChip('impulsive', '🟢 Импульсивное', cs),
+                ]),
+                const SizedBox(height: 16),
+              ],
+
+              // Кнопки
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Отмена'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Сохранить'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _typeChip(String value, String label, ColorScheme cs) {
+    final sel = _type == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _type = value;
+          final filtered = widget.categories.where((c) => c.type == value).toList();
+          _categoryId = filtered.isNotEmpty ? filtered.first.id : '';
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: sel ? cs.surface : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                color: sel ? cs.onSurface : cs.onSurfaceVariant,
+              )),
+        ),
+      ),
+    );
+  }
+
+  Widget _natureChip(String value, String label, ColorScheme cs) {
+    final sel = _nature == value;
+    return GestureDetector(
+      onTap: () => setState(() => _nature = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: sel ? cs.primaryContainer : cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: sel ? cs.primary : cs.outline),
+        ),
+        child: Text(label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+              color: sel ? cs.onPrimaryContainer : cs.onSurface,
+            )),
       ),
     );
   }
