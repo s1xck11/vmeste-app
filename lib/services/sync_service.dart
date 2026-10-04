@@ -2,8 +2,13 @@ import 'dart:async';
 import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/purchase.dart';
+import '../models/purchase_list.dart';
+import '../models/purchase_category.dart';
 import '../models/task.dart';
+import '../models/task_category.dart';
 import '../models/shift.dart';
+import '../models/shift_type.dart';
+import '../models/partner.dart';
 import 'storage_service.dart';
 
 typedef VoidCallback = void Function();
@@ -383,22 +388,12 @@ class SyncService {
       onMerged: (items) => storage.shifts = items,
     );
 
-    // Простые списки — без merge (просто заменяем)
-    _replaceList(data, 'purchaseLists', (list) {
-      storage.purchaseLists = list.map((e) => e).toList();
-    });
-    _replaceList(data, 'purchaseCategories', (list) {
-      storage.purchaseCategories = list.map((e) => e).toList();
-    });
-    _replaceList(data, 'taskCategories', (list) {
-      storage.taskCategories = list.map((e) => e).toList();
-    });
-    _replaceList(data, 'shiftTypes', (list) {
-      storage.shiftTypes = list.map((e) => e).toList();
-    });
-    _replaceList(data, 'partners', (list) {
-      storage.partners = list.map((e) => e).toList();
-    });
+    // Простые списки — заменяем целиком
+    _replacePurchaseLists(data);
+    _replacePurchaseCategories(data);
+    _replaceTaskCategories(data);
+    _replaceShiftTypes(data);
+    _replacePartners(data);
 
     // Обновляем profiles
     final profiles = data['profiles'] as Map?;
@@ -422,7 +417,6 @@ class SyncService {
   }
 
   /// Слияние list-данных по ID с выбором более свежей версии.
-  /// Удалённые (deletedAt != null) — удаляются.
   void _mergeList<T>(
     Map<String, dynamic> data,
     String key, {
@@ -437,8 +431,7 @@ class SyncService {
 
     try {
       final remoteMap = raw as Map;
-      
-      // Индекс локальных по ID
+
       final localById = <String, T>{};
       for (final item in localItems) {
         final json = toJson(item);
@@ -448,23 +441,18 @@ class SyncService {
 
       final merged = <String, T>{};
 
-      // Проходим по remote
       for (final entry in remoteMap.entries) {
         final id = entry.key.toString();
         final remoteJson = Map<String, dynamic>.from(entry.value as Map);
         final remoteItem = fromJson(remoteJson);
 
         final remoteDeleted = remoteJson['deletedAt'] != null;
-        if (remoteDeleted) {
-          // Удалён на сервере — удаляем локально
-          continue;
-        }
+        if (remoteDeleted) continue;
 
         final localItem = localById[id];
         if (localItem == null) {
           merged[id] = remoteItem;
         } else {
-          // Берём более свежий
           if (getUpdatedAt(remoteItem) > getUpdatedAt(localItem)) {
             merged[id] = remoteItem;
           } else {
@@ -473,10 +461,8 @@ class SyncService {
         }
       }
 
-      // Добавляем локальные, которых нет в remote
       for (final entry in localById.entries) {
         if (!merged.containsKey(entry.key)) {
-          // Проверяем, не удалено ли на сервере
           final remoteRaw = remoteMap[entry.key];
           if (remoteRaw == null) {
             merged[entry.key] = entry.value;
@@ -490,18 +476,73 @@ class SyncService {
     }
   }
 
-  void _replaceList<T>(
-    Map<String, dynamic> data,
-    String key,
-    void Function(List<T>) callback,
-  ) {
-    final raw = data[key];
+  void _replacePurchaseLists(Map<String, dynamic> data) {
+    final raw = data['purchaseLists'];
     if (raw == null) return;
     try {
       final map = raw as Map;
-      callback(map.values.cast<T>().toList());
+      final list = map.values
+          .map((v) => PurchaseList.fromJson(Map<String, dynamic>.from(v as Map)))
+          .toList();
+      if (list.isNotEmpty) storage.purchaseLists = list;
     } catch (e) {
-      // ignore
+      print('replace purchaseLists error: $e');
+    }
+  }
+
+  void _replacePurchaseCategories(Map<String, dynamic> data) {
+    final raw = data['purchaseCategories'];
+    if (raw == null) return;
+    try {
+      final map = raw as Map;
+      final list = map.values
+          .map((v) => PurchaseCategory.fromJson(Map<String, dynamic>.from(v as Map)))
+          .toList();
+      if (list.isNotEmpty) storage.purchaseCategories = list;
+    } catch (e) {
+      print('replace purchaseCategories error: $e');
+    }
+  }
+
+  void _replaceTaskCategories(Map<String, dynamic> data) {
+    final raw = data['taskCategories'];
+    if (raw == null) return;
+    try {
+      final map = raw as Map;
+      final list = map.values
+          .map((v) => TaskCategory.fromJson(Map<String, dynamic>.from(v as Map)))
+          .toList();
+      if (list.isNotEmpty) storage.taskCategories = list;
+    } catch (e) {
+      print('replace taskCategories error: $e');
+    }
+  }
+
+  void _replaceShiftTypes(Map<String, dynamic> data) {
+    final raw = data['shiftTypes'];
+    if (raw == null) return;
+    try {
+      final map = raw as Map;
+      final list = map.values
+          .map((v) => ShiftType.fromJson(Map<String, dynamic>.from(v as Map)))
+          .toList();
+      if (list.isNotEmpty) storage.shiftTypes = list;
+    } catch (e) {
+      print('replace shiftTypes error: $e');
+    }
+  }
+
+  void _replacePartners(Map<String, dynamic> data) {
+    final raw = data['partners'];
+    if (raw == null) return;
+    try {
+      final map = raw as Map;
+      final list = map.values
+          .map((v) => Partner.fromJson(Map<String, dynamic>.from(v as Map)))
+          .toList();
+      if (list.isNotEmpty) storage.partners = list;
+    } catch (e) {
+      print('replace partners error: $e');
     }
   }
 
