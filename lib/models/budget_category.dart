@@ -6,10 +6,10 @@ class BudgetCategory {
   final String id;
   final String name;
   final String type; // 'expense' или 'income'
-  final String emoji; // Например, '🍎'
-  final int colorValue; // Цвет в формате ARGB
+  final String emoji;
+  final int colorValue;
   final DateTime createdAt;
-  final DateTime updatedAt;
+  final int updatedAt;
   final String? updatedBy;
 
   BudgetCategory({
@@ -17,12 +17,12 @@ class BudgetCategory {
     required this.name,
     required this.type,
     this.emoji = '📦',
-    this.colorValue = 0xFF9E9E9E, // Серый по умолчанию
+    this.colorValue = 0xFF9E9E9E,
     DateTime? createdAt,
-    DateTime? updatedAt,
+    int? updatedAt,
     this.updatedBy,
   })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+        updatedAt = updatedAt ?? DateTime.now().millisecondsSinceEpoch;
 
   Color get color => Color(colorValue);
 
@@ -33,13 +33,13 @@ class BudgetCategory {
         'emoji': emoji,
         'colorValue': colorValue,
         'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
+        'updatedAt': updatedAt,
         'updatedBy': updatedBy,
       };
 
   factory BudgetCategory.fromJson(Map<String, dynamic> json) {
     return BudgetCategory(
-      id: json['id'] ?? '',
+      id: json['id']?.toString() ?? '',
       name: json['name'] ?? 'Без названия',
       type: json['type'] ?? 'expense',
       emoji: json['emoji'] ?? '📦',
@@ -47,9 +47,11 @@ class BudgetCategory {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : DateTime.now(),
+      updatedAt: json['updatedAt'] is int
+          ? json['updatedAt']
+          : (json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt']).millisecondsSinceEpoch
+              : DateTime.now().millisecondsSinceEpoch),
       updatedBy: json['updatedBy'],
     );
   }
@@ -59,7 +61,7 @@ class BudgetCategory {
     String? type,
     String? emoji,
     int? colorValue,
-    DateTime? updatedAt,
+    int? updatedAt,
     String? updatedBy,
   }) {
     return BudgetCategory(
