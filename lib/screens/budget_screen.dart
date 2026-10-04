@@ -1,5 +1,3 @@
-// lib/screens/budget_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:uuid/uuid.dart';
@@ -7,25 +5,18 @@ import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
 import '../services/budget_service.dart';
+import '../services/storage_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/add_transaction_modal.dart';
 
 class BudgetScreen extends StatefulWidget {
-  // Временные данные. Позже мы подключим их к StorageService и SyncService.
-  final List<Transaction> transactions;
-  final List<BudgetCategory> categories;
-  final Function(Transaction) onAddTransaction;
-  final Function(Transaction) onUpdateTransaction;
-  final Function(String) onDeleteTransaction;
-  final Function(BudgetCategory) onAddCategory;
+  final StorageService storage;
+  final SyncService sync;
 
   const BudgetScreen({
     super.key,
-    required this.transactions,
-    required this.categories,
-    required this.onAddTransaction,
-    required this.onUpdateTransaction,
-    required this.onDeleteTransaction,
-    required this.onAddCategory,
+    required this.storage,
+    required this.sync,
   });
 
   @override
@@ -36,19 +27,31 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
   late TabController _tabController;
   DateTime _currentMonth = DateTime.now();
 
+  List<Transaction> _transactions = [];
+  List<BudgetCategory> _categories = [];
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadData();
+    widget.sync.onDataChanged = _loadData;
   }
 
   @override
   void dispose() {
+    widget.sync.onDataChanged = null;
     _tabController.dispose();
     super.dispose();
   }
 
-  // --- ЛОГИКА ОТОБРАЖЕНИЯ ---
+  void _loadData() {
+    if (!mounted) return;
+    setState(() {
+      _transactions = widget.storage.transactions;
+      _categories = widget.storage.budgetCategories;
+    });
+  }
 
   void _changeMonth(int offset) {
     setState(() {
@@ -62,13 +65,18 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => AddTransactionModal(
-        categories: widget.categories,
+        categories: _categories,
         onSave: (t) {
-          if (t.id.isEmpty || !widget.transactions.any((e) => e.id == t.id)) {
-            widget.onAddTransaction(t);
+          final list = List<Transaction>.from(_transactions);
+          final idx = list.indexWhere((e) => e.id == t.id);
+          if (idx >= 0) {
+            list[idx] = t;
           } else {
-            widget.onUpdateTransaction(t);
+            list.add(t);
           }
+          widget.storage.transactions = list;
+          _loadData();
+          widget.sync.schedulePush();
         },
       ),
     );
@@ -81,41 +89,27 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
     final endOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
 
     final expenses = BudgetService.getTotalAmount(
-      widget.transactions,
-      type: 'expense',
-      start: startOfMonth,
-      end: endOfMonth,
+      _transactions, type: 'expense', start: startOfMonth, end: endOfMonth,
     );
     final incomes = BudgetService.getTotalAmount(
-      widget.transactions,
-      type: 'income',
-      start: startOfMonth,
-      end: endOfMonth,
+      _transactions, type: 'income', start: startOfMonth, end: endOfMonth,
     );
 
     final health = BudgetService.getFinancialHealth(
-      widget.transactions,
-      start: startOfMonth,
-      end: endOfMonth,
+      _transactions, start: startOfMonth, end: endOfMonth,
     );
 
     final insight = BudgetService.getInsight(
-      widget.transactions,
-      currentMonth: _currentMonth,
+      _transactions, currentMonth: _currentMonth,
     );
 
     final breakdown = BudgetService.getCategoryBreakdown(
-      widget.transactions,
-      widget.categories,
-      type: 'expense',
-      start: startOfMonth,
-      end: endOfMonth,
+      _transactions, _categories, type: 'expense', start: startOfMonth, end: endOfMonth,
     );
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Карточка баланса
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -148,7 +142,6 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
         ),
         const SizedBox(height: 16),
 
-        // Финансовое здоровье
         const Text('Финансовое здоровье', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Container(
@@ -170,7 +163,6 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
         ),
         const SizedBox(height: 16),
 
-        // Инсайт
         if (insight != null) ...[
           Container(
             padding: const EdgeInsets.all(16),
@@ -189,7 +181,6 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
           const SizedBox(height: 16),
         ],
 
-        // График (Пирог)
         const Text('Расходы по категориям', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (breakdown.isEmpty)
@@ -211,14 +202,15 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
                 sectionsSpace: 2,
                 centerSpaceRadius: 40,
                 sections: breakdown.entries.map((e) {
-                  final cat = widget.categories.firstWhere(
+                  final cat = _categories.firstWhere(
                     (c) => c.name == e.key,
                     orElse: () => BudgetCategory(id: 'other', name: e.key, type: 'expense', colorValue: 0xFF9E9E9E),
                   );
+                  final total = breakdown.values.fold(0.0, (a, b) => a + b);
                   return PieChartSectionData(
                     color: cat.color,
                     value: e.value,
-                    title: '${((e.value / breakdown.values.fold(0.0, (a, b) => a + b)) * 100).toStringAsFixed(0)}%',
+                    title: '${((e.value / total) * 100).toStringAsFixed(0)}%',
                     radius: 60,
                     titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   );
@@ -257,9 +249,9 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
   Widget _buildTransactionsTab() {
     final startOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final endOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-    
-    final monthTransactions = widget.transactions.where((t) {
-      return t.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && 
+
+    final monthTransactions = _transactions.where((t) {
+      return t.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
              t.date.isBefore(endOfMonth.add(const Duration(seconds: 1)));
     }).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
@@ -273,12 +265,12 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
       itemCount: monthTransactions.length,
       itemBuilder: (ctx, i) {
         final t = monthTransactions[i];
-        final cat = widget.categories.firstWhere(
-          (c) => c.id == t.categoryId, 
-          orElse: () => BudgetCategory(id: 'other', name: 'Другое', type: t.type)
+        final cat = _categories.firstWhere(
+          (c) => c.id == t.categoryId,
+          orElse: () => BudgetCategory(id: 'other', name: 'Другое', type: t.type),
         );
         final isExpense = t.type == 'expense';
-        
+
         return Dismissible(
           key: Key(t.id),
           direction: DismissDirection.endToStart,
@@ -288,7 +280,12 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
             color: Colors.red,
             child: const Icon(Icons.delete, color: Colors.white),
           ),
-          onDismissed: (_) => widget.onDeleteTransaction(t.id),
+          onDismissed: (_) {
+            final list = List<Transaction>.from(_transactions)..removeWhere((e) => e.id == t.id);
+            widget.storage.transactions = list;
+            _loadData();
+            widget.sync.schedulePush();
+          },
           child: Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
@@ -312,9 +309,16 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
                   builder: (ctx) => AddTransactionModal(
-                    categories: widget.categories,
+                    categories: _categories,
                     initialTransaction: t,
-                    onSave: (updated) => widget.onUpdateTransaction(updated),
+                    onSave: (updated) {
+                      final list = List<Transaction>.from(_transactions);
+                      final idx = list.indexWhere((e) => e.id == updated.id);
+                      if (idx >= 0) list[idx] = updated;
+                      widget.storage.transactions = list;
+                      _loadData();
+                      widget.sync.schedulePush();
+                    },
                   ),
                 );
               },
@@ -328,8 +332,8 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
   // --- ВКЛАДКА 3: КАТЕГОРИИ ---
 
   Widget _buildCategoriesTab() {
-    final expenseCats = widget.categories.where((c) => c.type == 'expense').toList();
-    final incomeCats = widget.categories.where((c) => c.type == 'income').toList();
+    final expenseCats = _categories.where((c) => c.type == 'expense').toList();
+    final incomeCats = _categories.where((c) => c.type == 'income').toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -407,7 +411,16 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
                   createdAt: category?.createdAt ?? DateTime.now(),
                   updatedAt: DateTime.now(),
                 );
-                widget.onAddCategory(newCat);
+                final list = List<BudgetCategory>.from(_categories);
+                final idx = list.indexWhere((e) => e.id == newCat.id);
+                if (idx >= 0) {
+                  list[idx] = newCat;
+                } else {
+                  list.add(newCat);
+                }
+                widget.storage.budgetCategories = list;
+                _loadData();
+                widget.sync.schedulePush();
                 Navigator.pop(ctx);
               },
               child: const Text('Сохранить'),
