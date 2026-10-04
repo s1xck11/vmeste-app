@@ -18,6 +18,20 @@ import 'screens/debug_screen.dart';
 import 'screens/data_management_screen.dart';
 import 'screens/theme_picker_screen.dart';
 
+// ============ СТАРЫЕ ЦВЕТА (совместимость со старыми экранами) ============
+class AppColors {
+  static const Color accent = Color(0xFFFF8FAB);
+  static const Color accentLight = Color(0xFFFFE5EC);
+  static const Color danger = Color(0xFFFF3B30);
+  static const Color success = Color(0xFF34C759);
+  static const Color warning = Color(0xFFFF9500);
+  static const Color info = Color(0xFF5856D6);
+  static const Color bgLight = Color(0xFFFFFFFF);
+  static const Color cardLight = Color(0xFFF8F9FA);
+  static const Color textLight = Color(0xFF1A1A1A);
+  static const Color textSecondary = Color(0xFF8E8E93);
+}
+
 class _SupabaseHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
@@ -154,6 +168,7 @@ class _SplashScreenState extends State<SplashScreen> {
         builder: (_) => SetupScreen(
           storage: widget.storage,
           sync: widget.sync,
+          themeService: widget.themeService,
         ),
       ),
     );
@@ -258,6 +273,7 @@ class _MainScreenState extends State<MainScreen> {
         builder: (_) => SetupScreen(
           storage: widget.storage,
           sync: widget.sync,
+          themeService: widget.themeService,
         ),
       ),
     );
@@ -320,7 +336,6 @@ class _MainScreenState extends State<MainScreen> {
             index: _currentIndex,
             children: _screens,
           ),
-          // Аватарка поверх всего — открывает настройки
           SafeArea(
             child: Align(
               alignment: Alignment.topRight,
@@ -389,6 +404,6 @@ class _MainScreenState extends State<MainScreen> {
   String _initial() {
     final name = widget.storage.myName.trim();
     if (name.isEmpty) return '👤';
-    return name.characters.first.toUpperCase();
+    return name.substring(0, 1).toUpperCase();
   }
 }
