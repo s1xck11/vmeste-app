@@ -1,17 +1,22 @@
+// lib/screens/setup_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/sync_service.dart';
 import '../services/storage_service.dart';
+import '../services/theme_service.dart';
 import '../main.dart' show AppColors, MainScreen;
 
 class SetupScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
+  final ThemeService themeService;
 
   const SetupScreen({
     super.key,
     required this.storage,
     required this.sync,
+    required this.themeService,
   });
 
   @override
@@ -24,11 +29,9 @@ class _SetupScreenState extends State<SetupScreen> {
   bool _loading = false;
   String? _error;
 
-  // Создана ли группа (показываем код + ключ)
   String? _createdCode;
   String? _createdKey;
 
-  // Какой режим активен: 'main' | 'join' | 'restore'
   String _mode = 'main';
 
   @override
@@ -72,7 +75,6 @@ class _SetupScreenState extends State<SetupScreen> {
     });
 
     try {
-      // Сначала сохраняем код группы, потом joinGroup его использует
       widget.storage.coupleCode = code;
       final myKey = await widget.sync.joinGroup(code);
 
@@ -128,6 +130,7 @@ class _SetupScreenState extends State<SetupScreen> {
         builder: (_) => MainScreen(
           storage: widget.storage,
           sync: widget.sync,
+          themeService: widget.themeService,
         ),
       ),
     );
@@ -213,8 +216,6 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ============ ГЛАВНОЕ МЕНЮ ============
-
   Widget _showMainMenu() {
     return Column(
       children: [
@@ -266,8 +267,6 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  // ============ ПРИСОЕДИНИТЬСЯ ============
-
   Widget _showJoinForm() {
     return Column(
       children: [
@@ -313,8 +312,6 @@ class _SetupScreenState extends State<SetupScreen> {
       ],
     );
   }
-
-  // ============ ВОЙТИ ПО КЛЮЧУ ============
 
   Widget _showRestoreForm() {
     return Column(
@@ -376,8 +373,6 @@ class _SetupScreenState extends State<SetupScreen> {
       ],
     );
   }
-
-  // ============ СОЗДАННАЯ ГРУППА ============
 
   Widget _showCreatedCard() {
     return Column(
