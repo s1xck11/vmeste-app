@@ -30,7 +30,7 @@ class TasksScreen extends StatefulWidget {
 
 class _TasksScreenState extends State<TasksScreen> {
   final _quickController = TextEditingController();
-  String _filter = 'all'; // all | active | high | today | archive
+  String _filter = 'all';
 
   List<Task> _tasks = [];
   List<TaskCategory> _categories = [];
@@ -202,6 +202,8 @@ class _TasksScreenState extends State<TasksScreen> {
           ModernAppBar(
             title: 'Задачи',
             onAvatarTap: widget.onAvatarTap,
+            avatarEmoji: widget.storage.myAvatar,
+            onAdd: _openAddModal,
           ),
           Expanded(
             child: CustomScrollView(
@@ -233,16 +235,11 @@ class _TasksScreenState extends State<TasksScreen> {
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddModal,
-        icon: const Icon(Icons.add),
-        label: const Text('Добавить'),
       ),
     );
   }
