@@ -10,7 +10,6 @@ import '../models/partner.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
 
-/// Сервис локального хранения данных.
 class StorageService {
   static const String _boxName = 'vmeste_data';
   late Box _box;
@@ -21,7 +20,6 @@ class StorageService {
   }
 
   // ============ ГРУППА ============
-
   String? get coupleCode => _box.get('coupleCode') as String?;
   set coupleCode(String? code) => _box.put('coupleCode', code);
 
@@ -36,6 +34,9 @@ class StorageService {
 
   String get myName => _box.get('myName') as String? ?? '';
   set myName(String v) => _box.put('myName', v);
+
+  String get myAvatar => _box.get('myAvatar') as String? ?? '👤';
+  set myAvatar(String v) => _box.put('myAvatar', v);
 
   String get partnerName => _box.get('partnerName') as String? ?? 'Партнёр';
   set partnerName(String v) => _box.put('partnerName', v);
@@ -52,7 +53,6 @@ class StorageService {
   set serverVersion(int v) => _box.put('serverVersion', v);
 
   // ============ ПОКУПКИ ============
-
   List<Purchase> get purchases {
     final raw = _box.get('purchases');
     if (raw == null) return [];
@@ -109,7 +109,6 @@ class StorageService {
   }
 
   // ============ ЗАДАЧИ ============
-
   List<Task> get tasks {
     final raw = _box.get('tasks');
     if (raw == null) return [];
@@ -150,7 +149,6 @@ class StorageService {
   }
 
   // ============ СМЕНЫ ============
-
   List<Shift> get shifts {
     final raw = _box.get('shifts');
     if (raw == null) return [];
@@ -213,8 +211,7 @@ class StorageService {
     );
   }
 
-  // ============ ТРАНЗАКЦИИ (БЮДЖЕТ) ============
-
+  // ============ ТРАНЗАКЦИИ ============
   List<Transaction> get transactions {
     final raw = _box.get('transactions');
     if (raw == null) return [];
@@ -231,7 +228,6 @@ class StorageService {
   }
 
   // ============ КАТЕГОРИИ БЮДЖЕТА ============
-
   List<BudgetCategory> get budgetCategories {
     final raw = _box.get('budgetCategories');
     if (raw == null) return _defaultBudgetCategories();
@@ -264,7 +260,6 @@ class StorageService {
   }
 
   // ============ SNAPSHOT ============
-
   Map<String, dynamic> snapshot() {
     return {
       'purchases': _mapById(purchases.map((p) => p.toJson()).toList()),
@@ -301,13 +296,9 @@ class StorageService {
     if (data[key] == null) return;
     try {
       final map = data[key] as Map;
-      final list = map.values
-          .map((v) => Map<String, dynamic>.from(v as Map))
-          .toList();
+      final list = map.values.map((v) => Map<String, dynamic>.from(v as Map)).toList();
       setter(list);
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
   }
 
   Map<String, dynamic> _mapById(List<Map<String, dynamic>> items) {
@@ -318,8 +309,6 @@ class StorageService {
     }
     return result;
   }
-
-  // ============ ОЧИСТКА ============
 
   Future<void> clearAll() async {
     await _box.clear();
