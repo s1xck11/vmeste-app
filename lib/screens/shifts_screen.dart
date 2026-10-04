@@ -161,9 +161,8 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
           ModernAppBar(
             title: 'Смены',
             onAvatarTap: widget.onAvatarTap,
-            avatarLabel: widget.storage.myName.isNotEmpty
-                ? widget.storage.myName[0].toUpperCase()
-                : '👤',
+            avatarEmoji: widget.storage.myAvatar,
+            onAdd: () => _openAddForDay(DateTime.now()),
           ),
           Expanded(
             child: ListView(
@@ -192,11 +191,6 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openAddForDay(DateTime.now()),
-        icon: const Icon(Icons.add),
-        label: const Text('Добавить'),
       ),
     );
   }
