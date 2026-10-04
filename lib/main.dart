@@ -7,20 +7,13 @@ import 'services/sync_service.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 
-// ============ ЖЁСТКИЙ IP ДЛЯ SUPABASE ============
+// ============ РАЗРЕШЕНИЕ ПРОБЛЕМЫ С DNS НА HUAWEI ============
 //
-// На Huawei без Google-сервисов системный DNS не может разрешить
-// домен supabase.co. Провайдер (например, Мегафон) подсовывает левые
-// IP-адреса. Поэтому мы жёстко прописываем реальный IP Cloudflare,
-// через который работает Supabase.
-//
-// Cloudflare использует Anycast — один IP работает по всему миру,
-// трафик автоматически идёт к ближайшему дата-центру.
+// На Huawei без Google-сервисов системный DNS возвращает неверные адреса
+// для supabase.co. Мы перехватываем подключение и направляем его
+// на реальный IP Cloudflare, сохраняя при этом SNI (имя хоста для TLS).
 const String _supabaseHost = 'rgsefmrieltdmqbngsyo.supabase.co';
-const List<String> _supabaseIps = [
-  '104.18.38.10',    // Основной Cloudflare IP
-  '172.64.149.246',  // Резервный Cloudflare IP
-];
+const String _supabaseIp = '104.18.38.10';
 
 class _SupabaseHttpOverrides extends HttpOverrides {
   @override
@@ -28,9 +21,34 @@ class _SupabaseHttpOverrides extends HttpOverrides {
     final client = super.createHttpClient(context);
 
     // Разрешаем любые сертификаты для нашего домена
-    // (на случай, если SNI не сработает)
     client.badCertificateCallback = (X509Certificate cert, String host, int port) {
       return host == _supabaseHost || host.endsWith('.supabase.co');
+    };
+
+    // Подменяем DNS-резолвер: если подключаемся к нашему домену,
+    // вместо DNS используем заранее известный IP.
+    // SNI при этом остаётся правильным (hostname).
+    client.connectionFactory = (Uri uri, String? proxyHost, int? proxyPort) {
+      String host = uri.host;
+      int port = uri.port;
+      
+      // Если это наш Supabase — подменяем на IP
+      if (host == _supabaseHost) {
+        host = _supabaseIp;
+      }
+
+      // Подключаемся к IP, но передаём SNI через SecureSocket
+      return Socket.startConnect(host, port).then((socket) {
+        // Оборачиваем в TLS с правильным SNI
+        return SecureSocket.secure(
+          socket,
+          host: uri.host,  // SNI = оригинальный домен
+          context: context,
+          onBadCertificate: (cert) {
+            return uri.host == _supabaseHost || uri.host.endsWith('.supabase.co');
+          },
+        );
+      });
     };
 
     return client;
@@ -70,9 +88,6 @@ class AppColors {
   static const Color cardLight = Color(0xFFF8F9FA);
   static const Color textLight = Color(0xFF1A1A1A);
   static const Color textSecondary = Color(0xFF8E8E93);
-
-  static const String supabaseHost = _supabaseHost;
-  static const List<String> supabaseIps = _supabaseIps;
 }
 
 // ============ ГЛАВНОЕ ПРИЛОЖЕНИЕ ============
