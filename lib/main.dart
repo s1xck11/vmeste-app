@@ -183,33 +183,78 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  late final List<Widget> _screens;
+  late final List<Widget> _fixedScreens;
 
   @override
   void initState() {
     super.initState();
-    _screens = [
-      PurchasesScreen(
-        storage: widget.storage,
-        sync: widget.sync,
-      ),
-      TasksScreen(
-        storage: widget.storage,
-        sync: widget.sync,
-      ),
-      ShiftsScreen(
-        storage: widget.storage,
-        sync: widget.sync,
-      ),
-      BudgetScreen(
-        storage: widget.storage,
-        sync: widget.sync,
-      ),
-      SettingsScreen(
-        storage: widget.storage,
-        sync: widget.sync,
-      ),
+
+    _fixedScreens = [
+      PurchasesScreen(storage: widget.storage, sync: widget.sync),
+      TasksScreen(storage: widget.storage, sync: widget.sync),
+      ShiftsScreen(storage: widget.storage, sync: widget.sync),
+      BudgetScreen(storage: widget.storage, sync: widget.sync),
     ];
+
+    // Слушаем изменения статуса синхронизации и данных
+    widget.sync.onStatusChanged = () {
+      if (mounted) setState(() {});
+    };
+    widget.sync.onDataChanged = () {
+      if (mounted) setState(() {});
+    };
+  }
+
+  @override
+  void dispose() {
+    widget.sync.onStatusChanged = null;
+    widget.sync.onDataChanged = null;
+    super.dispose();
+  }
+
+  Future<void> _changeName(String newName) async {
+    widget.storage.myName = newName;
+    // Обновляем имя в профиле на сервере
+    widget.sync.schedulePush();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _disconnect() async {
+    await widget.sync.disconnect();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => SetupScreen(
+          storage: widget.storage,
+          sync: widget.sync,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentScreen() {
+    switch (_currentIndex) {
+      case 0:
+        return _fixedScreens[0];
+      case 1:
+        return _fixedScreens[1];
+      case 2:
+        return _fixedScreens[2];
+      case 3:
+        return _fixedScreens[3];
+      case 4:
+      default:
+        return SettingsScreen(
+          groupCode: widget.storage.coupleCode ?? '',
+          myKey: widget.storage.myKey ?? '',
+          myName: widget.storage.myName,
+          partnerName: widget.storage.partnerName,
+          dataVersion: widget.storage.serverVersion,
+          syncStatus: widget.sync.status,
+          onNameChanged: _changeName,
+          onDisconnect: _disconnect,
+        );
+    }
   }
 
   @override
@@ -217,7 +262,13 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: [
+          _fixedScreens[0],
+          _fixedScreens[1],
+          _fixedScreens[2],
+          _fixedScreens[3],
+          _buildCurrentScreen(),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
