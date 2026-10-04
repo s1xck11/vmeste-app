@@ -47,9 +47,13 @@ class ImportStats {
 
   @override
   String toString() {
-    return 'Задачи: $tasks, Смены: $shifts, Покупки: $purchases, '
-        'Партнёры: $partners, Типы смен: $shiftTypes, '
-        'Категории задач: $taskCategories, Категории покупок: $purchaseCategories, '
+    return 'Задачи: $tasks\n'
+        'Смены: $shifts\n'
+        'Покупки: $purchases\n'
+        'Партнёры: $partners\n'
+        'Типы смен: $shiftTypes\n'
+        'Категории задач: $taskCategories\n'
+        'Категории покупок: $purchaseCategories\n'
         'Списки покупок: $purchaseLists';
   }
 }
@@ -62,7 +66,6 @@ class ImportExportService {
 
   // ============ ЭКСПОРТ ============
 
-  /// Собирает все данные в JSON-строку.
   String buildExportJson() {
     final snapshot = storage.snapshot();
     final payload = {
@@ -76,7 +79,6 @@ class ImportExportService {
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
-  /// Сохраняет JSON в файл и возвращает путь.
   Future<String> exportToFile() async {
     final dir = await getApplicationDocumentsDirectory();
     final now = DateTime.now();
@@ -91,8 +93,6 @@ class ImportExportService {
 
   // ============ ИМПОРТ ============
 
-  /// Читает файл по пути, парсит JSON, применяет к storage.
-  /// [replaceAll] — true = заменить всё, false = добавить к существующему.
   Future<ImportStats> importFromFile(String path, {required bool replaceAll}) async {
     _log.info('ImportExport', 'импорт из $path (replaceAll=$replaceAll)');
     final file = File(path);
@@ -103,7 +103,6 @@ class ImportExportService {
     return importFromJson(raw, replaceAll: replaceAll);
   }
 
-  /// Парсит JSON-строку и применяет.
   Future<ImportStats> importFromJson(String rawJson, {required bool replaceAll}) async {
     Map<String, dynamic> root;
     try {
@@ -198,7 +197,6 @@ class ImportExportService {
               .map((e) => Partner.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList();
         } else if (partnersRaw is Map) {
-          // старый формат: {partner1: {...}, partner2: {...}, updatedAt: ...}
           for (final entry in partnersRaw.entries) {
             if (entry.key == 'updatedAt') continue;
             final p = Map<String, dynamic>.from(entry.value as Map);
@@ -305,9 +303,6 @@ class ImportExportService {
     return stats;
   }
 
-  // ---------- УТИЛИТЫ ----------
-
-  /// Возвращает Map если в root есть ключ key и это Map, иначе null.
   Map<dynamic, dynamic>? _extractMap(Map<String, dynamic> root, String key) {
     final raw = root[key];
     if (raw is Map) return raw;
@@ -316,7 +311,6 @@ class ImportExportService {
 
   String _two(int n) => n < 10 ? '0$n' : '$n';
 
-  /// Возвращает директорию, куда сохраняются бэкапы.
   Future<String> getBackupDir() async {
     final dir = await getApplicationDocumentsDirectory();
     return dir.path;
