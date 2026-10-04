@@ -20,6 +20,7 @@ dependencies:
   
   # Работа с файлами
   path_provider: ^2.1.2
+  file_picker: ^8.0.0
   
   # Графики
   fl_chart: ^0.68.0
