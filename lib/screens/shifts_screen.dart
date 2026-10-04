@@ -162,11 +162,10 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
             title: 'Смены',
             onAvatarTap: widget.onAvatarTap,
             avatarEmoji: widget.storage.myAvatar,
-            onAdd: () => _openAddForDay(DateTime.now()),
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
               children: [
                 _buildSalaryCard(total, cs),
                 const SizedBox(height: 12),
@@ -191,6 +190,11 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openAddForDay(DateTime.now()),
+        icon: const Icon(Icons.add),
+        label: const Text('Добавить'),
       ),
     );
   }
