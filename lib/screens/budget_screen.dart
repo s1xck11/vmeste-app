@@ -148,9 +148,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ModernAppBar(
             title: 'Бюджет',
             onAvatarTap: widget.onAvatarTap,
-            avatarLabel: widget.storage.myName.isNotEmpty
-                ? widget.storage.myName[0].toUpperCase()
-                : '👤',
+            avatarEmoji: widget.storage.myAvatar,
+            onAdd: _openAddModal,
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -189,11 +188,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddModal,
-        icon: const Icon(Icons.add),
-        label: const Text('Добавить'),
       ),
     );
   }
@@ -381,7 +375,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }
 
   Widget _buildTransactions(ColorScheme cs) {
-    final list = _monthTransactions..sort((a, b) => b.date.compareTo(a.date));
+    final list = List<Transaction>.from(_monthTransactions)..sort((a, b) => b.date.compareTo(a.date));
     if (list.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(32),
