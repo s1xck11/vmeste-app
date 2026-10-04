@@ -35,33 +35,34 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
   }
 
   Future<void> _add() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
     switch (widget.kind) {
       case CategoryKind.purchase:
         final list = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
         list.add(PurchaseCategory(
-          id: 'cat_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'cat_$now',
           label: 'Новая',
           emoji: '📦',
           order: list.length,
-          updatedAt: DateTime.now().millisecondsSinceEpoch,
+          updatedAt: now,
         ));
         widget.storage.purchaseCategories = list;
         break;
       case CategoryKind.task:
         final list = List<TaskCategory>.from(widget.storage.taskCategories);
         list.add(TaskCategory(
-          id: 'tcat_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'tcat_$now',
           label: 'Новая',
           emoji: '📦',
           order: list.length,
-          updatedAt: DateTime.now().millisecondsSinceEpoch,
+          updatedAt: now,
         ));
         widget.storage.taskCategories = list;
         break;
       case CategoryKind.shiftType:
         final list = List<ShiftType>.from(widget.storage.shiftTypes);
         list.add(ShiftType(
-          id: 'st_${DateTime.now().millisecondsSinceEpoch}',
+          id: 'st_$now',
           label: 'Новый',
           hours: 8,
           color: '#FF8FAB',
@@ -93,24 +94,40 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
   }
 
   void _editLabel(int index, String value) {
+    final now = DateTime.now().millisecondsSinceEpoch;
     switch (widget.kind) {
       case CategoryKind.purchase:
         final list = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
-        list[index] = list[index].copyWith(label: value, updatedAt: DateTime.now().millisecondsSinceEpoch);
+        final old = list[index];
+        list[index] = PurchaseCategory(
+          id: old.id,
+          label: value,
+          emoji: old.emoji,
+          order: old.order,
+          updatedAt: now,
+        );
         widget.storage.purchaseCategories = list;
         break;
       case CategoryKind.task:
         final list = List<TaskCategory>.from(widget.storage.taskCategories);
-        list[index] = list[index].copyWith(label: value, updatedAt: DateTime.now().millisecondsSinceEpoch);
+        final old = list[index];
+        list[index] = TaskCategory(
+          id: old.id,
+          label: value,
+          emoji: old.emoji,
+          order: old.order,
+          updatedAt: now,
+        );
         widget.storage.taskCategories = list;
         break;
       case CategoryKind.shiftType:
         final list = List<ShiftType>.from(widget.storage.shiftTypes);
+        final old = list[index];
         list[index] = ShiftType(
-          id: list[index].id,
+          id: old.id,
           label: value,
-          hours: list[index].hours,
-          color: list[index].color,
+          hours: old.hours,
+          color: old.color,
         );
         widget.storage.shiftTypes = list;
         break;
@@ -119,15 +136,30 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
   }
 
   void _editEmoji(int index, String value) {
+    final now = DateTime.now().millisecondsSinceEpoch;
     switch (widget.kind) {
       case CategoryKind.purchase:
         final list = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
-        list[index] = list[index].copyWith(emoji: value, updatedAt: DateTime.now().millisecondsSinceEpoch);
+        final old = list[index];
+        list[index] = PurchaseCategory(
+          id: old.id,
+          label: old.label,
+          emoji: value,
+          order: old.order,
+          updatedAt: now,
+        );
         widget.storage.purchaseCategories = list;
         break;
       case CategoryKind.task:
         final list = List<TaskCategory>.from(widget.storage.taskCategories);
-        list[index] = list[index].copyWith(emoji: value, updatedAt: DateTime.now().millisecondsSinceEpoch);
+        final old = list[index];
+        list[index] = TaskCategory(
+          id: old.id,
+          label: old.label,
+          emoji: value,
+          order: old.order,
+          updatedAt: now,
+        );
         widget.storage.taskCategories = list;
         break;
       case CategoryKind.shiftType:
@@ -156,10 +188,9 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
     if (items.isEmpty) {
       return Center(child: Text('Пусто', style: TextStyle(color: cs.onSurfaceVariant)));
     }
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(20),
-      itemCount: items.length,
-      itemBuilder: (ctx, i) => items[i],
+      children: items,
     );
   }
 
