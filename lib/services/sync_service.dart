@@ -39,14 +39,36 @@ class SyncService {
 
   SyncService({required this.storage});
 
+  /// Анонимный вход с retry — важно для Huawei с нестабильной сетью.
   Future<String> signInAnonymously() async {
     final existing = _supabase.auth.currentUser;
-    if (existing != null) { storage.currentUserId = existing.id; return existing.id; }
-    final response = await _supabase.auth.signInAnonymously();
-    final user = response.user;
-    if (user == null) throw Exception('Не удалось войти');
-    storage.currentUserId = user.id;
-    return user.id;
+    if (existing != null) {
+      storage.currentUserId = existing.id;
+      _log.info('Auth', 'уже есть сессия: ${existing.id}');
+      return existing.id;
+    }
+
+    Exception? lastError;
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        _log.info('Auth', 'попытка $attempt/3: signInAnonymously...');
+        final response = await _supabase.auth
+            .signInAnonymously()
+            .timeout(const Duration(seconds: 30));
+        final user = response.user;
+        if (user == null) throw Exception('пустой user');
+        storage.currentUserId = user.id;
+        _log.info('Auth', 'успех, uid=${user.id}');
+        return user.id;
+      } catch (e, st) {
+        lastError = e is Exception ? e : Exception('$e');
+        _log.error('Auth', 'попытка $attempt FAILED', e, st);
+        if (attempt < 3) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
+    }
+    throw lastError ?? Exception('Не удалось войти после 3 попыток');
   }
 
   Future<Map<String, String>> createGroup() async {
@@ -56,7 +78,12 @@ class SyncService {
     int attempts = 0;
     do {
       code = _generateGroupCode();
-      final existing = await _supabase.from('couples').select('code').eq('code', code).maybeSingle();
+      final existing = await _supabase
+          .from('couples')
+          .select('code')
+          .eq('code', code)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 30));
       if (existing == null) break;
       attempts++;
     } while (attempts < 5);
@@ -64,10 +91,12 @@ class SyncService {
       myKey: {'key': myKey, 'role': 'partner1', 'name': '', 'uids': [uid]},
     };
     await _supabase.from('couples').insert({
-      'code': code, 'members': [uid],
+      'code': code,
+      'members': [uid],
       'data': {...storage.snapshot(), 'profiles': profiles},
-      'version': 1, 'updated_by': uid,
-    });
+      'version': 1,
+      'updated_by': uid,
+    }).timeout(const Duration(seconds: 30));
     storage.coupleCode = code;
     storage.members = [uid];
     storage.serverVersion = 1;
@@ -82,7 +111,12 @@ class SyncService {
   Future<String> joinGroup(String code) async {
     code = code.trim().toUpperCase();
     final uid = await signInAnonymously();
-    final group = await _supabase.from('couples').select().eq('code', code).maybeSingle();
+    final group = await _supabase
+        .from('couples')
+        .select()
+        .eq('code', code)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 30));
     if (group == null) throw Exception('Группа не найдена');
     final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
     final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
@@ -94,9 +128,13 @@ class SyncService {
     }
     String myRole, myKey;
     if (foundRole != null && foundKey != null) {
-      myRole = foundRole; myKey = foundKey;
+      myRole = foundRole;
+      myKey = foundKey;
     } else {
-      final existingRoles = profiles.values.map((p) => (p as Map)['role'] as String?).where((r) => r != null).toSet();
+      final existingRoles = profiles.values
+          .map((p) => (p as Map)['role'] as String?)
+          .where((r) => r != null)
+          .toSet();
       if (existingRoles.contains('partner1') && existingRoles.contains('partner2')) {
         throw Exception('В группе уже 2 участника');
       }
@@ -112,7 +150,11 @@ class SyncService {
     final members = List<String>.from(group['members'] as List? ?? []);
     if (!members.contains(uid)) members.add(uid);
     data['profiles'] = profiles;
-    await _supabase.from('couples').update({'members': members, 'data': data}).eq('code', code);
+    await _supabase
+        .from('couples')
+        .update({'members': members, 'data': data})
+        .eq('code', code)
+        .timeout(const Duration(seconds: 30));
     storage.coupleCode = code;
     storage.members = members;
     storage.myKey = myKey;
@@ -132,7 +174,12 @@ class SyncService {
     if (code == null || code.isEmpty) throw Exception('Нет кода группы');
     key = key.trim().toUpperCase();
     final uid = await signInAnonymously();
-    final group = await _supabase.from('couples').select().eq('code', code).maybeSingle();
+    final group = await _supabase
+        .from('couples')
+        .select()
+        .eq('code', code)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 30));
     if (group == null) throw Exception('Группа не найдена');
     final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
     final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
@@ -145,7 +192,11 @@ class SyncService {
     final members = List<String>.from(group['members'] as List? ?? []);
     if (!members.contains(uid)) members.add(uid);
     data['profiles'] = profiles;
-    await _supabase.from('couples').update({'members': members, 'data': data}).eq('code', code);
+    await _supabase
+        .from('couples')
+        .update({'members': members, 'data': data})
+        .eq('code', code)
+        .timeout(const Duration(seconds: 30));
     storage.members = members;
     storage.myKey = key;
     storage.myPartnerId = myProfile['role'] as String;
@@ -169,7 +220,12 @@ class SyncService {
       try {
         _setStatus('syncing');
         final uid = await signInAnonymously();
-        final group = await _supabase.from('couples').select().eq('code', code).maybeSingle().timeout(const Duration(seconds: 15));
+        final group = await _supabase
+            .from('couples')
+            .select()
+            .eq('code', code)
+            .maybeSingle()
+            .timeout(const Duration(seconds: 30));
         if (group == null) {
           storage.coupleCode = null;
           storage.myKey = null;
@@ -188,7 +244,11 @@ class SyncService {
           final members = List<String>.from(group['members'] as List? ?? []);
           if (!members.contains(uid)) members.add(uid);
           data['profiles'] = profiles;
-          await _supabase.from('couples').update({'members': members, 'data': data}).eq('code', code);
+          await _supabase
+              .from('couples')
+              .update({'members': members, 'data': data})
+              .eq('code', code)
+              .timeout(const Duration(seconds: 30));
           storage.members = members;
         }
         storage.myPartnerId = myProfile['role'] as String;
@@ -375,7 +435,12 @@ class SyncService {
     if (storage.coupleCode == null) return;
     _isPushInProgress = true;
     try {
-      final remote = await _supabase.from('couples').select('data, version').eq('code', storage.coupleCode!).maybeSingle();
+      final remote = await _supabase
+          .from('couples')
+          .select('data, version')
+          .eq('code', storage.coupleCode!)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 30));
       if (remote == null) return;
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
       final remoteVersion = (remote['version'] as int?) ?? 0;
@@ -396,11 +461,16 @@ class SyncService {
         myData['profiles'] = profiles;
       }
       final newVersion = remoteVersion + 1;
-      await _supabase.from('couples').update({
-        'data': myData, 'version': newVersion,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-        'updated_by': storage.currentUserId,
-      }).eq('code', storage.coupleCode!);
+      await _supabase
+          .from('couples')
+          .update({
+            'data': myData,
+            'version': newVersion,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+            'updated_by': storage.currentUserId,
+          })
+          .eq('code', storage.coupleCode!)
+          .timeout(const Duration(seconds: 30));
       storage.serverVersion = newVersion;
       _setStatus('online');
     } catch (e, st) {
