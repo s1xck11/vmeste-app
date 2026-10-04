@@ -56,14 +56,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       _purchases = widget.storage.purchases;
       _lists = widget.storage.purchaseLists;
       _categories = widget.storage.purchaseCategories;
-      // Защита: если выбранного списка нет — берём первый
       if (_lists.isNotEmpty && !_lists.any((l) => l.id == _selectedListId)) {
         _selectedListId = _lists.first.id;
       }
     });
   }
-
-  // ---------- ЛОГИКА ----------
 
   void _quickAdd() {
     final text = _quickController.text.trim();
@@ -86,6 +83,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     final list = List<Purchase>.from(_purchases)..add(p);
     widget.storage.purchases = list;
     _quickController.clear();
+    FocusScope.of(context).unfocus();
     _load();
     widget.sync.schedulePush();
   }
@@ -128,6 +126,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   void _openAddModal() {
+    FocusScope.of(context).unfocus();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -147,6 +146,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   void _openEditModal(Purchase p) {
+    FocusScope.of(context).unfocus();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -162,8 +162,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       ),
     );
   }
-
-  // ---------- ГРУППИРОВКА ----------
 
   List<Purchase> get _visiblePurchases {
     final list = _purchases.where((p) => p.listId == _selectedListId).toList();
@@ -197,8 +195,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     );
   }
 
-  // ---------- UI ----------
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -213,7 +209,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             title: 'Покупки',
             onAvatarTap: widget.onAvatarTap,
             avatarEmoji: widget.storage.myAvatar,
-            onAdd: _openAddModal,
           ),
           Expanded(
             child: CustomScrollView(
@@ -336,10 +331,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     );
   }
 }
-
-// ============================================================
-// Группа категорий
-// ============================================================
 
 class _CategoryGroup extends StatelessWidget {
   final PurchaseCategory category;
