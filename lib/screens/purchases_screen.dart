@@ -1,23 +1,27 @@
+// lib/screens/purchases_screen.dart
+
 import 'package:flutter/material.dart';
-import '../main.dart' show AppColors;
 import '../models/purchase.dart';
+import '../models/purchase_list.dart';
 import '../models/purchase_category.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
+import '../services/theme_service.dart';
+import '../widgets/modern_app_bar.dart';
 import '../widgets/add_purchase_modal.dart';
 
-/// Экран покупок.
-/// 
-/// Вкладки: «Общий» и «Мой» (личный список партнёра).
-/// Чужие личные списки не показываются.
 class PurchasesScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
+  final ThemeService themeService;
+  final VoidCallback onAvatarTap;
 
   const PurchasesScreen({
     super.key,
     required this.storage,
     required this.sync,
+    required this.themeService,
+    required this.onAvatarTap,
   });
 
   @override
@@ -25,524 +29,575 @@ class PurchasesScreen extends StatefulWidget {
 }
 
 class _PurchasesScreenState extends State<PurchasesScreen> {
-  String _currentListId = 'common';
-  final TextEditingController _quickAddController = TextEditingController();
+  final _quickController = TextEditingController();
+  String _selectedListId = 'common';
+
+  List<Purchase> _purchases = [];
+  List<PurchaseList> _lists = [];
+  List<PurchaseCategory> _categories = [];
 
   @override
   void initState() {
     super.initState();
-    widget.sync.onDataChanged = _refresh;
+    _load();
+    widget.sync.onDataChanged = _load;
   }
 
   @override
   void dispose() {
-    _quickAddController.dispose();
+    widget.sync.onDataChanged = null;
+    _quickController.dispose();
     super.dispose();
   }
 
-  void _refresh() {
-    if (mounted) setState(() {});
+  void _load() {
+    if (!mounted) return;
+    setState(() {
+      _purchases = widget.storage.purchases;
+      _lists = widget.storage.purchaseLists;
+      _categories = widget.storage.purchaseCategories;
+    });
   }
 
-  /// Список покупок, которые надо показать
-  List<Purchase> get _visiblePurchases {
-    final myRole = widget.storage.myPartnerId;
-    return widget.storage.purchases.where((p) {
-      if (p.deletedAt != null) return false;
-      if (p.listId == 'common') return true;
-      // Личные списки видит только их владелец
-      if (p.listId == myRole) return true;
-      // Legacy: 'default' показываем в общий
-      if (p.listId == 'default' && _currentListId == 'common') return true;
-      return false;
-    }).toList();
-  }
+  // ---------- ЛОГИКА ----------
 
-  /// Покупки текущего списка
-  List<Purchase> get _currentPurchases {
-    return _visiblePurchases
-        .where((p) =>
-            p.listId == _currentListId ||
-            (_currentListId == 'common' && p.listId == 'default'))
-        .toList();
-  }
-
-  /// Итоговая сумма
-  double get _total {
-    return _currentPurchases
-        .where((p) => !p.done && !p.missing)
-        .fold(0.0, (sum, p) => sum + p.total);
-  }
-
-  /// Активные покупки
-  int get _activeCount =>
-      _currentPurchases.where((p) => !p.done && !p.missing).length;
-
-  // ============ ДОБАВЛЕНИЕ ============
-
-  Future<void> _quickAdd() async {
-    final text = _quickAddController.text.trim();
+  void _quickAdd() {
+    final text = _quickController.text.trim();
     if (text.isEmpty) return;
-    _quickAddController.clear();
-    await _openAddModal(defaultText: text);
-  }
-
-  Future<void> _openAddModal({String defaultText = ''}) async {
-    final result = await showModalBottomSheet<Purchase>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => AddPurchaseModal(
-        listId: _currentListId,
-        defaultText: defaultText,
-        categories: widget.storage.purchaseCategories,
-        currentUserIdGetter: () => widget.storage.currentUserId,
-      ),
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final p = Purchase(
+      id: now,
+      text: text,
+      done: false,
+      missing: false,
+      category: 'other',
+      qty: 1,
+      unit: 'шт',
+      price: 0,
+      listId: _selectedListId,
+      order: _purchases.length,
+      createdAt: now,
+      updatedAt: now,
     );
-
-    if (result != null) {
-      final list = widget.storage.purchases;
-      list.add(result);
-      widget.storage.purchases = list;
-      widget.sync.schedulePush();
-      _refresh();
-    }
-  }
-
-  Future<void> _edit(Purchase p) async {
-    final result = await showModalBottomSheet<Purchase>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => AddPurchaseModal(
-        existing: p,
-        listId: _currentListId,
-        categories: widget.storage.purchaseCategories,
-        currentUserIdGetter: () => widget.storage.currentUserId,
-      ),
-    );
-
-    if (result != null) {
-      final list = widget.storage.purchases;
-      final idx = list.indexWhere((x) => x.id == result.id);
-      if (idx >= 0) list[idx] = result;
-      widget.storage.purchases = list;
-      widget.sync.schedulePush();
-      _refresh();
-    }
-  }
-
-  void _toggle(Purchase p) {
-    final list = widget.storage.purchases;
-    final idx = list.indexWhere((x) => x.id == p.id);
-    if (idx < 0) return;
-
-    final item = list[idx];
-    if (item.missing) {
-      item.missing = false;
-    } else {
-      item.done = !item.done;
-      item.boughtAt = item.done ? DateTime.now().millisecondsSinceEpoch : null;
-    }
-    item.updatedAt = DateTime.now().millisecondsSinceEpoch;
-    item.updatedBy = widget.storage.currentUserId;
-
-    list[idx] = item;
+    final list = List<Purchase>.from(_purchases)..add(p);
     widget.storage.purchases = list;
+    _quickController.clear();
+    _load();
     widget.sync.schedulePush();
-    _refresh();
+  }
+
+  void _toggleDone(Purchase p) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updated = p.copyWith(
+      done: !p.done,
+      missing: false,
+      boughtAt: !p.done ? now : null,
+      updatedAt: now,
+    );
+    _replace(updated);
   }
 
   void _toggleMissing(Purchase p) {
-    final list = widget.storage.purchases;
-    final idx = list.indexWhere((x) => x.id == p.id);
-    if (idx < 0) return;
-
-    final item = list[idx];
-    item.missing = !item.missing;
-    if (item.missing) item.done = false;
-    item.updatedAt = DateTime.now().millisecondsSinceEpoch;
-    item.updatedBy = widget.storage.currentUserId;
-
-    list[idx] = item;
-    widget.storage.purchases = list;
-    widget.sync.schedulePush();
-    _refresh();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updated = p.copyWith(
+      missing: !p.missing,
+      done: false,
+      updatedAt: now,
+    );
+    _replace(updated);
   }
 
   void _delete(Purchase p) {
-    final list = widget.storage.purchases;
-    list.removeWhere((x) => x.id == p.id);
-
-    final deleted = widget.storage.deletedPurchaseIds;
-    deleted.add(p.id);
-    widget.storage.deletedPurchaseIds = deleted;
+    final list = List<Purchase>.from(_purchases)..removeWhere((e) => e.id == p.id);
     widget.storage.purchases = list;
-
+    _load();
     widget.sync.schedulePush();
-    _refresh();
   }
 
-  // ============ UI ============
+  void _replace(Purchase updated) {
+    final list = List<Purchase>.from(_purchases);
+    final i = list.indexWhere((e) => e.id == updated.id);
+    if (i >= 0) list[i] = updated;
+    widget.storage.purchases = list;
+    _load();
+    widget.sync.schedulePush();
+  }
+
+  void _openAddModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddPurchaseModal(
+        categories: _categories,
+        lists: _lists,
+        initialListId: _selectedListId,
+        onSave: (p) {
+          final list = List<Purchase>.from(_purchases)..add(p);
+          widget.storage.purchases = list;
+          _load();
+          widget.sync.schedulePush();
+        },
+      ),
+    );
+  }
+
+  void _openEditModal(Purchase p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddPurchaseModal(
+        categories: _categories,
+        lists: _lists,
+        initialListId: _selectedListId,
+        initialPurchase: p,
+        onSave: (updated) {
+          _replace(updated);
+        },
+      ),
+    );
+  }
+
+  // ---------- ГРУППИРОВКА ----------
+
+  List<Purchase> get _visiblePurchases {
+    final list = _purchases.where((p) => p.listId == _selectedListId).toList();
+    // Активные сверху, потом «нет в наличии», потом купленные
+    list.sort((a, b) {
+      int rank(Purchase p) => p.done ? 2 : (p.missing ? 1 : 0);
+      final ra = rank(a), rb = rank(b);
+      if (ra != rb) return ra.compareTo(rb);
+      return (a.order).compareTo(b.order);
+    });
+    return list;
+  }
+
+  Map<String, List<Purchase>> get _groupedByCategory {
+    final map = <String, List<Purchase>>{};
+    for (final p in _visiblePurchases) {
+      map.putIfAbsent(p.category, () => []).add(p);
+    }
+    return map;
+  }
+
+  double get _totalSum {
+    return _visiblePurchases
+        .where((p) => !p.done && !p.missing)
+        .fold<double>(0, (sum, p) => sum + (p.price * p.qty));
+  }
+
+  PurchaseCategory _categoryOf(String id) {
+    return _categories.firstWhere(
+      (c) => c.id == id,
+      orElse: () => PurchaseCategory(id: id, label: 'Прочее', emoji: '📦', order: 999),
+    );
+  }
+
+  // ---------- UI ----------
 
   @override
   Widget build(BuildContext context) {
-    final myRole = widget.storage.myPartnerId;
-    final myName = widget.storage.myName.isNotEmpty
-        ? widget.storage.myName
-        : 'Мой список';
-
-    // Формируем вкладки
-    final tabs = <Map<String, String>>[
-      {'id': 'common', 'label': 'Общий', 'emoji': '🛒'},
-      if (myRole != null) {'id': myRole, 'label': myName, 'emoji': '👤'},
-    ];
+    final cs = Theme.of(context).colorScheme;
+    final grouped = _groupedByCategory;
+    final total = _totalSum;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Покупки'),
-        actions: [
-          // Индикатор статуса
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Icon(
-                widget.sync.status == 'online'
-                    ? Icons.cloud_done
-                    : Icons.cloud_off,
-                color: Colors.white,
-                size: 20,
-              ),
+      backgroundColor: cs.background,
+      body: Column(
+        children: [
+          ModernAppBar(
+            title: 'Покупки',
+            onAvatarTap: widget.onAvatarTap,
+          ),
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                // Сегменты списков
+                SliverToBoxAdapter(child: _buildListSegments(cs)),
+                // Быстрое добавление
+                SliverToBoxAdapter(child: _buildQuickAdd(cs)),
+                // Список
+                if (_visiblePurchases.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyPurchases(),
+                  )
+                else
+                  ...grouped.entries.map((entry) {
+                    final cat = _categoryOf(entry.key);
+                    return SliverToBoxAdapter(
+                      child: _CategoryGroup(
+                        category: cat,
+                        items: entry.value,
+                        onToggleDone: _toggleDone,
+                        onToggleMissing: _toggleMissing,
+                        onDelete: _delete,
+                        onEdit: _openEditModal,
+                      ),
+                    );
+                  }),
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              ],
             ),
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: tabs.map((t) {
-                final selected = _currentListId == t['id'];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _currentListId = t['id']!),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? Colors.white
-                            : Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(t['emoji']!),
-                          const SizedBox(width: 4),
-                          Text(
-                            t['label']!,
-                            style: TextStyle(
-                              color: selected
-                                  ? AppColors.accent
-                                  : Colors.white,
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddModal,
+        icon: const Icon(Icons.add),
+        label: const Text('Добавить'),
+      ),
+      bottomNavigationBar: total > 0
+          ? _TotalBar(total: total)
+          : null,
+    );
+  }
+
+  Widget _buildListSegments(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: _lists.map((l) {
+            final selected = l.id == _selectedListId;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedListId = l.id),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: selected ? cs.surface : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: selected
+                        ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
+                        : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${l.emoji} ${l.name}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        color: selected ? cs.onSurface : cs.onSurfaceVariant,
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildQuickAdd(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Row(
         children: [
-          // Быстрое добавление
+          Expanded(
+            child: TextField(
+              controller: _quickController,
+              onSubmitted: (_) => _quickAdd(),
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                hintText: 'Что купить?',
+                filled: true,
+                fillColor: cs.surfaceVariant,
+                prefixIcon: Icon(Icons.add_shopping_cart, color: cs.onSurfaceVariant, size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 52,
+            width: 52,
+            child: ElevatedButton(
+              onPressed: _quickAdd,
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              child: const Icon(Icons.add),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// Группа категорий
+// ============================================================
+
+class _CategoryGroup extends StatelessWidget {
+  final PurchaseCategory category;
+  final List<Purchase> items;
+  final void Function(Purchase) onToggleDone;
+  final void Function(Purchase) onToggleMissing;
+  final void Function(Purchase) onDelete;
+  final void Function(Purchase) onEdit;
+
+  const _CategoryGroup({
+    required this.category,
+    required this.items,
+    required this.onToggleDone,
+    required this.onToggleMissing,
+    required this.onDelete,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _quickAddController,
-                    decoration: InputDecoration(
-                      hintText: 'Что купить?',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                    ),
-                    onSubmitted: (_) => _quickAdd(),
+                Text('${category.emoji} ', style: const TextStyle(fontSize: 14)),
+                Text(
+                  category.label.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurfaceVariant,
+                    letterSpacing: 0.8,
                   ),
                 ),
                 const SizedBox(width: 8),
-                SizedBox(
-                  width: 56,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _quickAdd,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Icon(Icons.add, size: 24),
-                  ),
+                Text(
+                  '· ${items.length}',
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                 ),
               ],
             ),
           ),
+          ...items.map((p) => _PurchaseTile(
+                purchase: p,
+                onToggleDone: () => onToggleDone(p),
+                onToggleMissing: () => onToggleMissing(p),
+                onDelete: () => onDelete(p),
+                onTap: () => onEdit(p),
+              )),
+        ],
+      ),
+    );
+  }
+}
 
-          // Итого
-          if (_total > 0)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
+class _PurchaseTile extends StatelessWidget {
+  final Purchase purchase;
+  final VoidCallback onToggleDone;
+  final VoidCallback onToggleMissing;
+  final VoidCallback onDelete;
+  final VoidCallback onTap;
+
+  const _PurchaseTile({
+    required this.purchase,
+    required this.onToggleDone,
+    required this.onToggleMissing,
+    required this.onDelete,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDone = purchase.done;
+    final isMissing = purchase.missing;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Dismissible(
+        key: Key('purchase_${purchase.id}'),
+        background: Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: 20),
+          decoration: BoxDecoration(
+            color: cs.tertiary.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(Icons.flag_outlined, color: cs.tertiary),
+        ),
+        secondaryBackground: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: cs.error.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(Icons.delete_outline, color: cs.error),
+        ),
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.startToEnd) {
+            onToggleMissing();
+            return false;
+          } else {
+            onDelete();
+            return false;
+          }
+        },
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.accent, AppColors.info],
-                ),
-                borderRadius: BorderRadius.circular(12),
+                color: cs.surfaceVariant,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cs.outline, width: 1),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '💰 Итого:',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                  GestureDetector(
+                    onTap: onToggleDone,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDone
+                            ? cs.tertiary
+                            : (isMissing ? cs.secondary : Colors.transparent),
+                        border: Border.all(
+                          color: isDone
+                              ? cs.tertiary
+                              : (isMissing ? cs.secondary : cs.outline),
+                          width: 2,
+                        ),
+                      ),
+                      child: isDone
+                          ? Icon(Icons.check, size: 14, color: cs.onTertiary)
+                          : (isMissing
+                              ? Icon(Icons.priority_high, size: 12, color: cs.onSecondary)
+                              : null),
                     ),
                   ),
-                  Text(
-                    '${_total.toStringAsFixed(0)} ₽',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          purchase.text,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurface,
+                            decoration: isDone ? TextDecoration.lineThrough : null,
+                            decorationColor: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        if (purchase.qty > 1 || purchase.price > 0) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            [
+                              if (purchase.qty > 1) '${purchase.qty} ${purchase.unit}',
+                              if (purchase.price > 0)
+                                '${(purchase.price * purchase.qty).toStringAsFixed(0)} ₽',
+                            ].join(' · '),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-
-          // Счётчик
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-            child: Row(
-              children: [
-                Text(
-                  _currentPurchases.isEmpty
-                      ? ''
-                      : '$_activeCount из ${_currentPurchases.length}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _openAddModal,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('С деталями'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.info,
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
           ),
+        ),
+      ),
+    );
+  }
+}
 
-          // Список
-          Expanded(
-            child: _currentPurchases.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('🛒', style: TextStyle(fontSize: 60)),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Список пуст',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  )
-                : _buildGroupedList(),
+class _EmptyPurchases extends StatelessWidget {
+  const _EmptyPurchases();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.shopping_bag_outlined, size: 64, color: cs.onSurfaceVariant),
+          const SizedBox(height: 16),
+          Text(
+            'Список пуст',
+            style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildGroupedList() {
-    // Группируем по категориям
-    final grouped = <String, List<Purchase>>{};
-    for (final p in _currentPurchases) {
-      grouped.putIfAbsent(p.category, () => []).add(p);
-    }
+class _TotalBar extends StatelessWidget {
+  final double total;
+  const _TotalBar({required this.total});
 
-    // Сортируем категории по order
-    final cats = widget.storage.purchaseCategories;
-    final sortedKeys = grouped.keys.toList()
-      ..sort((a, b) {
-        final ca = cats.firstWhere(
-          (c) => c.id == a,
-          orElse: () => PurchaseCategory(id: a, label: 'Other', emoji: '📦', order: 999),
-        );
-        final cb = cats.firstWhere(
-          (c) => c.id == b,
-          orElse: () => PurchaseCategory(id: b, label: 'Other', emoji: '📦', order: 999),
-        );
-        return ca.order.compareTo(cb.order);
-      });
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      children: sortedKeys.map((catId) {
-        final cat = cats.firstWhere(
-          (c) => c.id == catId,
-          orElse: () => PurchaseCategory(id: catId, label: 'Прочее', emoji: '📦'),
-        );
-        final items = grouped[catId]!;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
-              child: Text(
-                '${cat.emoji} ${cat.label.toUpperCase()}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                  letterSpacing: 0.5,
-                ),
-              ),
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 14,
+        bottom: 14 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer,
+        border: Border(top: BorderSide(color: cs.outline, width: 1)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.shopping_cart_checkout, color: cs.onPrimaryContainer),
+          const SizedBox(width: 10),
+          Text(
+            'Итого:',
+            style: TextStyle(
+              fontSize: 14,
+              color: cs.onPrimaryContainer.withOpacity(0.8),
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.cardLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: items.map((p) => _buildItem(p)).toList(),
-              ),
+          ),
+          const Spacer(),
+          Text(
+            '${total.toStringAsFixed(0)} ₽',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: cs.onPrimaryContainer,
             ),
-          ],
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildItem(Purchase p) {
-    return InkWell(
-      onTap: () => _edit(p),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        child: Row(
-          children: [
-            // Чекбокс
-            GestureDetector(
-              onTap: () => _toggle(p),
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: p.done
-                      ? AppColors.success
-                      : p.missing
-                          ? AppColors.warning
-                          : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: p.done
-                        ? AppColors.success
-                        : p.missing
-                            ? AppColors.warning
-                            : AppColors.textSecondary,
-                    width: 2,
-                  ),
-                ),
-                child: p.done
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
-                    : p.missing
-                        ? const Icon(Icons.priority_high, size: 14, color: Colors.white)
-                        : null,
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Текст + мета
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    p.text,
-                    style: TextStyle(
-                      fontSize: 15,
-                      decoration: p.done ? TextDecoration.lineThrough : null,
-                      color: p.done ? AppColors.textSecondary : null,
-                    ),
-                  ),
-                  if (p.qty != 1 || p.price > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      [
-                        if (p.qty != 1) '${p.qty} ${p.unit}',
-                        if (p.price > 0) '💰 ${(p.price * p.qty).toStringAsFixed(0)} ₽',
-                      ].join(' · '),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-            // Кнопки
-            IconButton(
-              onPressed: () => _toggleMissing(p),
-              icon: Icon(
-                Icons.warning_amber,
-                size: 20,
-                color: p.missing ? AppColors.warning : AppColors.textSecondary,
-              ),
-              tooltip: 'Нет в наличии',
-            ),
-            IconButton(
-              onPressed: () => _delete(p),
-              icon: const Icon(
-                Icons.close,
-                size: 18,
-                color: AppColors.textSecondary,
-              ),
-              tooltip: 'Удалить',
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
