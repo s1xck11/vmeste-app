@@ -1,16 +1,11 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../supabase_config.dart';
 import 'storage_service.dart';
 
+typedef VoidCallback = void Function();
+
 /// Сервис синхронизации с Supabase.
-/// 
-/// Логика:
-/// 1. Анонимный вход в Supabase
-/// 2. Поиск группы по коду
-/// 3. Присоединение к members
-/// 4. Чтение данных + Realtime-подписка
-/// 5. Отправка изменений с защитой от перезаписи
 class SyncService {
   final StorageService storage;
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -21,27 +16,22 @@ class SyncService {
   bool _isRemoteUpdate = false;
   bool _isPushInProgress = false;
 
-  // Колбэки для UI — вызываются при изменениях
   VoidCallback? onDataChanged;
   VoidCallback? onStatusChanged;
 
-  String _status = 'offline'; // online | syncing | offline | error
+  String _status = 'offline';
   String get status => _status;
 
   SyncService({required this.storage});
 
-  // ============ ПОДКЛЮЧЕНИЕ ============
+  // ============ АВТОРИЗАЦИЯ ============
 
-  /// Войти анонимно и получить UID
   Future<String> signInAnonymously() async {
-    // Если уже вошли — возвращаем сохранённый UID
     final existing = _supabase.auth.currentUser;
     if (existing != null) {
       storage.currentUserId = existing.id;
       return existing.id;
     }
-
-    // Иначе — новый анонимный вход
     final response = await _supabase.auth.signInAnonymously();
     final user = response.user;
     if (user == null) throw Exception('Не удалось войти анонимно');
@@ -49,15 +39,19 @@ class SyncService {
     return user.id;
   }
 
-  /// Создать новую группу
-  Future<String> createGroup() async {
-    final uid = await signInAnonymously();
+  // ============ СОЗДАНИЕ ГРУППЫ ============
 
-    // Генерируем уникальный код
+  /// Создать новую группу. Я становлюсь partner1, автоматически
+  /// генерируется ключ для меня и «заготовка» для партнёра.
+  Future<Map<String, String>> createGroup() async {
+    final uid = await signInAnonymously();
+    final myKey = _generateKey();
+
+    // Ищем свободный код группы
     String code;
     int attempts = 0;
     do {
-      code = _generateCode();
+      code = _generateGroupCode();
       final existing = await _supabase
           .from('couples')
           .select('code')
@@ -67,11 +61,23 @@ class SyncService {
       attempts++;
     } while (attempts < 5);
 
-    // Создаём группу с пустыми данными
+    // Профили: мой и «заглушка» для партнёра
+    final profiles = {
+      myKey: {
+        'key': myKey,
+        'role': 'partner1',
+        'name': '',
+        'uids': [uid],
+      },
+    };
+
     await _supabase.from('couples').insert({
       'code': code,
       'members': [uid],
-      'data': storage.snapshot(),
+      'data': {
+        ...storage.snapshot(),
+        'profiles': profiles,
+      },
       'version': 1,
       'updated_by': uid,
     });
@@ -79,55 +85,154 @@ class SyncService {
     storage.coupleCode = code;
     storage.members = [uid];
     storage.serverVersion = 1;
-    storage.myPartnerId = 'partner1'; // первый — всегда partner1
+    storage.myKey = myKey;
+    storage.myPartnerId = 'partner1';
 
     _setStatus('online');
     _isFirstLoad = false;
     _subscribe();
-    return code;
+
+    return {
+      'code': code,
+      'myKey': myKey,
+    };
   }
 
-  /// Присоединиться к существующей группе
-  Future<void> joinGroup(String code) async {
+  /// Присоединиться к существующей группе как партнёр
+  /// (если ещё нет второго участника).
+  Future<String> joinGroup(String code) async {
     code = code.trim().toUpperCase();
     final uid = await signInAnonymously();
 
-    // Ищем группу
     final group = await _supabase
         .from('couples')
         .select()
         .eq('code', code)
         .maybeSingle();
 
-    if (group == null) {
-      throw Exception('Группа не найдена');
+    if (group == null) throw Exception('Группа не найдена');
+
+    final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
+    final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
+
+    // Ищем свободный слот (partner2, если partner1 уже занят)
+    String? myRole;
+    String? myKey;
+    for (final entry in profiles.entries) {
+      final profile = Map<String, dynamic>.from(entry.value as Map);
+      final uids = List<String>.from(profile['uids'] as List? ?? []);
+      if (uids.isEmpty) {
+        // Слот свободен
+        myRole = profile['role'] as String;
+        myKey = entry.key as String;
+        break;
+      }
     }
 
-    // Добавляем себя в members
-    final members = List<String>.from(group['members'] as List? ?? []);
-    if (!members.contains(uid)) {
-      members.add(uid);
-      await _supabase
-          .from('couples')
-          .update({'members': members})
-          .eq('code', code);
+    // Если нет свободного слота — создаём partner2
+    if (myRole == null) {
+      final existingRoles = profiles.values
+          .map((p) => (p as Map)['role'] as String?)
+          .where((r) => r != null)
+          .toSet();
+
+      if (existingRoles.contains('partner1') && existingRoles.contains('partner2')) {
+        throw Exception('В группе уже 2 участника. Войди по своему ключу.');
+      }
+
+      myRole = existingRoles.contains('partner1') ? 'partner2' : 'partner1';
+      myKey = _generateKey();
+      profiles[myKey] = {
+        'key': myKey,
+        'role': myRole,
+        'name': '',
+        'uids': [],
+      };
     }
+
+    // Добавляем себя
+    final myProfile = Map<String, dynamic>.from(profiles[myKey] as Map);
+    final uids = List<String>.from(myProfile['uids'] as List? ?? []);
+    if (!uids.contains(uid)) uids.add(uid);
+    myProfile['uids'] = uids;
+    profiles[myKey] = myProfile;
+
+    // Обновляем members
+    final members = List<String>.from(group['members'] as List? ?? []);
+    if (!members.contains(uid)) members.add(uid);
+
+    // Сохраняем обратно
+    data['profiles'] = profiles;
+    await _supabase.from('couples').update({
+      'members': members,
+      'data': data,
+    }).eq('code', code);
 
     storage.coupleCode = code;
     storage.members = members;
+    storage.myKey = myKey;
+    storage.myPartnerId = myRole;
     storage.serverVersion = (group['version'] as int?) ?? 0;
 
-    // Определяем, кто я — тот, кто НЕ первый участник
-    if (members.isNotEmpty && members.first == uid) {
-      storage.myPartnerId = 'partner1';
-    } else {
-      storage.myPartnerId = 'partner2';
+    // Загружаем данные
+    _isRemoteUpdate = true;
+    _applyData(data);
+    _isRemoteUpdate = false;
+
+    _setStatus('online');
+    _isFirstLoad = false;
+    _subscribe();
+    return myKey;
+  }
+
+  /// Войти под существующим личным ключом.
+  /// Используется при смене устройства.
+  Future<void> restoreByKey(String key) async {
+    final code = storage.coupleCode;
+    if (code == null || code.isEmpty) {
+      throw Exception('Сначала подключись к группе по её коду');
     }
 
-    // Загружаем данные
-    final data = group['data'] as Map<String, dynamic>? ?? {};
+    key = key.trim().toUpperCase();
+    final uid = await signInAnonymously();
+
+    final group = await _supabase
+        .from('couples')
+        .select()
+        .eq('code', code)
+        .maybeSingle();
+
+    if (group == null) throw Exception('Группа не найдена');
+
+    final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
+    final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
+
+    if (!profiles.containsKey(key)) {
+      throw Exception('Ключ не найден в этой группе');
+    }
+
+    final myProfile = Map<String, dynamic>.from(profiles[key] as Map);
+    final uids = List<String>.from(myProfile['uids'] as List? ?? []);
+    if (!uids.contains(uid)) uids.add(uid);
+    myProfile['uids'] = uids;
+    profiles[key] = myProfile;
+
+    final members = List<String>.from(group['members'] as List? ?? []);
+    if (!members.contains(uid)) members.add(uid);
+
+    data['profiles'] = profiles;
+    await _supabase.from('couples').update({
+      'members': members,
+      'data': data,
+    }).eq('code', code);
+
+    storage.members = members;
+    storage.myKey = key;
+    storage.myPartnerId = myProfile['role'] as String;
+    storage.myName = (myProfile['name'] as String?) ?? '';
+
     _isRemoteUpdate = true;
-    storage.restoreFromSnapshot(data);
+    _applyData(data);
     _isRemoteUpdate = false;
 
     _setStatus('online');
@@ -135,10 +240,11 @@ class SyncService {
     _subscribe();
   }
 
-  /// Автоподключение при запуске (если код уже сохранён)
+  /// Автоподключение при запуске
   Future<bool> autoConnect() async {
     final code = storage.coupleCode;
-    if (code == null || code.isEmpty) return false;
+    final key = storage.myKey;
+    if (code == null || code.isEmpty || key == null) return false;
 
     try {
       _setStatus('syncing');
@@ -151,28 +257,48 @@ class SyncService {
           .maybeSingle();
 
       if (group == null) {
-        // Группы нет — сбрасываем настройки
         storage.coupleCode = null;
+        storage.myKey = null;
         _setStatus('offline');
         return false;
       }
 
-      final members = List<String>.from(group['members'] as List? ?? []);
-      if (!members.contains(uid)) {
-        members.add(uid);
-        await _supabase
-            .from('couples')
-            .update({'members': members})
-            .eq('code', code);
+      final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
+      final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
+
+      // Проверяем, что наш ключ всё ещё в группе
+      if (!profiles.containsKey(key)) {
+        _setStatus('offline');
+        return false;
       }
 
-      storage.members = members;
+      // Обновляем свой UID в профиле
+      final myProfile = Map<String, dynamic>.from(profiles[key] as Map);
+      final uids = List<String>.from(myProfile['uids'] as List? ?? []);
+      if (!uids.contains(uid)) {
+        uids.add(uid);
+        myProfile['uids'] = uids;
+        profiles[key] = myProfile;
+
+        final members = List<String>.from(group['members'] as List? ?? []);
+        if (!members.contains(uid)) members.add(uid);
+
+        data['profiles'] = profiles;
+        await _supabase.from('couples').update({
+          'members': members,
+          'data': data,
+        }).eq('code', code);
+
+        storage.members = members;
+      }
+
+      storage.myPartnerId = myProfile['role'] as String;
+      storage.myName = (myProfile['name'] as String?) ?? '';
       storage.serverVersion = (group['version'] as int?) ?? 0;
 
       // Загружаем данные
-      final data = group['data'] as Map<String, dynamic>? ?? {};
       _isRemoteUpdate = true;
-      storage.restoreFromSnapshot(data);
+      _applyData(data);
       _isRemoteUpdate = false;
 
       _setStatus('online');
@@ -187,13 +313,12 @@ class SyncService {
     }
   }
 
-  // ============ REALTIME-ПОДПИСКА ============
+  // ============ REALTIME ============
 
   void _subscribe() {
     final code = storage.coupleCode;
     if (code == null) return;
 
-    // Отписываемся от старой
     _channel?.unsubscribe();
 
     _channel = _supabase
@@ -210,14 +335,13 @@ class SyncService {
           callback: (payload) {
             final newRecord = payload.newRecord;
             if (newRecord.isEmpty) return;
-            if (newRecord['updated_by'] == storage.currentUserId) return;
 
             final newVersion = (newRecord['version'] as int?) ?? 0;
             if (newVersion <= storage.serverVersion) return;
 
-            final data = newRecord['data'] as Map<String, dynamic>? ?? {};
+            final data = Map<String, dynamic>.from(newRecord['data'] as Map? ?? {});
             _isRemoteUpdate = true;
-            storage.restoreFromSnapshot(data);
+            _applyData(data);
             storage.serverVersion = newVersion;
             _isRemoteUpdate = false;
 
@@ -236,9 +360,33 @@ class SyncService {
         });
   }
 
-  // ============ ОТПРАВКА ИЗМЕНЕНИЙ ============
+  void _applyData(Map<String, dynamic> data) {
+    storage.restoreFromSnapshot(data);
 
-  /// Запланировать отправку в облако (с дебаунсом)
+    // Обновляем profiles
+    final profiles = data['profiles'] as Map?;
+    if (profiles != null && storage.myKey != null) {
+      final myProfile = profiles[storage.myKey!] as Map?;
+      if (myProfile != null) {
+        storage.myName = (myProfile['name'] as String?) ?? '';
+      }
+
+      // Ищем имя партнёра
+      for (final entry in profiles.entries) {
+        if (entry.key == storage.myKey) continue;
+        final profile = entry.value as Map?;
+        if (profile != null) {
+          final name = profile['name'] as String?;
+          if (name != null && name.isNotEmpty) {
+            storage.partnerName = name;
+          }
+        }
+      }
+    }
+  }
+
+  // ============ ОТПРАВКА ============
+
   void schedulePush() {
     if (storage.coupleCode == null) return;
     if (_isRemoteUpdate) return;
@@ -255,7 +403,6 @@ class SyncService {
 
     _isPushInProgress = true;
     try {
-      // Читаем актуальные данные с сервера
       final remote = await _supabase
           .from('couples')
           .select('data, version')
@@ -264,24 +411,35 @@ class SyncService {
 
       if (remote == null) return;
 
-      final remoteData = remote['data'] as Map<String, dynamic>? ?? {};
+      final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
       final remoteVersion = (remote['version'] as int?) ?? 0;
 
-      // Если на сервере новее — сначала мержим к себе
       if (remoteVersion > storage.serverVersion) {
         _isRemoteUpdate = true;
-        storage.restoreFromSnapshot(remoteData);
+        _applyData(remoteData);
         storage.serverVersion = remoteVersion;
         _isRemoteUpdate = false;
         onDataChanged?.call();
       }
 
-      // Отправляем наш снапшот
+      // Собираем наш снапшот + сохраняем profiles из remote
+      final myData = storage.snapshot();
+      myData['profiles'] = remoteData['profiles'] ?? {};
+
+      // Обновляем моё имя в profiles
+      if (storage.myKey != null) {
+        final profiles = Map<String, dynamic>.from(myData['profiles'] as Map);
+        final myProfile = Map<String, dynamic>.from(profiles[storage.myKey] as Map? ?? {});
+        myProfile['name'] = storage.myName;
+        profiles[storage.myKey!] = myProfile;
+        myData['profiles'] = profiles;
+      }
+
       final newVersion = remoteVersion + 1;
       await _supabase
           .from('couples')
           .update({
-            'data': storage.snapshot(),
+            'data': myData,
             'version': newVersion,
             'updated_at': DateTime.now().toUtc().toIso8601String(),
             'updated_by': storage.currentUserId,
@@ -310,15 +468,30 @@ class SyncService {
 
   // ============ УТИЛИТЫ ============
 
-  String _generateCode() {
+  String _generateGroupCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final rand = DateTime.now().microsecondsSinceEpoch;
+    final rand = Random.secure();
     final buffer = StringBuffer();
     for (int i = 0; i < 9; i++) {
       if (i == 3 || i == 6) buffer.write('-');
-      buffer.write(chars[(rand + i * 7) % chars.length]);
+      buffer.write(chars[rand.nextInt(chars.length)]);
     }
     return buffer.toString();
+  }
+
+  /// Генерирует личный ключ: M-XXXX-XXXX
+  String _generateKey() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final rand = Random.secure();
+    final buffer = StringBuffer();
+    // Первая буква — M (муж) или W (жена), но так как мы не знаем роль,
+    // используем просто случайную букву из A-Z
+    buffer.write(chars[rand.nextInt(26)]); // только буквы
+    for (int i = 0; i < 8; i++) {
+      if (i == 4) buffer.write('-');
+      buffer.write(chars[rand.nextInt(chars.length)]);
+    }
+    return buffer.toString(); // формат: X-XXXX-XXXX (10 символов)
   }
 
   void _setStatus(String s) {
@@ -326,6 +499,3 @@ class SyncService {
     onStatusChanged?.call();
   }
 }
-
-/// Простой колбэк без параметров
-typedef VoidCallback = void Function();
