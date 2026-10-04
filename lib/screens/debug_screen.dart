@@ -15,12 +15,9 @@ class _DebugScreenState extends State<DebugScreen> {
   final _logger = DebugLogService();
 
   void _copyAll() {
-    final text = _logger.asText();
-    Clipboard.setData(ClipboardData(text: text));
+    Clipboard.setData(ClipboardData(text: _logger.asText()));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Скопировано ${_logger.all.length} записей в буфер'),
-      ),
+      SnackBar(content: Text('Скопировано ${_logger.all.length} записей')),
     );
   }
 
@@ -29,14 +26,10 @@ class _DebugScreenState extends State<DebugScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Очистить лог?'),
-        content: const Text('Все записи будут удалены.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () {
               _logger.clear();
               Navigator.pop(ctx);
@@ -49,62 +42,45 @@ class _DebugScreenState extends State<DebugScreen> {
     );
   }
 
-  Color _levelColor(String level) {
+  Color _levelColor(String level, ColorScheme cs) {
     switch (level) {
-      case 'ERROR':
-        return Colors.red;
-      case 'WARN':
-        return Colors.orange;
-      default:
-        return Colors.grey.shade700;
+      case 'ERROR': return cs.error;
+      case 'WARN': return cs.secondary;
+      default: return cs.onSurfaceVariant;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final logs = _logger.all.reversed.toList();
-
     return Scaffold(
+      backgroundColor: cs.background,
       appBar: AppBar(
         title: const Text('Отладка'),
-        backgroundColor: const Color(0xFFFF8FAB),
-        foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            tooltip: 'Очистить',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: _clear,
-          ),
+          IconButton(onPressed: _clear, icon: const Icon(Icons.delete_outline)),
         ],
       ),
       body: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            color: const Color(0xFFFFE5EC),
+            color: cs.primaryContainer,
             child: Row(
               children: [
-                Expanded(
-                  child: Text(
-                    'Записей: ${logs.length}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
+                Expanded(child: Text('Записей: ${logs.length}', style: TextStyle(fontWeight: FontWeight.bold, color: cs.onPrimaryContainer))),
                 ElevatedButton.icon(
                   onPressed: _copyAll,
                   icon: const Icon(Icons.copy, size: 18),
-                  label: const Text('Скопировать всё'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF8FAB),
-                    foregroundColor: Colors.white,
-                  ),
+                  label: const Text('Скопировать'),
                 ),
               ],
             ),
           ),
           Expanded(
             child: logs.isEmpty
-                ? const Center(child: Text('Пока пусто'))
+                ? Center(child: Text('Пока пусто', style: TextStyle(color: cs.onSurfaceVariant)))
                 : ListView.builder(
                     padding: const EdgeInsets.all(8),
                     itemCount: logs.length,
@@ -115,38 +91,18 @@ class _DebugScreenState extends State<DebugScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SizedBox(
-                              width: 70,
-                              child: Text(
-                                e.time.toIso8601String().substring(11, 19),
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 50,
-                              child: Text(
-                                e.level,
-                                style: TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: _levelColor(e.level),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                '[${e.tag}] ${e.message}',
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
+                            SizedBox(width: 70, child: Text(
+                              e.time.toIso8601String().substring(11, 19),
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: cs.onSurfaceVariant),
+                            )),
+                            SizedBox(width: 50, child: Text(
+                              e.level,
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold, color: _levelColor(e.level, cs)),
+                            )),
+                            Expanded(child: Text(
+                              '[${e.tag}] ${e.message}',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: cs.onSurface),
+                            )),
                           ],
                         ),
                       );
@@ -155,13 +111,9 @@ class _DebugScreenState extends State<DebugScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          setState(() {});
-        },
-        backgroundColor: const Color(0xFFFF8FAB),
-        icon: const Icon(Icons.refresh, color: Colors.white),
-        label: const Text('Обновить', style: TextStyle(color: Colors.white)),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => setState(() {}),
+        child: const Icon(Icons.refresh),
       ),
     );
   }
