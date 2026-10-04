@@ -4,14 +4,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
+import 'services/debug_log_service.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/shifts_screen.dart';
 import 'screens/budget_screen.dart';
+import 'screens/debug_screen.dart';
 
-// Разрешаем любые сертификаты для нашего Supabase
 class _SupabaseHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
@@ -26,22 +27,36 @@ class _SupabaseHttpOverrides extends HttpOverrides {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  HttpOverrides.global = _SupabaseHttpOverrides();
+  final logger = DebugLogService();
+  FlutterError.onError = (details) {
+    logger.error('Flutter', details.exceptionAsString(), details.exception, details.stack);
+  };
 
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    anonKey: SupabaseConfig.anonKey,
-  );
+  logger.info('App', '=== ВМЕСТЕ запускается ===');
+  logger.info('App', 'Flutter ${Platform.version}');
+
+  HttpOverrides.global = _SupabaseHttpOverrides();
+  logger.info('App', 'HttpOverrides установлен');
+
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+    logger.info('App', 'Supabase инициализирован');
+  } catch (e, st) {
+    logger.error('App', 'Supabase init FAILED', e, st);
+  }
 
   final storage = StorageService();
   await storage.init();
+  logger.info('App', 'Storage инициализирован');
 
   final sync = SyncService(storage: storage);
 
   runApp(VmesteApp(storage: storage, sync: sync));
 }
 
-// ============ ЦВЕТА ============
 class AppColors {
   static const Color accent = Color(0xFFFF8FAB);
   static const Color accentLight = Color(0xFFFFE5EC);
@@ -55,7 +70,6 @@ class AppColors {
   static const Color textSecondary = Color(0xFF8E8E93);
 }
 
-// ============ ГЛАВНОЕ ПРИЛОЖЕНИЕ ============
 class VmesteApp extends StatelessWidget {
   final StorageService storage;
   final SyncService sync;
@@ -89,7 +103,6 @@ class VmesteApp extends StatelessWidget {
   }
 }
 
-// ============ ЭКРАН ЗАГРУЗКИ ============
 class SplashScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
@@ -112,10 +125,14 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _check() async {
+    final log = DebugLogService();
+    log.info('Splash', 'проверка конфигурации');
     await Future.delayed(const Duration(milliseconds: 300));
 
     if (widget.storage.isConfigured) {
+      log.info('Splash', 'isConfigured=true, вызываем autoConnect');
       final ok = await widget.sync.autoConnect();
+      log.info('Splash', 'autoConnect вернул: $ok');
       if (!mounted) return;
 
       if (ok) {
@@ -129,6 +146,8 @@ class _SplashScreenState extends State<SplashScreen> {
         );
         return;
       }
+    } else {
+      log.info('Splash', 'isConfigured=false, идём в Setup');
     }
 
     if (!mounted) return;
@@ -165,7 +184,6 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// ============ ГЛАВНЫЙ ЭКРАН С НАВИГАЦИЕЙ ============
 class MainScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
@@ -196,7 +214,6 @@ class _MainScreenState extends State<MainScreen> {
       BudgetScreen(storage: widget.storage, sync: widget.sync),
     ];
 
-    // Слушаем изменения статуса синхронизации и данных
     widget.sync.onStatusChanged = () {
       if (mounted) setState(() {});
     };
@@ -214,9 +231,19 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _changeName(String newName) async {
     widget.storage.myName = newName;
-    // Обновляем имя в профиле на сервере
     widget.sync.schedulePush();
     if (mounted) setState(() {});
+  }
+
+  Future<void> _reconnect() async {
+    DebugLogService().info('UI', 'ручное переподключение');
+    final ok = await widget.sync.autoConnect();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? 'Подключено' : 'Не удалось подключиться')),
+      );
+    }
   }
 
   Future<void> _disconnect() async {
@@ -229,6 +256,12 @@ class _MainScreenState extends State<MainScreen> {
           sync: widget.sync,
         ),
       ),
+    );
+  }
+
+  void _openDebug() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const DebugScreen()),
     );
   }
 
@@ -253,6 +286,8 @@ class _MainScreenState extends State<MainScreen> {
           syncStatus: widget.sync.status,
           onNameChanged: _changeName,
           onDisconnect: _disconnect,
+          onReconnect: _reconnect,
+          onOpenDebug: _openDebug,
         );
     }
   }
