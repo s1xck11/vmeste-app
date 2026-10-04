@@ -320,4 +320,37 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex =
+        onDestinationSelected: (i) => setState(() => _currentIndex = i),
+        backgroundColor: Colors.white,
+        indicatorColor: AppColors.accentLight,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.shopping_cart_outlined),
+            selectedIcon: Icon(Icons.shopping_cart, color: AppColors.accent),
+            label: 'Покупки',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.check_circle_outline),
+            selectedIcon: Icon(Icons.check_circle, color: AppColors.accent),
+            label: 'Задачи',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_today_outlined),
+            selectedIcon: Icon(Icons.calendar_today, color: AppColors.accent),
+            label: 'Смены',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.attach_money),
+            selectedIcon: Icon(Icons.attach_money, color: AppColors.accent),
+            label: 'Бюджет',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings, color: AppColors.accent),
+            label: 'Ещё',
+          ),
+        ],
+      ),
+    );
+  }
+}
