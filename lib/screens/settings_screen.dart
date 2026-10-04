@@ -1,18 +1,28 @@
+// lib/screens/settings_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../main.dart' show AppColors;
-import '../services/sync_service.dart';
-import '../services/storage_service.dart';
 
-/// Экран настроек.
 class SettingsScreen extends StatefulWidget {
-  final StorageService storage;
-  final SyncService sync;
+  final String groupCode;
+  final String myKey;
+  final String myName;
+  final String partnerName;
+  final int dataVersion;
+  final String syncStatus; // 'connected', 'connecting', 'offline', 'error'
+  final Function(String) onNameChanged;
+  final VoidCallback onDisconnect;
 
   const SettingsScreen({
     super.key,
-    required this.storage,
-    required this.sync,
+    required this.groupCode,
+    required this.myKey,
+    required this.myName,
+    required this.partnerName,
+    required this.dataVersion,
+    required this.syncStatus,
+    required this.onNameChanged,
+    required this.onDisconnect,
   });
 
   @override
@@ -20,311 +30,374 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  void _refresh() {
-    if (mounted) setState(() {});
-  }
+  late TextEditingController _nameController;
 
   @override
   void initState() {
     super.initState();
-    widget.sync.onStatusChanged = _refresh;
+    _nameController = TextEditingController(text: widget.myName);
   }
 
-  String _statusText() {
-    switch (widget.sync.status) {
-      case 'online':
-        return '🟢 Подключено';
-      case 'syncing':
-        return '🟡 Синхронизация...';
-      case 'error':
-        return '🔴 Ошибка';
-      default:
-        return '⚪ Оффлайн';
-    }
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
-  void _copy(String text, String label) {
+  void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('✅ $label скопирован')),
+      SnackBar(content: Text('$label скопирован')),
     );
   }
 
-  Future<void> _editName() async {
-    final controller = TextEditingController(text: widget.storage.myName);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Моё имя'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            hintText: 'Например, Серёжа',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      widget.storage.myName = result;
-      widget.sync.schedulePush();
-      _refresh();
+  Color _getSyncColor() {
+    switch (widget.syncStatus) {
+      case 'connected':
+        return const Color(0xFF34C759);
+      case 'connecting':
+        return const Color(0xFFFF9500);
+      case 'error':
+        return const Color(0xFFFF3B30);
+      default:
+        return Colors.grey;
     }
   }
 
-  Future<void> _disconnect() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Отключиться?'),
-        content: const Text(
-          '⚠️ Сохрани свой личный ключ ПЕРЕД отключением!\n\n'
-          'Без него ты не сможешь восстановить доступ с нового устройства.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Отключиться',
-              style: TextStyle(color: AppColors.danger),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await widget.sync.disconnect();
-      if (!mounted) return;
-      // Перезапуск — приложение покажет SetupScreen
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
+  String _getSyncText() {
+    switch (widget.syncStatus) {
+      case 'connected':
+        return 'Подключено';
+      case 'connecting':
+        return 'Подключение...';
+      case 'error':
+        return 'Ошибка';
+      default:
+        return 'Не подключено';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final code = widget.storage.coupleCode;
-    final key = widget.storage.myKey;
-    final name = widget.storage.myName;
-    final isConfigured = code != null && key != null;
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Настройки')),
+      appBar: AppBar(
+        title: const Text('Настройки'),
+        backgroundColor: const Color(0xFFFF8FAB),
+        foregroundColor: Colors.white,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // === СИНХРОНИЗАЦИЯ ===
-          _sectionTitle('Синхронизация'),
-          _card(
-            children: [
-              _row(
-                label: 'Статус',
-                trailing: Text(
-                  _statusText(),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+          // ==========================================
+          // БЛОК С СЯО ЧЭНОМ (小程)
+          // ==========================================
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFE5EC), Color(0xFFFFF0F5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              if (isConfigured) ...[
-                _divider(),
-                _row(
-                  label: 'Код группы',
-                  subtitle: code,
-                  subtitleColor: AppColors.accent,
-                  subtitleMonospace: true,
-                  trailing: IconButton(
-                    icon: const Icon(Icons.copy),
-                    onPressed: () => _copy(code, 'Код'),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFFF8FAB).withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('🐉', style: TextStyle(fontSize: 28)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Сяо Чэн',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.pink[700],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '小程',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.pink[300],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '«маленький программист»',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.pink[400],
                   ),
                 ),
-                _divider(),
-                _row(
-                  label: 'Версия данных',
-                  trailing: Text(
-                    '${widget.storage.serverVersion}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                const SizedBox(height: 12),
+                const Divider(color: Color(0xFFFF8FAB), thickness: 0.5),
+                const SizedBox(height: 12),
+                Text(
+                  'Сделано с любовью для Серёжи и Насти\nпри участии Сяо Чэна ❤️',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.pink[800],
+                    height: 1.4,
                   ),
                 ),
               ],
-            ],
+            ),
           ),
           const SizedBox(height: 24),
 
-          // === МОЙ КЛЮЧ ===
-          if (key != null) ...[
-            _sectionTitle('🔑 Мой личный ключ'),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.accentLight,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.accent, width: 2),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Сохрани его! Он нужен для входа с нового телефона.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    key,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 3,
-                      fontFamily: 'monospace',
-                      color: AppColors.accent,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => _copy(key, 'Ключ'),
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('Скопировать ключ'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: const BorderSide(color: AppColors.accent),
-                    ),
-                  ),
-                ],
+          // ==========================================
+          // СЕКЦИЯ: СИНХРОНИЗАЦИЯ
+          // ==========================================
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              'СИНХРОНИЗАЦИЯ',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+                letterSpacing: 1.2,
               ),
             ),
-            const SizedBox(height: 24),
-          ],
-
-          // === ИМЯ ===
-          _sectionTitle('Моё имя'),
-          _card(
-            children: [
-              ListTile(
-                title: const Text('Как тебя зовут?'),
-                subtitle: Text(
-                  name.isEmpty ? 'Нажми, чтобы ввести' : name,
-                  style: TextStyle(
-                    color: name.isEmpty ? AppColors.textSecondary : null,
-                    fontWeight: name.isEmpty ? null : FontWeight.w600,
+          ),
+          Card(
+            elevation: 0,
+            color: const Color(0xFFF8F9FA),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('Статус'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: _getSyncColor(),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _getSyncText(),
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
                   ),
                 ),
-                trailing: const Icon(Icons.edit, color: AppColors.textSecondary),
-                onTap: _editName,
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: const Text('Код группы'),
+                  subtitle: Text(
+                    widget.groupCode,
+                    style: const TextStyle(
+                      color: Color(0xFFFF8FAB),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.copy, color: Colors.grey),
+                    onPressed: () => _copyToClipboard(widget.groupCode, 'Код группы'),
+                  ),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: const Text('Версия данных'),
+                  trailing: Text(
+                    '${widget.dataVersion}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ==========================================
+          // СЕКЦИЯ: МОЙ ЛИЧНЫЙ КЛЮЧ
+          // ==========================================
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              '🔑 МОЙ ЛИЧНЫЙ КЛЮЧ',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+                letterSpacing: 1.2,
               ),
-              if (widget.storage.partnerName.isNotEmpty) ...[
-                _divider(),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE5EC),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFFF8FAB)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Сохрани его! Он нужен для входа с нового телефона.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.pink[400], fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  widget.myKey,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.pink[600],
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => _copyToClipboard(widget.myKey, 'Ключ'),
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: const Text('Скопировать ключ'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFF8FAB),
+                    side: const BorderSide(color: Color(0xFFFF8FAB)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ==========================================
+          // СЕКЦИЯ: ИМЕНА
+          // ==========================================
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(
+              'МОЁ ИМЯ',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          Card(
+            elevation: 0,
+            color: const Color(0xFFF8F9FA),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('Как тебя зовут?'),
+                  subtitle: Text(
+                    widget.myName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  trailing: const Icon(Icons.edit, color: Colors.grey, size: 20),
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Изменить имя'),
+                        content: TextField(
+                          controller: _nameController,
+                          autofocus: true,
+                          decoration: const InputDecoration(hintText: 'Введи имя'),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Отмена'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              if (_nameController.text.trim().isNotEmpty) {
+                                widget.onNameChanged(_nameController.text.trim());
+                                Navigator.pop(ctx);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF8FAB),
+                            ),
+                            child: const Text('Сохранить'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   title: const Text('Имя партнёра'),
                   subtitle: Text(
-                    widget.storage.partnerName,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    widget.partnerName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
               ],
-            ],
+            ),
           ),
           const SizedBox(height: 24),
 
-          // === УПРАВЛЕНИЕ ===
-          if (isConfigured) ...[
-            _sectionTitle('Управление'),
-            _card(
-              children: [
-                ListTile(
-                  title: const Text('Отключиться от группы'),
-                  trailing: const Icon(
-                    Icons.logout,
-                    color: AppColors.danger,
-                  ),
-                  onTap: _disconnect,
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ============ ХЕЛПЕРЫ ============
-
-  Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-      child: Text(
-        text.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textSecondary,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _card({required List<Widget> children}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardLight,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _divider() => const Divider(height: 1, indent: 16, endIndent: 16);
-
-  Widget _row({
-    required String label,
-    String? subtitle,
-    Color? subtitleColor,
-    bool subtitleMonospace = false,
-    Widget? trailing,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 15)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: subtitleColor ?? AppColors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: subtitleMonospace ? 'monospace' : null,
-                      letterSpacing: subtitleMonospace ? 2 : null,
+          // ==========================================
+          // КНОПКА ОТКЛЮЧЕНИЯ
+          // ==========================================
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Отключиться от группы?'),
+                    content: const Text(
+                      'Локальные данные останутся, но синхронизация прекратится. '
+                      'Чтобы вернуться, понадобится код группы и твой личный ключ.',
                     ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Отмена'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          widget.onDisconnect();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF3B30),
+                        ),
+                        child: const Text('Отключиться'),
+                      ),
+                    ],
                   ),
-                ],
-              ],
+                );
+              },
+              icon: const Icon(Icons.logout, size: 18),
+              label: const Text('Отключиться от группы'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFF3B30),
+                side: const BorderSide(color: Color(0xFFFF3B30)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
-          if (trailing != null) trailing,
+          const SizedBox(height: 32),
         ],
       ),
     );
