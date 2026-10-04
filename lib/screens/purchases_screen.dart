@@ -56,6 +56,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       _purchases = widget.storage.purchases;
       _lists = widget.storage.purchaseLists;
       _categories = widget.storage.purchaseCategories;
+      // Защита: если выбранного списка нет — берём первый
+      if (_lists.isNotEmpty && !_lists.any((l) => l.id == _selectedListId)) {
+        _selectedListId = _lists.first.id;
+      }
     });
   }
 
@@ -163,7 +167,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 
   List<Purchase> get _visiblePurchases {
     final list = _purchases.where((p) => p.listId == _selectedListId).toList();
-    // Активные сверху, потом «нет в наличии», потом купленные
     list.sort((a, b) {
       int rank(Purchase p) => p.done ? 2 : (p.missing ? 1 : 0);
       final ra = rank(a), rb = rank(b);
@@ -209,15 +212,14 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           ModernAppBar(
             title: 'Покупки',
             onAvatarTap: widget.onAvatarTap,
+            avatarEmoji: widget.storage.myAvatar,
+            onAdd: _openAddModal,
           ),
           Expanded(
             child: CustomScrollView(
               slivers: [
-                // Сегменты списков
                 SliverToBoxAdapter(child: _buildListSegments(cs)),
-                // Быстрое добавление
                 SliverToBoxAdapter(child: _buildQuickAdd(cs)),
-                // Список
                 if (_visiblePurchases.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,
@@ -237,20 +239,13 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       ),
                     );
                   }),
-                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddModal,
-        icon: const Icon(Icons.add),
-        label: const Text('Добавить'),
-      ),
-      bottomNavigationBar: total > 0
-          ? _TotalBar(total: total)
-          : null,
+      bottomNavigationBar: total > 0 ? _TotalBar(total: total) : null,
     );
   }
 
@@ -287,6 +282,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                         color: selected ? cs.onSurface : cs.onSurfaceVariant,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
