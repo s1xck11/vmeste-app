@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
+import '../models/partner.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -58,11 +59,51 @@ class _BudgetScreenState extends State<BudgetScreen> {
   List<Transaction> get _monthTransactions {
     final start = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final end = DateTime(_currentMonth.year, _currentMonth.month + 1, 0, 23, 59);
-    return _transactions.where((t) => t.date.isAfter(start.subtract(const Duration(seconds: 1))) && t.date.isBefore(end.add(const Duration(seconds: 1)))).toList();
+    return _transactions.where((t) =>
+        t.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
+        t.date.isBefore(end.add(const Duration(seconds: 1)))).toList();
   }
 
-  double get _expenses => _monthTransactions.where((t) => t.type == 'expense').fold(0, (s, t) => s + t.amount);
-  double get _incomes => _monthTransactions.where((t) => t.type == 'income').fold(0, (s, t) => s + t.amount);
+  /// Зарплата из смен за выбранный месяц.
+  double _monthSalaryFromShifts() {
+    final partners = widget.storage.partners;
+    final prefix = '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
+    double total = 0;
+
+    for (final s in widget.storage.shifts) {
+      if (!s.date.startsWith(prefix)) continue;
+
+      if (s.importedFrom == 'courier-helper' && s.income != null) {
+        total += s.income!.toDouble();
+        continue;
+      }
+
+      final p = partners.firstWhere(
+        (x) => x.id == s.partner,
+        orElse: () => Partner(id: s.partner, name: '', rate: 0, payType: 'hourly'),
+      );
+
+      if (p.payType == 'piecework') {
+        total += (s.pieceworkAmount ?? 0).toDouble();
+      } else if (p.payType == 'fixed') {
+        total += p.rate.toDouble();
+      } else {
+        total += s.hours * p.rate;
+      }
+    }
+    return total;
+  }
+
+  double get _manualIncomes => _monthTransactions
+      .where((t) => t.type == 'income')
+      .fold(0.0, (s, t) => s + t.amount);
+
+  double get _incomes => _manualIncomes + _monthSalaryFromShifts();
+
+  double get _expenses => _monthTransactions
+      .where((t) => t.type == 'expense')
+      .fold(0.0, (s, t) => s + t.amount);
+
   double get _balance => _incomes - _expenses;
 
   Map<String, double> _breakdown() {
@@ -264,9 +305,39 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
   Widget _buildOverview(ColorScheme cs) {
     final health = _health();
+    final salaryFromShifts = _monthSalaryFromShifts();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (salaryFromShifts > 0) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cs.primaryContainer,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: cs.primary),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.work_outline, color: cs.onPrimaryContainer, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Зарплата из смен за месяц',
+                          style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer.withOpacity(0.8))),
+                      Text('${salaryFromShifts.toStringAsFixed(0)} ₽',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onPrimaryContainer)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         Text('Финансовое здоровье',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
         const SizedBox(height: 8),
