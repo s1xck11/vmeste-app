@@ -63,6 +63,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
   void _save() {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
+    FocusScope.of(context).unfocus();
     final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.')) ?? 1;
     final price = double.tryParse(_priceCtrl.text.replaceAll(',', '.')) ?? 0;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -102,7 +103,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Ручка
               Center(
                 child: Container(
                   width: 40,
@@ -124,10 +124,8 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 16),
 
-              // Название
               TextField(
                 controller: _nameCtrl,
-                autofocus: widget.initialPurchase == null,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Название',
@@ -136,7 +134,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 12),
 
-              // Категория
               Text(
                 'Категория',
                 style: TextStyle(
@@ -178,7 +175,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 16),
 
-              // Кол-во + ед.
               Row(
                 children: [
                   Expanded(
@@ -209,7 +205,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 12),
 
-              // Цена
               TextField(
                 controller: _priceCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -220,12 +215,14 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
 
-              // Кнопки
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        FocusScope.of(context).unfocus();
+                        Navigator.pop(context);
+                      },
                       child: const Text('Отмена'),
                     ),
                   ),
