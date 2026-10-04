@@ -1,28 +1,249 @@
-// В _MainScreenState.initState:
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'supabase_config.dart';
+import 'services/storage_service.dart';
+import 'services/sync_service.dart';
+import 'services/debug_log_service.dart';
+import 'services/theme_service.dart';
+import 'theme/app_theme.dart';
+import 'theme/app_theme_config.dart';
+import 'screens/setup_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/purchases_screen.dart';
+import 'screens/tasks_screen.dart';
+import 'screens/shifts_screen.dart';
+import 'screens/budget_screen.dart';
+import 'screens/debug_screen.dart';
+import 'screens/data_management_screen.dart';
+import 'screens/theme_picker_screen.dart';
 
-_screens = [
-  PurchasesScreen(
-    storage: widget.storage,
-    sync: widget.sync,
-    themeService: widget.themeService,
-    onAvatarTap: _openSettings,
-  ),
-  TasksScreen(
-    storage: widget.storage,
-    sync: widget.sync,
-    themeService: widget.themeService,
-    onAvatarTap: _openSettings,
-  ),
-  ShiftsScreen(
-    storage: widget.storage,
-    sync: widget.sync,
-    themeService: widget.themeService,
-    onAvatarTap: _openSettings,
-  ),
-  BudgetScreen(
-    storage: widget.storage,
-    sync: widget.sync,
-    themeService: widget.themeService,
-    onAvatarTap: _openSettings,
-  ),
-];
+class AppColors {
+  static const Color accent = Color(0xFFFF8FAB);
+  static const Color accentLight = Color(0xFFFFE5EC);
+  static const Color danger = Color(0xFFFF3B30);
+  static const Color success = Color(0xFF34C759);
+  static const Color warning = Color(0xFFFF9500);
+  static const Color info = Color(0xFF5856D6);
+  static const Color bgLight = Color(0xFFFFFFFF);
+  static const Color cardLight = Color(0xFFF8F9FA);
+  static const Color textLight = Color(0xFF1A1A1A);
+  static const Color textSecondary = Color(0xFF8E8E93);
+}
+
+class _SupabaseHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+      return host.endsWith('.supabase.co') || host.endsWith('.supabase.in');
+    };
+    return client;
+  }
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final logger = DebugLogService();
+  FlutterError.onError = (details) {
+    logger.error('Flutter', details.exceptionAsString(), details.exception, details.stack);
+  };
+  HttpOverrides.global = _SupabaseHttpOverrides();
+  try {
+    await Supabase.initialize(url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
+  } catch (e, st) {
+    logger.error('App', 'Supabase init FAILED', e, st);
+  }
+  final storage = StorageService();
+  await storage.init();
+  final themeService = ThemeService();
+  await themeService.init();
+  final sync = SyncService(storage: storage);
+  runApp(VmesteApp(storage: storage, sync: sync, themeService: themeService));
+}
+
+class VmesteApp extends StatelessWidget {
+  final StorageService storage;
+  final SyncService sync;
+  final ThemeService themeService;
+  const VmesteApp({super.key, required this.storage, required this.sync, required this.themeService});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AppThemeConfig>(
+      valueListenable: themeService.notifier,
+      builder: (context, config, _) {
+        return MaterialApp(
+          title: 'Вместе',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.build(config),
+          home: SplashScreen(storage: storage, sync: sync, themeService: themeService),
+        );
+      },
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  final StorageService storage;
+  final SyncService sync;
+  final ThemeService themeService;
+  const SplashScreen({super.key, required this.storage, required this.sync, required this.themeService});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (widget.storage.isConfigured) {
+      final ok = await widget.sync.autoConnect();
+      if (!mounted) return;
+      if (ok) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (_) => MainScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+        ));
+        return;
+      }
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (_) => SetupScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.favorite, size: 80, color: cs.primary),
+            const SizedBox(height: 24),
+            Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
+            const SizedBox(height: 24),
+            CircularProgressIndicator(color: cs.primary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MainScreen extends StatefulWidget {
+  final StorageService storage;
+  final SyncService sync;
+  final ThemeService themeService;
+  const MainScreen({super.key, required this.storage, required this.sync, required this.themeService});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _currentIndex = 0;
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      PurchasesScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+      TasksScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+      ShiftsScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+      BudgetScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+    ];
+    widget.sync.onStatusChanged = () { if (mounted) setState(() {}); };
+  }
+
+  @override
+  void dispose() {
+    widget.sync.onStatusChanged = null;
+    super.dispose();
+  }
+
+  Future<void> _changeName(String newName) async {
+    widget.storage.myName = newName;
+    widget.sync.schedulePush();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _reconnect() async {
+    final ok = await widget.sync.autoConnect();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? 'Подключено' : 'Не удалось подключиться')),
+      );
+    }
+  }
+
+  Future<void> _disconnect() async {
+    await widget.sync.disconnect();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (_) => SetupScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+    ));
+  }
+
+  void _openSettings() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => SettingsScreen(
+        groupCode: widget.storage.coupleCode ?? '',
+        myKey: widget.storage.myKey ?? '',
+        myName: widget.storage.myName,
+        partnerName: widget.storage.partnerName,
+        dataVersion: widget.storage.serverVersion,
+        syncStatus: widget.sync.status,
+        onNameChanged: _changeName,
+        onDisconnect: _disconnect,
+        onReconnect: _reconnect,
+        onOpenDebug: _openDebug,
+        onOpenDataManagement: _openDataManagement,
+        onOpenThemePicker: _openThemePicker,
+      ),
+    ));
+  }
+
+  void _openDebug() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen()));
+  }
+
+  void _openDataManagement() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync),
+    ));
+  }
+
+  void _openThemePicker() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ThemePickerScreen(themeService: widget.themeService),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (i) => setState(() => _currentIndex = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Покупки'),
+          NavigationDestination(icon: Icon(Icons.check_circle_outline), selectedIcon: Icon(Icons.check_circle), label: 'Задачи'),
+          NavigationDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today), label: 'Смены'),
+          NavigationDestination(icon: Icon(Icons.pie_chart_outline), selectedIcon: Icon(Icons.pie_chart), label: 'Бюджет'),
+        ],
+      ),
+    );
+  }
+}
