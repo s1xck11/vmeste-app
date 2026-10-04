@@ -9,6 +9,7 @@ import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/shifts_screen.dart';
+import 'screens/budget_screen.dart';
 
 // Разрешаем любые сертификаты для нашего Supabase
 class _SupabaseHttpOverrides extends HttpOverrides {
@@ -200,10 +201,9 @@ class _MainScreenState extends State<MainScreen> {
         storage: widget.storage,
         sync: widget.sync,
       ),
-      const _PlaceholderScreen(
-        title: 'Бюджет',
-        icon: Icons.attach_money,
-        message: 'Здесь будут графики, фин-здоровье,\nинсайты и голосовой ввод',
+      BudgetScreen(
+        storage: widget.storage,
+        sync: widget.sync,
       ),
       SettingsScreen(
         storage: widget.storage,
@@ -251,59 +251,6 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Ещё',
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ============ ЗАГЛУШКА ДЛЯ БУДУЩИХ ЭКРАНОВ ============
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final String message;
-
-  const _PlaceholderScreen({
-    required this.title,
-    required this.icon,
-    required this.message,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 80, color: AppColors.accent),
-              const SizedBox(height: 24),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                '🚧 В разработке',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
