@@ -368,4 +368,118 @@ class _SetupScreenState extends State<SetupScreen> {
             child: Text(_loading ? 'Восстанавливаю...' : 'Войти'),
           ),
         ),
-        const
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: () => setState(() { _mode = 'main'; _error = null; }),
+          child: const Text('Назад', style: TextStyle(color: AppColors.textSecondary)),
+        ),
+      ],
+    );
+  }
+
+  // ============ СОЗДАННАЯ ГРУППА ============
+
+  Widget _showCreatedCard() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.accentLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.accent, width: 2),
+          ),
+          child: Column(
+            children: [
+              const Text(
+                '🎉 Готово!',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Код группы (отправь партнёру):',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _createdCode!,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                  color: AppColors.accent,
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => _copy(_createdCode!),
+                icon: const Icon(Icons.copy, size: 16),
+                label: const Text('Скопировать код'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.accent,
+                  side: const BorderSide(color: AppColors.accent),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      '🔑 Твой личный ключ:',
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _createdKey!,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        fontFamily: 'monospace',
+                        color: AppColors.info,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Сохрани его! Он нужен для входа с нового телефона.',
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _copy(_createdKey!),
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: const Text('Скопировать ключ'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.info,
+                        side: const BorderSide(color: AppColors.info),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _goToMain,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Text('Продолжить'),
+          ),
+        ),
+      ],
+    );
+  }
+}
