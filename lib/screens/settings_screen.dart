@@ -9,9 +9,11 @@ class SettingsScreen extends StatefulWidget {
   final String myName;
   final String partnerName;
   final int dataVersion;
-  final String syncStatus; // 'connected', 'connecting', 'offline', 'error'
+  final String syncStatus;
   final Function(String) onNameChanged;
   final VoidCallback onDisconnect;
+  final VoidCallback onReconnect;
+  final VoidCallback onOpenDebug;
 
   const SettingsScreen({
     super.key,
@@ -23,6 +25,8 @@ class SettingsScreen extends StatefulWidget {
     required this.syncStatus,
     required this.onNameChanged,
     required this.onDisconnect,
+    required this.onReconnect,
+    required this.onOpenDebug,
   });
 
   @override
@@ -53,9 +57,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Color _getSyncColor() {
     switch (widget.syncStatus) {
-      case 'connected':
+      case 'online':
         return const Color(0xFF34C759);
-      case 'connecting':
+      case 'syncing':
         return const Color(0xFFFF9500);
       case 'error':
         return const Color(0xFFFF3B30);
@@ -66,10 +70,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _getSyncText() {
     switch (widget.syncStatus) {
-      case 'connected':
+      case 'online':
         return 'Подключено';
-      case 'connecting':
-        return 'Подключение...';
+      case 'syncing':
+        return 'Синхронизация...';
       case 'error':
         return 'Ошибка';
       default:
@@ -88,9 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ==========================================
-          // БЛОК С СЯО ЧЭНОМ (小程)
-          // ==========================================
+          // ============ СЯО ЧЭН ============
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -120,10 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(width: 8),
                     Text(
                       '小程',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.pink[300],
-                      ),
+                      style: TextStyle(fontSize: 18, color: Colors.pink[300]),
                     ),
                   ],
                 ),
@@ -148,14 +147,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 1.4,
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: widget.onOpenDebug,
+                  icon: const Icon(Icons.bug_report, size: 18),
+                  label: const Text('Отладка'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.pink[600],
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 24),
 
-          // ==========================================
-          // СЕКЦИЯ: СИНХРОНИЗАЦИЯ
-          // ==========================================
+          // ============ СИНХРОНИЗАЦИЯ ============
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
@@ -220,14 +226,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
+                if (widget.syncStatus != 'online') ...[
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  ListTile(
+                    leading: const Icon(Icons.refresh, color: Color(0xFFFF8FAB)),
+                    title: const Text(
+                      'Подключиться заново',
+                      style: TextStyle(color: Color(0xFFFF8FAB), fontWeight: FontWeight.bold),
+                    ),
+                    onTap: widget.onReconnect,
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(height: 16),
 
-          // ==========================================
-          // СЕКЦИЯ: МОЙ ЛИЧНЫЙ КЛЮЧ
-          // ==========================================
+          // ============ МОЙ КЛЮЧ ============
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
@@ -280,9 +295,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ==========================================
-          // СЕКЦИЯ: ИМЕНА
-          // ==========================================
+          // ============ ИМЯ ============
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 8),
             child: Text(
@@ -353,9 +366,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // ==========================================
-          // КНОПКА ОТКЛЮЧЕНИЯ
-          // ==========================================
+          // ============ ОТКЛЮЧЕНИЕ ============
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
