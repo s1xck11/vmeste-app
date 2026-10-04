@@ -2,35 +2,29 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/storage_service.dart';
+import '../services/sync_service.dart';
+import '../services/theme_service.dart';
+import 'avatar_picker_screen.dart';
+import 'data_management_screen.dart';
+import 'debug_screen.dart';
+import 'courier_import_screen.dart';
+import 'theme_picker_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  final String groupCode;
-  final String myKey;
-  final String myName;
-  final String partnerName;
-  final int dataVersion;
-  final String syncStatus;
-  final Function(String) onNameChanged;
+  final StorageService storage;
+  final SyncService sync;
+  final ThemeService themeService;
   final VoidCallback onDisconnect;
   final VoidCallback onReconnect;
-  final VoidCallback onOpenDebug;
-  final VoidCallback onOpenDataManagement;
-  final VoidCallback onOpenThemePicker;
 
   const SettingsScreen({
     super.key,
-    required this.groupCode,
-    required this.myKey,
-    required this.myName,
-    required this.partnerName,
-    required this.dataVersion,
-    required this.syncStatus,
-    required this.onNameChanged,
+    required this.storage,
+    required this.sync,
+    required this.themeService,
     required this.onDisconnect,
     required this.onReconnect,
-    required this.onOpenDebug,
-    required this.onOpenDataManagement,
-    required this.onOpenThemePicker,
   });
 
   @override
@@ -43,7 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.myName);
+    _nameController = TextEditingController(text: widget.storage.myName);
   }
 
   @override
@@ -52,36 +46,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  void _copyToClipboard(String text, String label) {
+  void _copy(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$label скопирован')),
     );
   }
 
-  Color _getSyncColor() {
-    switch (widget.syncStatus) {
-      case 'online':
-        return const Color(0xFF34C759);
-      case 'syncing':
-        return const Color(0xFFFF9500);
-      case 'error':
-        return const Color(0xFFFF3B30);
-      default:
-        return Colors.grey;
+  Future<void> _pickAvatar() async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => AvatarPickerScreen(currentAvatar: widget.storage.myAvatar),
+      ),
+    );
+    if (result != null) {
+      widget.storage.myAvatar = result;
+      setState(() {});
     }
   }
 
-  String _getSyncText() {
-    switch (widget.syncStatus) {
-      case 'online':
-        return 'Подключено';
-      case 'syncing':
-        return 'Синхронизация...';
-      case 'error':
-        return 'Ошибка';
-      default:
-        return 'Не подключено';
+  Future<void> _editName() async {
+    final ctrl = TextEditingController(text: widget.storage.myName);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Твоё имя'),
+        content: TextField(controller: ctrl, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      widget.storage.myName = result;
+      widget.sync.schedulePush();
+      setState(() {});
+    }
+  }
+
+  Color _syncColor() {
+    switch (widget.sync.status) {
+      case 'online': return const Color(0xFF34C759);
+      case 'syncing': return const Color(0xFFFF9500);
+      case 'error': return const Color(0xFFFF3B30);
+      default: return Colors.grey;
+    }
+  }
+
+  String _syncText() {
+    switch (widget.sync.status) {
+      case 'online': return 'Подключено';
+      case 'syncing': return 'Синхронизация...';
+      case 'error': return 'Ошибка';
+      default: return 'Не подключено';
     }
   }
 
@@ -89,23 +110,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: cs.background,
       appBar: AppBar(title: const Text('Настройки')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
+          // ============ ПРОФИЛЬ ============
+          Center(
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: _pickAvatar,
+                  child: Container(
+                    width: 88, height: 88,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: cs.primary, width: 2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        widget.storage.myAvatar,
+                        style: const TextStyle(fontSize: 44),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.storage.myName.isEmpty ? 'Нажми, чтобы выбрать аватар' : widget.storage.myName,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurface),
+                ),
+                Text(
+                  'Нажми на аватар — смени эмодзи',
+                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // ============ СЯО ЧЭН ============
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  cs.primary.withOpacity(0.15),
-                  cs.primary.withOpacity(0.05),
-                ],
+                colors: [cs.primary.withOpacity(0.15), cs.primary.withOpacity(0.05)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(color: cs.primary.withOpacity(0.3)),
             ),
             child: Column(
@@ -113,230 +167,128 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('🐉', style: TextStyle(fontSize: 28)),
+                    const Text('🐉', style: TextStyle(fontSize: 22)),
                     const SizedBox(width: 8),
-                    Text(
-                      'Сяо Чэн',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: cs.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '小程',
-                      style: TextStyle(fontSize: 18, color: cs.primary.withOpacity(0.6)),
-                    ),
+                    Text('Сяо Чэн 小程',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.primary)),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '«маленький программист»',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                    color: cs.primary.withOpacity(0.8),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Divider(color: cs.primary.withOpacity(0.3), thickness: 0.5),
-                const SizedBox(height: 12),
-                Text(
-                  'Сделано с любовью для Серёжи и Насти\nпри участии Сяо Чэна ❤️',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: cs.onSurface,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 4,
-                  children: [
-                    TextButton.icon(
-                      onPressed: widget.onOpenThemePicker,
-                      icon: const Icon(Icons.palette_outlined, size: 18),
-                      label: const Text('Тема'),
-                    ),
-                    TextButton.icon(
-                      onPressed: widget.onOpenDebug,
-                      icon: const Icon(Icons.bug_report_outlined, size: 18),
-                      label: const Text('Отладка'),
-                    ),
-                    TextButton.icon(
-                      onPressed: widget.onOpenDataManagement,
-                      icon: const Icon(Icons.folder_outlined, size: 18),
-                      label: const Text('Данные'),
-                    ),
-                  ],
-                ),
+                const SizedBox(height: 6),
+                Text('Сделано с любовью для Серёжи и Насти ❤️',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: cs.onSurface)),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // ============ СИНХРОНИЗАЦИЯ ============
-          _sectionHeader('СИНХРОНИЗАЦИЯ', cs),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  title: const Text('Статус'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: _getSyncColor(),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _getSyncText(),
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: cs.outline),
-                ListTile(
-                  title: const Text('Код группы'),
-                  subtitle: Text(
-                    widget.groupCode,
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  trailing: IconButton(
-                    icon: Icon(Icons.copy, color: cs.onSurfaceVariant),
-                    onPressed: () => _copyToClipboard(widget.groupCode, 'Код группы'),
-                  ),
-                ),
-                Divider(height: 1, color: cs.outline),
-                ListTile(
-                  title: const Text('Версия данных'),
-                  trailing: Text(
-                    '${widget.dataVersion}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-                if (widget.syncStatus != 'online') ...[
-                  Divider(height: 1, color: cs.outline),
-                  ListTile(
-                    leading: Icon(Icons.refresh, color: cs.primary),
-                    title: Text(
-                      'Подключиться заново',
-                      style: TextStyle(color: cs.primary, fontWeight: FontWeight.bold),
-                    ),
-                    onTap: widget.onReconnect,
-                  ),
-                ],
-              ],
-            ),
+          // ============ АККАУНТ ============
+          _sectionTitle('АККАУНТ', cs),
+          _tile(
+            icon: Icons.person_outline,
+            title: 'Моё имя',
+            subtitle: widget.storage.myName.isEmpty ? 'Не задано' : widget.storage.myName,
+            onTap: _editName,
+            cs: cs,
           ),
+          _tile(
+            icon: Icons.palette_outlined,
+            title: 'Оформление',
+            subtitle: 'Тема и палитра',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ThemePickerScreen(themeService: widget.themeService),
+            )),
+            cs: cs,
+          ),
+
           const SizedBox(height: 16),
+          _sectionTitle('СИНХРОНИЗАЦИЯ', cs),
+          _tile(
+            icon: Icons.circle,
+            iconColor: _syncColor(),
+            title: 'Статус',
+            subtitle: _syncText(),
+            cs: cs,
+          ),
+          _tile(
+            icon: Icons.copy,
+            title: 'Код группы',
+            subtitle: widget.storage.coupleCode ?? '—',
+            onTap: () => _copy(widget.storage.coupleCode ?? '', 'Код'),
+            cs: cs,
+          ),
+          _tile(
+            icon: Icons.numbers,
+            title: 'Версия данных',
+            subtitle: '${widget.storage.serverVersion}',
+            cs: cs,
+          ),
+          if (widget.sync.status != 'online')
+            _tile(
+              icon: Icons.refresh,
+              title: 'Подключиться заново',
+              onTap: widget.onReconnect,
+              cs: cs,
+            ),
 
-          // ============ МОЙ КЛЮЧ ============
-          _sectionHeader('🔑 МОЙ ЛИЧНЫЙ КЛЮЧ', cs),
+          const SizedBox(height: 16),
+          _sectionTitle('🔑 МОЙ КЛЮЧ', cs),
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: cs.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
+              color: cs.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: cs.primary),
             ),
             child: Column(
               children: [
-                Text(
-                  'Сохрани его! Он нужен для входа с нового телефона.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: cs.primary.withOpacity(0.8), fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  widget.myKey,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: cs.primary,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 16),
+                Text('Сохрани его! Он нужен для входа с нового телефона.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer.withOpacity(0.8))),
+                const SizedBox(height: 10),
+                Text(widget.storage.myKey ?? '',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2, color: cs.onPrimaryContainer)),
+                const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: () => _copyToClipboard(widget.myKey, 'Ключ'),
-                  icon: const Icon(Icons.copy, size: 18),
-                  label: const Text('Скопировать ключ'),
+                  onPressed: () => _copy(widget.storage.myKey ?? '', 'Ключ'),
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: const Text('Скопировать'),
                 ),
               ],
             ),
           ),
+
           const SizedBox(height: 16),
-
-          // ============ ИМЯ ============
-          _sectionHeader('МОЁ ИМЯ', cs),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  title: const Text('Как тебя зовут?'),
-                  subtitle: Text(
-                    widget.myName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  trailing: Icon(Icons.edit, color: cs.onSurfaceVariant, size: 20),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Изменить имя'),
-                        content: TextField(
-                          controller: _nameController,
-                          autofocus: true,
-                          decoration: const InputDecoration(hintText: 'Введи имя'),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Отмена'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () {
-                              if (_nameController.text.trim().isNotEmpty) {
-                                widget.onNameChanged(_nameController.text.trim());
-                                Navigator.pop(ctx);
-                              }
-                            },
-                            child: const Text('Сохранить'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                Divider(height: 1, color: cs.outline),
-                ListTile(
-                  title: const Text('Имя партнёра'),
-                  subtitle: Text(
-                    widget.partnerName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-              ],
-            ),
+          _sectionTitle('ИНСТРУМЕНТЫ', cs),
+          _tile(
+            icon: Icons.download,
+            title: 'Импорт из Курьера',
+            subtitle: 'Вставить JSON',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => CourierImportScreen(storage: widget.storage, sync: widget.sync),
+            )),
+            cs: cs,
           ),
-          const SizedBox(height: 24),
+          _tile(
+            icon: Icons.folder_outlined,
+            title: 'Данные',
+            subtitle: 'Экспорт / Импорт JSON',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync),
+            )),
+            cs: cs,
+          ),
+          _tile(
+            icon: Icons.bug_report_outlined,
+            title: 'Отладка',
+            subtitle: 'Логи приложения',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const DebugScreen(),
+            )),
+            cs: cs,
+          ),
 
-          // ============ ОТКЛЮЧЕНИЕ ============
+          const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -344,16 +296,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('Отключиться от группы?'),
-                    content: const Text(
-                      'Локальные данные останутся, но синхронизация прекратится. '
-                      'Чтобы вернуться, понадобится код группы и твой личный ключ.',
-                    ),
+                    title: const Text('Отключиться?'),
+                    content: const Text('Локальные данные останутся. Синхронизация прекратится.'),
                     actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Отмена'),
-                      ),
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
                       ElevatedButton(
                         onPressed: () {
                           Navigator.pop(ctx);
@@ -372,27 +318,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 foregroundColor: cs.error,
                 side: BorderSide(color: cs.error),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),
-          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _sectionHeader(String title, ColorScheme cs) {
+  Widget _sectionTitle(String text, ColorScheme cs) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: cs.onSurfaceVariant,
-          letterSpacing: 1.2,
-        ),
+      child: Text(text,
+          style: TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w700,
+            color: cs.onSurfaceVariant, letterSpacing: 0.8,
+          )),
+    );
+  }
+
+  Widget _tile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    VoidCallback? onTap,
+    Color? iconColor,
+    required ColorScheme cs,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(icon, color: iconColor ?? cs.primary, size: 22),
+        title: Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: cs.onSurface)),
+        subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant)) : null,
+        trailing: onTap != null ? Icon(Icons.chevron_right, color: cs.onSurfaceVariant, size: 20) : null,
+        onTap: onTap,
       ),
     );
   }
