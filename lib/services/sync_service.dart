@@ -267,6 +267,7 @@ class SyncService {
     storage.myKey = key;
     storage.myPartnerId = myProfile['role'] as String;
     storage.myName = (myProfile['name'] as String?) ?? '';
+    storage.serverVersion = (group['version'] as int?) ?? 0;
 
     _isRemoteUpdate = true;
     _applyData(data);
@@ -275,6 +276,8 @@ class SyncService {
     _setStatus('online');
     _isFirstLoad = false;
     _subscribe();
+    onDataChanged?.call();
+    onStatusChanged?.call();
   }
 
   // ============ АВТОПОДКЛЮЧЕНИЕ ============
@@ -357,6 +360,8 @@ class SyncService {
         _setStatus('online');
         _isFirstLoad = false;
         _subscribe();
+        onDataChanged?.call();
+        onStatusChanged?.call();
         _log.info('AutoConnect', '✅ успех, статус=online');
         return true;
       } catch (e, st) {
