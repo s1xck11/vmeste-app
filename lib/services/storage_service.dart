@@ -7,6 +7,8 @@ import '../models/task_category.dart';
 import '../models/shift.dart';
 import '../models/shift_type.dart';
 import '../models/partner.dart';
+import '../models/transaction.dart';
+import '../models/budget_category.dart';
 
 /// Сервис локального хранения данных.
 class StorageService {
@@ -211,6 +213,56 @@ class StorageService {
     );
   }
 
+  // ============ ТРАНЗАКЦИИ (БЮДЖЕТ) ============
+
+  List<Transaction> get transactions {
+    final raw = _box.get('transactions');
+    if (raw == null) return [];
+    try {
+      final list = (raw as List).cast<Map>();
+      return list.map((e) => Transaction.fromJson(Map<String, dynamic>.from(e))).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  set transactions(List<Transaction> items) {
+    _box.put('transactions', items.map((e) => e.toJson()).toList());
+  }
+
+  // ============ КАТЕГОРИИ БЮДЖЕТА ============
+
+  List<BudgetCategory> get budgetCategories {
+    final raw = _box.get('budgetCategories');
+    if (raw == null) return _defaultBudgetCategories();
+    try {
+      final list = (raw as List).cast<Map>();
+      final result = list.map((e) => BudgetCategory.fromJson(Map<String, dynamic>.from(e))).toList();
+      return result.isEmpty ? _defaultBudgetCategories() : result;
+    } catch (e) {
+      return _defaultBudgetCategories();
+    }
+  }
+
+  set budgetCategories(List<BudgetCategory> cats) {
+    _box.put('budgetCategories', cats.map((e) => e.toJson()).toList());
+  }
+
+  static List<BudgetCategory> _defaultBudgetCategories() {
+    return [
+      BudgetCategory(id: 'cat_food', name: 'Продукты', emoji: '🍎', type: 'expense', colorValue: 0xFFFF8FAB),
+      BudgetCategory(id: 'cat_transport', name: 'Транспорт', emoji: '🚗', type: 'expense', colorValue: 0xFF5856D6),
+      BudgetCategory(id: 'cat_home', name: 'Жильё', emoji: '🏠', type: 'expense', colorValue: 0xFF34C759),
+      BudgetCategory(id: 'cat_fun', name: 'Развлечения', emoji: '🎬', type: 'expense', colorValue: 0xFFFF9500),
+      BudgetCategory(id: 'cat_health', name: 'Здоровье', emoji: '💊', type: 'expense', colorValue: 0xFFFF3B30),
+      BudgetCategory(id: 'cat_clothes', name: 'Одежда', emoji: '👕', type: 'expense', colorValue: 0xFF00C7BE),
+      BudgetCategory(id: 'cat_other_expense', name: 'Другое', emoji: '📦', type: 'expense', colorValue: 0xFF9E9E9E),
+      BudgetCategory(id: 'cat_salary', name: 'Зарплата', emoji: '💰', type: 'income', colorValue: 0xFF34C759),
+      BudgetCategory(id: 'cat_gift', name: 'Подарки', emoji: '🎁', type: 'income', colorValue: 0xFFFF8FAB),
+      BudgetCategory(id: 'cat_other_income', name: 'Другое', emoji: '📦', type: 'income', colorValue: 0xFF9E9E9E),
+    ];
+  }
+
   // ============ SNAPSHOT ============
 
   Map<String, dynamic> snapshot() {
@@ -223,6 +275,8 @@ class StorageService {
       'shifts': _mapById(shifts.map((s) => s.toJson()).toList()),
       'shiftTypes': _mapById(shiftTypes.map((t) => t.toJson()).toList()),
       'partners': _mapById(partners.map((p) => p.toJson()).toList()),
+      'transactions': _mapById(transactions.map((t) => t.toJson()).toList()),
+      'budgetCategories': _mapById(budgetCategories.map((c) => c.toJson()).toList()),
     };
   }
 
@@ -235,6 +289,8 @@ class StorageService {
     _restoreList(data, 'shifts', (m) => shifts = m.map((e) => Shift.fromJson(e)).toList());
     _restoreList(data, 'shiftTypes', (m) => shiftTypes = m.map((e) => ShiftType.fromJson(e)).toList());
     _restoreList(data, 'partners', (m) => partners = m.map((e) => Partner.fromJson(e)).toList());
+    _restoreList(data, 'transactions', (m) => transactions = m.map((e) => Transaction.fromJson(e)).toList());
+    _restoreList(data, 'budgetCategories', (m) => budgetCategories = m.map((e) => BudgetCategory.fromJson(e)).toList());
   }
 
   void _restoreList(
