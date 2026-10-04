@@ -12,6 +12,7 @@ import 'screens/tasks_screen.dart';
 import 'screens/shifts_screen.dart';
 import 'screens/budget_screen.dart';
 import 'screens/debug_screen.dart';
+import 'screens/data_management_screen.dart';
 
 class _SupabaseHttpOverrides extends HttpOverrides {
   @override
@@ -265,6 +266,17 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  void _openDataManagement() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DataManagementScreen(
+          storage: widget.storage,
+          sync: widget.sync,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
       case 0:
@@ -288,6 +300,7 @@ class _MainScreenState extends State<MainScreen> {
           onDisconnect: _disconnect,
           onReconnect: _reconnect,
           onOpenDebug: _openDebug,
+          onOpenDataManagement: _openDataManagement,
         );
     }
   }
@@ -307,37 +320,4 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        backgroundColor: Colors.white,
-        indicatorColor: AppColors.accentLight,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart_outlined),
-            selectedIcon: Icon(Icons.shopping_cart, color: AppColors.accent),
-            label: 'Покупки',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            selectedIcon: Icon(Icons.check_circle, color: AppColors.accent),
-            label: 'Задачи',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today, color: AppColors.accent),
-            label: 'Смены',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.attach_money),
-            selectedIcon: Icon(Icons.attach_money, color: AppColors.accent),
-            label: 'Бюджет',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings, color: AppColors.accent),
-            label: 'Ещё',
-          ),
-        ],
-      ),
-    );
-  }
-}
+        onDestinationSelected: (i) => setState(() => _currentIndex =
