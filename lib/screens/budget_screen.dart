@@ -82,8 +82,6 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
     );
   }
 
-  // --- ВКЛАДКА 1: ОБЗОР ---
-
   Widget _buildOverviewTab() {
     final startOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final endOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
@@ -244,8 +242,6 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
     );
   }
 
-  // --- ВКЛАДКА 2: ТРАНЗАКЦИИ ---
-
   Widget _buildTransactionsTab() {
     final startOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final endOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
@@ -329,8 +325,6 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
     );
   }
 
-  // --- ВКЛАДКА 3: КАТЕГОРИИ ---
-
   Widget _buildCategoriesTab() {
     final expenseCats = _categories.where((c) => c.type == 'expense').toList();
     final incomeCats = _categories.where((c) => c.type == 'income').toList();
@@ -409,7 +403,7 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
                   type: type,
                   colorValue: category?.colorValue ?? _randomColor(),
                   createdAt: category?.createdAt ?? DateTime.now(),
-                  updatedAt: DateTime.now(),
+                  updatedAt: DateTime.now().millisecondsSinceEpoch,
                 );
                 final list = List<BudgetCategory>.from(_categories);
                 final idx = list.indexWhere((e) => e.id == newCat.id);
@@ -435,8 +429,6 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
     final colors = [0xFFFF8FAB, 0xFF5856D6, 0xFF34C759, 0xFFFF9500, 0xFFFF3B30, 0xFF00C7BE];
     return colors[DateTime.now().millisecond % colors.length];
   }
-
-  // --- СБОРКА ---
 
   @override
   Widget build(BuildContext context) {
