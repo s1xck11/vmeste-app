@@ -1,31 +1,35 @@
-import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:uuid/uuid.dart';
+// lib/screens/budget_screen.dart
 
+import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
-import '../services/budget_service.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
+import '../services/theme_service.dart';
+import '../widgets/modern_app_bar.dart';
 import '../widgets/add_transaction_modal.dart';
 
 class BudgetScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
+  final ThemeService themeService;
+  final VoidCallback onAvatarTap;
 
   const BudgetScreen({
     super.key,
     required this.storage,
     required this.sync,
+    required this.themeService,
+    required this.onAvatarTap,
   });
 
   @override
   State<BudgetScreen> createState() => _BudgetScreenState();
 }
 
-class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _BudgetScreenState extends State<BudgetScreen> {
   DateTime _currentMonth = DateTime.now();
+  String _tab = 'overview';
 
   List<Transaction> _transactions = [];
   List<BudgetCategory> _categories = [];
@@ -33,19 +37,17 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadData();
-    widget.sync.onDataChanged = _loadData;
+    _load();
+    widget.sync.onDataChanged = _load;
   }
 
   @override
   void dispose() {
     widget.sync.onDataChanged = null;
-    _tabController.dispose();
     super.dispose();
   }
 
-  void _loadData() {
+  void _load() {
     if (!mounted) return;
     setState(() {
       _transactions = widget.storage.transactions;
@@ -53,436 +55,428 @@ class _BudgetScreenState extends State<BudgetScreen> with SingleTickerProviderSt
     });
   }
 
-  void _changeMonth(int offset) {
+  List<Transaction> get _monthTransactions {
+    final start = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final end = DateTime(_currentMonth.year, _currentMonth.month + 1, 0, 23, 59);
+    return _transactions.where((t) => t.date.isAfter(start.subtract(const Duration(seconds: 1))) && t.date.isBefore(end.add(const Duration(seconds: 1)))).toList();
+  }
+
+  double get _expenses => _monthTransactions.where((t) => t.type == 'expense').fold(0, (s, t) => s + t.amount);
+  double get _incomes => _monthTransactions.where((t) => t.type == 'income').fold(0, (s, t) => s + t.amount);
+  double get _balance => _incomes - _expenses;
+
+  Map<String, double> _breakdown() {
+    final map = <String, double>{};
+    for (final t in _monthTransactions.where((t) => t.type == 'expense')) {
+      map[t.categoryId] = (map[t.categoryId] ?? 0) + t.amount;
+    }
+    return map;
+  }
+
+  Map<String, double> _health() {
+    double obligatory = 0, conscious = 0, impulsive = 0;
+    for (final t in _monthTransactions.where((t) => t.type == 'expense')) {
+      if (t.nature == 'obligatory') obligatory += t.amount;
+      else if (t.nature == 'impulsive') impulsive += t.amount;
+      else conscious += t.amount;
+    }
+    final total = obligatory + conscious + impulsive;
+    if (total == 0) return {'obligatory': 0, 'conscious': 0, 'impulsive': 0};
+    return {
+      'obligatory': obligatory / total * 100,
+      'conscious': conscious / total * 100,
+      'impulsive': impulsive / total * 100,
+    };
+  }
+
+  void _changeMonth(int delta) {
     setState(() {
-      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + offset, 1);
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
     });
   }
 
-  void _openAddTransactionModal() {
+  void _openAddModal() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => AddTransactionModal(
+      builder: (_) => AddTransactionModal(
         categories: _categories,
         onSave: (t) {
-          final list = List<Transaction>.from(_transactions);
-          final idx = list.indexWhere((e) => e.id == t.id);
-          if (idx >= 0) {
-            list[idx] = t;
-          } else {
-            list.add(t);
-          }
+          final list = List<Transaction>.from(_transactions)..add(t);
           widget.storage.transactions = list;
-          _loadData();
+          _load();
           widget.sync.schedulePush();
         },
       ),
     );
   }
 
-  Widget _buildOverviewTab() {
-    final startOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final endOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-
-    final expenses = BudgetService.getTotalAmount(
-      _transactions, type: 'expense', start: startOfMonth, end: endOfMonth,
+  void _openEditModal(Transaction t) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddTransactionModal(
+        categories: _categories,
+        initialTransaction: t,
+        onSave: (updated) {
+          final list = List<Transaction>.from(_transactions);
+          final i = list.indexWhere((e) => e.id == updated.id);
+          if (i >= 0) list[i] = updated;
+          widget.storage.transactions = list;
+          _load();
+          widget.sync.schedulePush();
+        },
+      ),
     );
-    final incomes = BudgetService.getTotalAmount(
-      _transactions, type: 'income', start: startOfMonth, end: endOfMonth,
-    );
+  }
 
-    final health = BudgetService.getFinancialHealth(
-      _transactions, start: startOfMonth, end: endOfMonth,
-    );
+  String _monthName(int m) {
+    const names = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    return names[m - 1];
+  }
 
-    final insight = BudgetService.getInsight(
-      _transactions, currentMonth: _currentMonth,
-    );
-
-    final breakdown = BudgetService.getCategoryBreakdown(
-      _transactions, _categories, type: 'expense', start: startOfMonth, end: endOfMonth,
-    );
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFF8FAB), Color(0xFF5856D6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.background,
+      body: Column(
+        children: [
+          ModernAppBar(
+            title: 'Бюджет',
+            onAvatarTap: widget.onAvatarTap,
+            avatarLabel: widget.storage.myName.isNotEmpty
+                ? widget.storage.myName[0].toUpperCase()
+                : '👤',
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: () => _changeMonth(-1),
+                  icon: Icon(Icons.chevron_left, color: cs.onSurface),
+                ),
+                Expanded(
+                  child: Text(
+                    '${_monthName(_currentMonth.month)} ${_currentMonth.year}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _changeMonth(1),
+                  icon: Icon(Icons.chevron_right, color: cs.onSurface),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+              children: [
+                _buildBalanceCard(cs),
+                const SizedBox(height: 16),
+                _buildTabs(cs),
+                const SizedBox(height: 16),
+                if (_tab == 'overview') _buildOverview(cs),
+                if (_tab == 'transactions') _buildTransactions(cs),
+                if (_tab == 'categories') _buildCategories(cs),
+              ],
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddModal,
+        icon: const Icon(Icons.add),
+        label: const Text('Добавить'),
+      ),
+    );
+  }
+
+  Widget _buildBalanceCard(ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primary, cs.secondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Баланс за месяц', style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85))),
+          const SizedBox(height: 6),
+          Text('${_balance.toStringAsFixed(0)} ₽',
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: cs.onPrimary)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Баланс за месяц', style: TextStyle(color: Colors.white70, fontSize: 14)),
-              const SizedBox(height: 4),
-              Text(
-                '${(incomes - expenses).toStringAsFixed(0)} ₽',
-                style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Доходы: ${incomes.toStringAsFixed(0)} ₽', style: const TextStyle(color: Colors.white70)),
-                  Text('Расходы: ${expenses.toStringAsFixed(0)} ₽', style: const TextStyle(color: Colors.white70)),
-                ],
-              ),
+              Text('Доходы: ${_incomes.toStringAsFixed(0)} ₽',
+                  style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
+              Text('Расходы: ${_expenses.toStringAsFixed(0)} ₽',
+                  style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
             ],
           ),
-        ),
-        const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
 
-        const Text('Финансовое здоровье', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+  Widget _buildTabs(ColorScheme cs) {
+    final tabs = [('overview', 'Обзор'), ('transactions', 'Транзакции'), ('categories', 'Категории')];
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: tabs.map((t) {
+          final sel = t.$1 == _tab;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _tab = t.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: sel ? cs.surface : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(t.$2,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                        color: sel ? cs.onSurface : cs.onSurfaceVariant,
+                      )),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildOverview(ColorScheme cs) {
+    final health = _health();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Финансовое здоровье',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+            color: cs.surfaceVariant,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: cs.outline),
           ),
           child: Column(
             children: [
-              _buildHealthBar('Обязательные', health['obligatory'] ?? 0, Colors.red),
-              const SizedBox(height: 8),
-              _buildHealthBar('Осознанные', health['conscious'] ?? 0, Colors.orange),
-              const SizedBox(height: 8),
-              _buildHealthBar('Импульсивные', health['impulsive'] ?? 0, Colors.green),
+              _healthBar('Обязательные', health['obligatory'] ?? 0, cs.error, cs),
+              const SizedBox(height: 10),
+              _healthBar('Осознанные', health['conscious'] ?? 0, cs.secondary, cs),
+              const SizedBox(height: 10),
+              _healthBar('Импульсивные', health['impulsive'] ?? 0, cs.tertiary, cs),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-
-        if (insight != null) ...[
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFE5EC),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.lightbulb, color: Color(0xFFFF8FAB)),
-                const SizedBox(width: 12),
-                Expanded(child: Text(insight, style: const TextStyle(fontSize: 14))),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        const Text('Расходы по категориям', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        Text('Расходы по категориям',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
         const SizedBox(height: 8),
-        if (breakdown.isEmpty)
-          const Center(child: Padding(
-            padding: EdgeInsets.all(32.0),
-            child: Text('Нет расходов за этот месяц', style: TextStyle(color: Colors.grey)),
-          ))
+        if (_breakdown().isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(32),
+            child: Center(
+              child: Text('Нет расходов за этот месяц',
+                  style: TextStyle(color: cs.onSurfaceVariant)),
+            ),
+          )
         else
-          Container(
-            height: 250,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-            ),
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 40,
-                sections: breakdown.entries.map((e) {
-                  final cat = _categories.firstWhere(
-                    (c) => c.name == e.key,
-                    orElse: () => BudgetCategory(id: 'other', name: e.key, type: 'expense', colorValue: 0xFF9E9E9E),
-                  );
-                  final total = breakdown.values.fold(0.0, (a, b) => a + b);
-                  return PieChartSectionData(
-                    color: cat.color,
-                    value: e.value,
-                    title: '${((e.value / total) * 100).toStringAsFixed(0)}%',
-                    radius: 60,
-                    titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                  );
-                }).toList(),
+          ...(_breakdown().entries.map((e) {
+            final cat = _categories.firstWhere(
+              (c) => c.id == e.key,
+              orElse: () => BudgetCategory(id: e.key, name: 'Другое', emoji: '📦', type: 'expense'),
+            );
+            final percent = _expenses > 0 ? e.value / _expenses * 100 : 0;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cs.surfaceVariant,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.outline),
               ),
-            ),
-          ),
-        const SizedBox(height: 16),
+              child: Row(
+                children: [
+                  Text(cat.emoji, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(cat.name,
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: percent / 100,
+                            minHeight: 4,
+                            backgroundColor: cs.surface,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text('${e.value.toStringAsFixed(0)} ₽',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                ],
+              ),
+            );
+          })),
       ],
     );
   }
 
-  Widget _buildHealthBar(String label, double percent, Color color) {
+  Widget _healthBar(String label, double percent, Color color, ColorScheme cs) {
     return Row(
       children: [
-        SizedBox(width: 100, child: Text(label, style: const TextStyle(fontSize: 13))),
+        SizedBox(width: 110, child: Text(label, style: TextStyle(fontSize: 13, color: cs.onSurface))),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: percent / 100,
-              backgroundColor: Colors.grey[200],
-              color: color,
               minHeight: 8,
+              backgroundColor: cs.surface,
+              color: color,
             ),
           ),
         ),
         const SizedBox(width: 8),
-        SizedBox(width: 40, child: Text('${percent.toStringAsFixed(0)}%', textAlign: TextAlign.right, style: const TextStyle(fontSize: 12))),
+        SizedBox(
+          width: 45,
+          child: Text('${percent.toStringAsFixed(0)}%',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+        ),
       ],
     );
   }
 
-  Widget _buildTransactionsTab() {
-    final startOfMonth = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final endOfMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
-
-    final monthTransactions = _transactions.where((t) {
-      return t.date.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
-             t.date.isBefore(endOfMonth.add(const Duration(seconds: 1)));
-    }).toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-
-    if (monthTransactions.isEmpty) {
-      return const Center(child: Text('Нет транзакций за этот месяц', style: TextStyle(color: Colors.grey)));
+  Widget _buildTransactions(ColorScheme cs) {
+    final list = _monthTransactions..sort((a, b) => b.date.compareTo(a.date));
+    if (list.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(32),
+        child: Center(child: Text('Нет транзакций за этот месяц', style: TextStyle(color: cs.onSurfaceVariant))),
+      );
     }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: monthTransactions.length,
-      itemBuilder: (ctx, i) {
-        final t = monthTransactions[i];
+    return Column(
+      children: list.map((t) {
         final cat = _categories.firstWhere(
           (c) => c.id == t.categoryId,
-          orElse: () => BudgetCategory(id: 'other', name: 'Другое', type: t.type),
+          orElse: () => BudgetCategory(id: t.categoryId, name: 'Другое', emoji: '📦', type: t.type),
         );
         final isExpense = t.type == 'expense';
-
-        return Dismissible(
-          key: Key(t.id),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 20),
-            color: Colors.red,
-            child: const Icon(Icons.delete, color: Colors.white),
-          ),
-          onDismissed: (_) {
-            final list = List<Transaction>.from(_transactions)..removeWhere((e) => e.id == t.id);
-            widget.storage.transactions = list;
-            _loadData();
-            widget.sync.schedulePush();
-          },
-          child: Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: cat.color.withOpacity(0.2),
-                child: Text(cat.emoji, style: const TextStyle(fontSize: 18)),
-              ),
-              title: Text(t.comment.isEmpty ? cat.name : t.comment),
-              subtitle: Text('${t.date.day}.${t.date.month}.${t.date.year} • ${cat.name}'),
-              trailing: Text(
-                '${isExpense ? '-' : '+'}${t.amount.toStringAsFixed(0)} ₽',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isExpense ? Colors.red : Colors.green,
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => _openEditModal(t),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: cs.outline),
+                ),
+                child: Row(
+                  children: [
+                    Text(cat.emoji, style: const TextStyle(fontSize: 22)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t.comment.isEmpty ? cat.name : t.comment,
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                          const SizedBox(height: 2),
+                          Text('${t.date.day}.${t.date.month}.${t.date.year} · ${cat.name}',
+                              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${isExpense ? '−' : '+'}${t.amount.toStringAsFixed(0)} ₽',
+                      style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w700,
+                        color: isExpense ? cs.error : cs.tertiary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (ctx) => AddTransactionModal(
-                    categories: _categories,
-                    initialTransaction: t,
-                    onSave: (updated) {
-                      final list = List<Transaction>.from(_transactions);
-                      final idx = list.indexWhere((e) => e.id == updated.id);
-                      if (idx >= 0) list[idx] = updated;
-                      widget.storage.transactions = list;
-                      _loadData();
-                      widget.sync.schedulePush();
-                    },
-                  ),
-                );
-              },
             ),
           ),
         );
-      },
+      }).toList(),
     );
   }
 
-  Widget _buildCategoriesTab() {
-    final expenseCats = _categories.where((c) => c.type == 'expense').toList();
-    final incomeCats = _categories.where((c) => c.type == 'income').toList();
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
+  Widget _buildCategories(ColorScheme cs) {
+    final expenses = _categories.where((c) => c.type == 'expense').toList();
+    final incomes = _categories.where((c) => c.type == 'income').toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Категории', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            IconButton(
-              icon: const Icon(Icons.add_circle, color: Color(0xFFFF8FAB)),
-              onPressed: () => _showAddCategoryDialog(),
-            ),
-          ],
-        ),
-        const Divider(),
-        const Text('Расходы', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)),
+        Text('Расходы',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
         const SizedBox(height: 8),
-        ...expenseCats.map((c) => ListTile(
-          leading: CircleAvatar(backgroundColor: c.color.withOpacity(0.2), child: Text(c.emoji)),
-          title: Text(c.name),
-          trailing: const Icon(Icons.edit, size: 18, color: Colors.grey),
-          onTap: () => _showAddCategoryDialog(category: c),
-        )),
+        ...expenses.map((c) => _categoryTile(c, cs)),
         const SizedBox(height: 16),
-        const Text('Доходы', style: TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)),
+        Text('Доходы',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
         const SizedBox(height: 8),
-        ...incomeCats.map((c) => ListTile(
-          leading: CircleAvatar(backgroundColor: c.color.withOpacity(0.2), child: Text(c.emoji)),
-          title: Text(c.name),
-          trailing: const Icon(Icons.edit, size: 18, color: Colors.grey),
-          onTap: () => _showAddCategoryDialog(category: c),
-        )),
+        ...incomes.map((c) => _categoryTile(c, cs)),
       ],
     );
   }
 
-  void _showAddCategoryDialog({BudgetCategory? category}) {
-    final nameCtrl = TextEditingController(text: category?.name ?? '');
-    final emojiCtrl = TextEditingController(text: category?.emoji ?? '📦');
-    String type = category?.type ?? 'expense';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(category == null ? 'Новая категория' : 'Редактировать'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Название')),
-              const SizedBox(height: 8),
-              TextField(controller: emojiCtrl, decoration: const InputDecoration(labelText: 'Эмодзи')),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: type,
-                items: const [
-                  DropdownMenuItem(value: 'expense', child: Text('Расход')),
-                  DropdownMenuItem(value: 'income', child: Text('Доход')),
-                ],
-                onChanged: (v) => setDialogState(() => type = v!),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
-            ElevatedButton(
-              onPressed: () {
-                if (nameCtrl.text.trim().isEmpty) return;
-                final newCat = BudgetCategory(
-                  id: category?.id ?? const Uuid().v4(),
-                  name: nameCtrl.text.trim(),
-                  emoji: emojiCtrl.text.trim(),
-                  type: type,
-                  colorValue: category?.colorValue ?? _randomColor(),
-                  createdAt: category?.createdAt ?? DateTime.now(),
-                  updatedAt: DateTime.now().millisecondsSinceEpoch,
-                );
-                final list = List<BudgetCategory>.from(_categories);
-                final idx = list.indexWhere((e) => e.id == newCat.id);
-                if (idx >= 0) {
-                  list[idx] = newCat;
-                } else {
-                  list.add(newCat);
-                }
-                widget.storage.budgetCategories = list;
-                _loadData();
-                widget.sync.schedulePush();
-                Navigator.pop(ctx);
-              },
-              child: const Text('Сохранить'),
-            ),
-          ],
-        ),
+  Widget _categoryTile(BudgetCategory c, ColorScheme cs) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline),
       ),
-    );
-  }
-
-  int _randomColor() {
-    final colors = [0xFFFF8FAB, 0xFF5856D6, 0xFF34C759, 0xFFFF9500, 0xFFFF3B30, 0xFF00C7BE];
-    return colors[DateTime.now().millisecond % colors.length];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Бюджет'),
-        backgroundColor: const Color(0xFFFF8FAB),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () => _changeMonth(-1),
-          ),
-          Center(
-            child: Text(
-              '${_getMonthName(_currentMonth.month)} ${_currentMonth.year}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () => _changeMonth(1),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(text: 'Обзор', icon: Icon(Icons.pie_chart, size: 18)),
-            Tab(text: 'Транзакции', icon: Icon(Icons.list, size: 18)),
-            Tab(text: 'Категории', icon: Icon(Icons.category, size: 18)),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+      child: Row(
         children: [
-          _buildOverviewTab(),
-          _buildTransactionsTab(),
-          _buildCategoriesTab(),
+          Text(c.emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Expanded(child: Text(c.name, style: TextStyle(fontSize: 14, color: cs.onSurface))),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAddTransactionModal,
-        backgroundColor: const Color(0xFFFF8FAB),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
     );
-  }
-
-  String _getMonthName(int month) {
-    const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-    return months[month - 1];
   }
 }
