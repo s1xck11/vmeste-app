@@ -6,16 +6,17 @@ import 'services/storage_service.dart';
 import 'services/sync_service.dart';
 import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
+import 'services/background_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/glass_container.dart';
+import 'widgets/app_background.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/shifts_screen.dart';
 import 'screens/budget_screen.dart';
-import 'screens/theme_picker_screen.dart';
 
 class AppColors {
   static const Color accent = Color(0xFFFF8FAB);
@@ -34,9 +35,7 @@ class _SupabaseHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
-    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      return host.endsWith('.supabase.co') || host.endsWith('.supabase.in');
-    };
+    client.badCertificateCallback = (cert, host, port) => host.endsWith('.supabase.co') || host.endsWith('.supabase.in');
     return client;
   }
 }
@@ -44,13 +43,11 @@ class _SupabaseHttpOverrides extends HttpOverrides {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final logger = DebugLogService();
-  FlutterError.onError = (details) => logger.error('Flutter', details.exceptionAsString(), details.exception, details.stack);
+  FlutterError.onError = (d) => logger.error('Flutter', d.exceptionAsString(), d.exception, d.stack);
   HttpOverrides.global = _SupabaseHttpOverrides();
   try {
     await Supabase.initialize(url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
-  } catch (e, st) {
-    logger.error('App', 'Supabase init FAILED', e, st);
-  }
+  } catch (e, st) { logger.error('App', 'Supabase init FAILED', e, st); }
   final storage = StorageService();
   await storage.init();
   final themeService = ThemeService();
@@ -93,10 +90,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
-  void initState() {
-    super.initState();
-    _check();
-  }
+  void initState() { super.initState(); _check(); }
 
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
@@ -120,18 +114,17 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.favorite, size: 80, color: cs.primary),
-            const SizedBox(height: 24),
-            Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
-            const SizedBox(height: 24),
-            CircularProgressIndicator(color: cs.primary),
-          ],
-        ),
-      ),
+      backgroundColor: cs.background,
+      body: Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.favorite, size: 80, color: cs.primary),
+          const SizedBox(height: 24),
+          Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
+          const SizedBox(height: 24),
+          CircularProgressIndicator(color: cs.primary),
+        ],
+      )),
     );
   }
 }
@@ -149,10 +142,12 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   late final List<Widget> _screens;
+  late BackgroundService _bgService;
 
   @override
   void initState() {
     super.initState();
+    _bgService = BackgroundService(widget.storage);
     _screens = [
       PurchasesScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
       TasksScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
@@ -203,7 +198,10 @@ class _MainScreenState extends State<MainScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: cs.background,
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: AppBackground(
+        service: _bgService,
+        child: IndexedStack(index: _currentIndex, children: _screens),
+      ),
       bottomNavigationBar: GlassContainer(
         child: SafeArea(
           top: false,
