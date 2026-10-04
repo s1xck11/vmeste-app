@@ -14,14 +14,20 @@ class AppBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bytes = service?.getImageBytes();
-    if (bytes == null || service == null) {
+
+    if (bytes == null || bytes.isEmpty || service == null) {
       return Container(color: cs.background, child: child);
     }
 
     return Stack(
       children: [
         Positioned.fill(
-          child: Image.memory(bytes, fit: BoxFit.cover),
+          child: Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, __, ___) => Container(color: cs.background),
+          ),
         ),
         if (service!.blur > 0)
           Positioned.fill(
@@ -31,7 +37,7 @@ class AppBackground extends StatelessWidget {
             ),
           ),
         Positioned.fill(
-          child: Container(color: cs.background.withOpacity(0.65)),
+          child: Container(color: cs.background.withOpacity(0.45)),
         ),
         child,
       ],
