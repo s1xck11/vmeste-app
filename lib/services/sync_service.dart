@@ -1,11 +1,17 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/purchase.dart';
+import '../models/task.dart';
+import '../models/shift.dart';
 import 'storage_service.dart';
 
 typedef VoidCallback = void Function();
 
 /// Сервис синхронизации с Supabase.
+/// 
+/// Реализует merge-based синхронизацию: каждое изменение — отдельная
+/// запись с updatedAt, при слиянии берётся самая свежая версия.
 class SyncService {
   final StorageService storage;
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -88,13 +94,11 @@ class SyncService {
     _isFirstLoad = false;
     _subscribe();
 
-    return {
-      'code': code,
-      'myKey': myKey,
-    };
+    return {'code': code, 'myKey': myKey};
   }
 
-  /// Присоединиться к существующей группе как партнёр
+  // ============ ПРИСОЕДИНЕНИЕ ============
+
   Future<String> joinGroup(String code) async {
     code = code.trim().toUpperCase();
     final uid = await signInAnonymously();
@@ -110,7 +114,6 @@ class SyncService {
     final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
     final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
 
-    // Ищем свободный слот (uids пустой)
     String? foundRole;
     String? foundKey;
     for (final entry in profiles.entries) {
@@ -123,7 +126,6 @@ class SyncService {
       }
     }
 
-    // Если нет свободного слота — создаём partner2
     String myRole;
     String myKey;
 
@@ -150,7 +152,6 @@ class SyncService {
       };
     }
 
-    // Добавляем себя в профиль
     final myProfile = Map<String, dynamic>.from(profiles[myKey] as Map);
     final uids = List<String>.from(myProfile['uids'] as List? ?? []);
     if (!uids.contains(uid)) uids.add(uid);
@@ -182,7 +183,8 @@ class SyncService {
     return myKey;
   }
 
-  /// Войти под существующим личным ключом (для смены устройства)
+  // ============ ВОССТАНОВЛЕНИЕ ПО КЛЮЧУ ============
+
   Future<void> restoreByKey(String key) async {
     final code = storage.coupleCode;
     if (code == null || code.isEmpty) {
@@ -236,7 +238,8 @@ class SyncService {
     _subscribe();
   }
 
-  /// Автоподключение при запуске
+  // ============ АВТОПОДКЛЮЧЕНИЕ ============
+
   Future<bool> autoConnect() async {
     final code = storage.coupleCode;
     final key = storage.myKey;
@@ -354,8 +357,50 @@ class SyncService {
   }
 
   void _applyData(Map<String, dynamic> data) {
-    storage.restoreFromSnapshot(data);
+    // Мержим локальные и удалённые данные по ID
+    _mergeList<Purchase>(
+      data, 'purchases',
+      localItems: storage.purchases,
+      fromJson: (j) => Purchase.fromJson(j),
+      toJson: (item) => item.toJson(),
+      getUpdatedAt: (item) => item.updatedAt,
+      onMerged: (items) => storage.purchases = items,
+    );
+    _mergeList<Task>(
+      data, 'tasks',
+      localItems: storage.tasks,
+      fromJson: (j) => Task.fromJson(j),
+      toJson: (item) => item.toJson(),
+      getUpdatedAt: (item) => item.updatedAt,
+      onMerged: (items) => storage.tasks = items,
+    );
+    _mergeList<Shift>(
+      data, 'shifts',
+      localItems: storage.shifts,
+      fromJson: (j) => Shift.fromJson(j),
+      toJson: (item) => item.toJson(),
+      getUpdatedAt: (item) => item.updatedAt,
+      onMerged: (items) => storage.shifts = items,
+    );
 
+    // Простые списки — без merge (просто заменяем)
+    _replaceList(data, 'purchaseLists', (list) {
+      storage.purchaseLists = list.map((e) => e).toList();
+    });
+    _replaceList(data, 'purchaseCategories', (list) {
+      storage.purchaseCategories = list.map((e) => e).toList();
+    });
+    _replaceList(data, 'taskCategories', (list) {
+      storage.taskCategories = list.map((e) => e).toList();
+    });
+    _replaceList(data, 'shiftTypes', (list) {
+      storage.shiftTypes = list.map((e) => e).toList();
+    });
+    _replaceList(data, 'partners', (list) {
+      storage.partners = list.map((e) => e).toList();
+    });
+
+    // Обновляем profiles
     final profiles = data['profiles'] as Map?;
     if (profiles != null && storage.myKey != null) {
       final myProfile = profiles[storage.myKey!] as Map?;
@@ -373,6 +418,90 @@ class SyncService {
           }
         }
       }
+    }
+  }
+
+  /// Слияние list-данных по ID с выбором более свежей версии.
+  /// Удалённые (deletedAt != null) — удаляются.
+  void _mergeList<T>(
+    Map<String, dynamic> data,
+    String key, {
+    required List<T> localItems,
+    required T Function(Map<String, dynamic>) fromJson,
+    required Map<String, dynamic> Function(T) toJson,
+    required int Function(T) getUpdatedAt,
+    required void Function(List<T>) onMerged,
+  }) {
+    final raw = data[key];
+    if (raw == null) return;
+
+    try {
+      final remoteMap = raw as Map;
+      
+      // Индекс локальных по ID
+      final localById = <String, T>{};
+      for (final item in localItems) {
+        final json = toJson(item);
+        final id = json['id']?.toString();
+        if (id != null) localById[id] = item;
+      }
+
+      final merged = <String, T>{};
+
+      // Проходим по remote
+      for (final entry in remoteMap.entries) {
+        final id = entry.key.toString();
+        final remoteJson = Map<String, dynamic>.from(entry.value as Map);
+        final remoteItem = fromJson(remoteJson);
+
+        final remoteDeleted = remoteJson['deletedAt'] != null;
+        if (remoteDeleted) {
+          // Удалён на сервере — удаляем локально
+          continue;
+        }
+
+        final localItem = localById[id];
+        if (localItem == null) {
+          merged[id] = remoteItem;
+        } else {
+          // Берём более свежий
+          if (getUpdatedAt(remoteItem) > getUpdatedAt(localItem)) {
+            merged[id] = remoteItem;
+          } else {
+            merged[id] = localItem;
+          }
+        }
+      }
+
+      // Добавляем локальные, которых нет в remote
+      for (final entry in localById.entries) {
+        if (!merged.containsKey(entry.key)) {
+          // Проверяем, не удалено ли на сервере
+          final remoteRaw = remoteMap[entry.key];
+          if (remoteRaw == null) {
+            merged[entry.key] = entry.value;
+          }
+        }
+      }
+
+      onMerged(merged.values.toList());
+    } catch (e) {
+      print('merge error for $key: $e');
+    }
+  }
+
+  void _replaceList<T>(
+    Map<String, dynamic> data,
+    String key,
+    void Function(List<T>) callback,
+  ) {
+    final raw = data[key];
+    if (raw == null) return;
+    try {
+      final map = raw as Map;
+      callback(map.values.cast<T>().toList());
+    } catch (e) {
+      // ignore
     }
   }
 
@@ -416,7 +545,6 @@ class SyncService {
       final myData = storage.snapshot();
       myData['profiles'] = remoteData['profiles'] ?? {};
 
-      // Обновляем своё имя в profiles
       if (storage.myKey != null) {
         final profiles = Map<String, dynamic>.from(myData['profiles'] as Map);
         final myProfile = Map<String, dynamic>.from(
@@ -471,12 +599,11 @@ class SyncService {
     return buffer.toString();
   }
 
-  /// Генерирует личный ключ: X-XXXX-XXXX (10 символов)
   String _generateKey() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final rand = Random.secure();
     final buffer = StringBuffer();
-    buffer.write(chars.substring(0, 26)[rand.nextInt(26)]); // только буквы
+    buffer.write(chars.substring(0, 26)[rand.nextInt(26)]);
     for (int i = 0; i < 8; i++) {
       if (i == 4) buffer.write('-');
       buffer.write(chars[rand.nextInt(chars.length)]);
