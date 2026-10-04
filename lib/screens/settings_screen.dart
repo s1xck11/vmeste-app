@@ -14,6 +14,7 @@ class SettingsScreen extends StatefulWidget {
   final VoidCallback onDisconnect;
   final VoidCallback onReconnect;
   final VoidCallback onOpenDebug;
+  final VoidCallback onOpenDataManagement;
 
   const SettingsScreen({
     super.key,
@@ -27,6 +28,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onDisconnect,
     required this.onReconnect,
     required this.onOpenDebug,
+    required this.onOpenDataManagement,
   });
 
   @override
@@ -147,14 +149,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: widget.onOpenDebug,
-                  icon: const Icon(Icons.bug_report, size: 18),
-                  label: const Text('Отладка'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.pink[600],
-                  ),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: widget.onOpenDebug,
+                      icon: const Icon(Icons.bug_report, size: 18),
+                      label: const Text('Отладка'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.pink[600],
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: widget.onOpenDataManagement,
+                      icon: const Icon(Icons.folder, size: 18),
+                      label: const Text('Данные'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.pink[600],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
