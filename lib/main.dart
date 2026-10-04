@@ -8,14 +8,13 @@ import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
+import 'widgets/glass_container.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/shifts_screen.dart';
 import 'screens/budget_screen.dart';
-import 'screens/debug_screen.dart';
-import 'screens/data_management_screen.dart';
 import 'screens/theme_picker_screen.dart';
 
 class AppColors {
@@ -45,9 +44,7 @@ class _SupabaseHttpOverrides extends HttpOverrides {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final logger = DebugLogService();
-  FlutterError.onError = (details) {
-    logger.error('Flutter', details.exceptionAsString(), details.exception, details.stack);
-  };
+  FlutterError.onError = (details) => logger.error('Flutter', details.exceptionAsString(), details.exception, details.stack);
   HttpOverrides.global = _SupabaseHttpOverrides();
   try {
     await Supabase.initialize(url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
@@ -163,27 +160,21 @@ class _MainScreenState extends State<MainScreen> {
       BudgetScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
     ];
     widget.sync.onStatusChanged = () { if (mounted) setState(() {}); };
+    widget.sync.onDataChanged = () { if (mounted) setState(() {}); };
   }
 
   @override
   void dispose() {
     widget.sync.onStatusChanged = null;
+    widget.sync.onDataChanged = null;
     super.dispose();
-  }
-
-  Future<void> _changeName(String newName) async {
-    widget.storage.myName = newName;
-    widget.sync.schedulePush();
-    if (mounted) setState(() {});
   }
 
   Future<void> _reconnect() async {
     final ok = await widget.sync.autoConnect();
     if (mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? 'Подключено' : 'Не удалось подключиться')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'Подключено' : 'Не удалось')));
     }
   }
 
@@ -198,51 +189,37 @@ class _MainScreenState extends State<MainScreen> {
   void _openSettings() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => SettingsScreen(
-        groupCode: widget.storage.coupleCode ?? '',
-        myKey: widget.storage.myKey ?? '',
-        myName: widget.storage.myName,
-        partnerName: widget.storage.partnerName,
-        dataVersion: widget.storage.serverVersion,
-        syncStatus: widget.sync.status,
-        onNameChanged: _changeName,
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
         onDisconnect: _disconnect,
         onReconnect: _reconnect,
-        onOpenDebug: _openDebug,
-        onOpenDataManagement: _openDataManagement,
-        onOpenThemePicker: _openThemePicker,
       ),
-    ));
-  }
-
-  void _openDebug() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen()));
-  }
-
-  void _openDataManagement() {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync),
-    ));
-  }
-
-  void _openThemePicker() {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ThemePickerScreen(themeService: widget.themeService),
     ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: cs.background,
       body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Покупки'),
-          NavigationDestination(icon: Icon(Icons.check_circle_outline), selectedIcon: Icon(Icons.check_circle), label: 'Задачи'),
-          NavigationDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today), label: 'Смены'),
-          NavigationDestination(icon: Icon(Icons.pie_chart_outline), selectedIcon: Icon(Icons.pie_chart), label: 'Бюджет'),
-        ],
+      bottomNavigationBar: GlassContainer(
+        child: SafeArea(
+          top: false,
+          child: NavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedIndex: _currentIndex,
+            onDestinationSelected: (i) => setState(() => _currentIndex = i),
+            destinations: const [
+              NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Покупки'),
+              NavigationDestination(icon: Icon(Icons.check_circle_outline), selectedIcon: Icon(Icons.check_circle), label: 'Задачи'),
+              NavigationDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today), label: 'Смены'),
+              NavigationDestination(icon: Icon(Icons.pie_chart_outline), selectedIcon: Icon(Icons.pie_chart), label: 'Бюджет'),
+            ],
+          ),
+        ),
       ),
     );
   }
