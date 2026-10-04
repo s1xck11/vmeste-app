@@ -59,6 +59,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
   void _save() {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
+    FocusScope.of(context).unfocus();
     final now = DateTime.now().millisecondsSinceEpoch;
     final deadlineStr = _deadline == null
         ? ''
@@ -135,7 +136,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
 
               TextField(
                 controller: _nameCtrl,
-                autofocus: widget.initialTask == null,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(labelText: 'Название', hintText: 'Помыть посуду'),
               ),
@@ -235,7 +235,10 @@ class _AddTaskModalState extends State<AddTaskModal> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        FocusScope.of(context).unfocus();
+                        Navigator.pop(context);
+                      },
                       child: const Text('Отмена'),
                     ),
                   ),
