@@ -46,6 +46,7 @@ class AppColors {
   static const Color accentLight = Color(0xFFFFE5EC);
   static const Color danger = Color(0xFFFF3B30);
   static const Color success = Color(0xFF34C759);
+  static const Color warning = Color(0xFFFF9500);
   static const Color info = Color(0xFF5856D6);
   static const Color bgLight = Color(0xFFFFFFFF);
   static const Color cardLight = Color(0xFFF8F9FA);
