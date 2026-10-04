@@ -1,23 +1,24 @@
+// lib/widgets/add_purchase_modal.dart
+
 import 'package:flutter/material.dart';
 import '../models/purchase.dart';
+import '../models/purchase_list.dart';
 import '../models/purchase_category.dart';
-import '../main.dart' show AppColors;
 
-/// Модалка добавления/редактирования покупки.
 class AddPurchaseModal extends StatefulWidget {
-  final Purchase? existing;
-  final String listId;
-  final String defaultText;
   final List<PurchaseCategory> categories;
-  final String? Function() currentUserIdGetter;
+  final List<PurchaseList> lists;
+  final String initialListId;
+  final Purchase? initialPurchase;
+  final Function(Purchase) onSave;
 
   const AddPurchaseModal({
     super.key,
-    this.existing,
-    required this.listId,
-    this.defaultText = '',
     required this.categories,
-    required this.currentUserIdGetter,
+    required this.lists,
+    required this.initialListId,
+    this.initialPurchase,
+    required this.onSave,
   });
 
   @override
@@ -25,292 +26,221 @@ class AddPurchaseModal extends StatefulWidget {
 }
 
 class _AddPurchaseModalState extends State<AddPurchaseModal> {
-  late TextEditingController _textController;
-  late TextEditingController _qtyController;
-  late TextEditingController _priceController;
-
-  String _category = 'other';
+  final _nameCtrl = TextEditingController();
+  final _qtyCtrl = TextEditingController(text: '1');
+  final _priceCtrl = TextEditingController();
   String _unit = 'шт';
-
-  final List<String> _units = ['шт', 'кг', 'г', 'л', 'мл', 'упак'];
+  String _categoryId = 'other';
+  late String _listId;
 
   @override
   void initState() {
     super.initState();
-    final p = widget.existing;
-    _textController = TextEditingController(text: p?.text ?? widget.defaultText);
-    _qtyController = TextEditingController(
-      text: (p?.qty ?? 1).toString().replaceAll('.0', ''),
-    );
-    _priceController = TextEditingController(
-      text: (p?.price ?? 0).toString().replaceAll('.0', ''),
-    );
-    _category = p?.category ?? 'other';
-    _unit = p?.unit ?? 'шт';
+    _listId = widget.initialListId;
+    if (widget.initialPurchase != null) {
+      final p = widget.initialPurchase!;
+      _nameCtrl.text = p.text;
+      _qtyCtrl.text = p.qty.toString();
+      _priceCtrl.text = p.price > 0 ? p.price.toString() : '';
+      _unit = p.unit;
+      _categoryId = p.category;
+      _listId = p.listId;
+    } else {
+      if (widget.categories.isNotEmpty) {
+        _categoryId = widget.categories.first.id;
+      }
+    }
   }
 
   @override
   void dispose() {
-    _textController.dispose();
-    _qtyController.dispose();
-    _priceController.dispose();
+    _nameCtrl.dispose();
+    _qtyCtrl.dispose();
+    _priceCtrl.dispose();
     super.dispose();
   }
 
   void _save() {
-    final text = _textController.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введи название')),
-      );
-      return;
-    }
-
-    final qty = double.tryParse(_qtyController.text.replaceAll(',', '.')) ?? 1;
-    final price = double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0;
-
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.')) ?? 1;
+    final price = double.tryParse(_priceCtrl.text.replaceAll(',', '.')) ?? 0;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final result = widget.existing != null
-        ? widget.existing!.copyWith(
-            text: text,
-            category: _category,
-            qty: qty,
-            unit: _unit,
-            price: price,
-            updatedAt: now,
-            updatedBy: widget.currentUserIdGetter(),
-          )
-        : Purchase(
-            id: now,
-            text: text,
-            category: _category,
-            qty: qty,
-            unit: _unit,
-            price: price,
-            listId: widget.listId,
-            createdAt: now,
-            updatedAt: now,
-            updatedBy: widget.currentUserIdGetter(),
-          );
 
-    Navigator.of(context).pop(result);
+    final p = Purchase(
+      id: widget.initialPurchase?.id ?? now,
+      text: name,
+      done: widget.initialPurchase?.done ?? false,
+      missing: widget.initialPurchase?.missing ?? false,
+      category: _categoryId,
+      qty: qty,
+      unit: _unit,
+      price: price,
+      listId: _listId,
+      order: widget.initialPurchase?.order ?? now,
+      createdAt: widget.initialPurchase?.createdAt ?? now,
+      updatedAt: now,
+    );
+    widget.onSave(p);
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+      padding: EdgeInsets.only(bottom: bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        child: SafeArea(
-          top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Заголовок
-                Row(
-                  children: [
-                    Expanded(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Ручка
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.outline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                widget.initialPurchase == null ? 'Новая покупка' : 'Редактировать',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Название
+              TextField(
+                controller: _nameCtrl,
+                autofocus: widget.initialPurchase == null,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Название',
+                  hintText: 'Молоко',
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Категория
+              Text(
+                'Категория',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.categories.map((c) {
+                  final sel = c.id == _categoryId;
+                  return GestureDetector(
+                    onTap: () => setState(() => _categoryId = c.id),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: sel ? cs.primaryContainer : cs.surfaceVariant,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: sel ? cs.primary : cs.outline,
+                          width: sel ? 1.5 : 1,
+                        ),
+                      ),
                       child: Text(
-                        widget.existing == null ? 'Новый товар' : 'Редактировать',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        '${c.emoji} ${c.label}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                          color: sel ? cs.onPrimaryContainer : cs.onSurface,
                         ),
                       ),
                     ),
-                    IconButton(
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Кол-во + ед.
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _qtyCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Кол-во'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 100,
+                    child: DropdownButtonFormField<String>(
+                      value: _unit,
+                      items: const [
+                        DropdownMenuItem(value: 'шт', child: Text('шт')),
+                        DropdownMenuItem(value: 'кг', child: Text('кг')),
+                        DropdownMenuItem(value: 'г', child: Text('г')),
+                        DropdownMenuItem(value: 'л', child: Text('л')),
+                        DropdownMenuItem(value: 'мл', child: Text('мл')),
+                        DropdownMenuItem(value: 'упак', child: Text('упак')),
+                      ],
+                      onChanged: (v) => setState(() => _unit = v ?? 'шт'),
+                      decoration: const InputDecoration(labelText: 'Ед.'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Цена
+              TextField(
+                controller: _priceCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Цена за единицу',
+                  suffixText: '₽',
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Кнопки
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Название
-                TextField(
-                  controller: _textController,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    labelText: 'Название',
-                    hintText: 'Молоко',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      child: const Text('Отмена'),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Категория
-                const Text(
-                  'Категория',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.categories.map((c) {
-                    final selected = _category == c.id;
-                    return GestureDetector(
-                      onTap: () => setState(() => _category = c.id),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? AppColors.accentLight
-                              : AppColors.cardLight,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: selected
-                                ? AppColors.accent
-                                : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(c.emoji),
-                            const SizedBox(width: 4),
-                            Text(
-                              c.label,
-                              style: TextStyle(
-                                fontWeight: selected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-
-                // Количество + единица
-                const Text(
-                  'Количество',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _qtyController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: '1',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 3,
-                      child: DropdownButtonFormField<String>(
-                        value: _unit,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: _units.map((u) {
-                          return DropdownMenuItem(value: u, child: Text(u));
-                        }).toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() => _unit = v);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Цена
-                const Text(
-                  'Цена за единицу (₽)',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '0',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Сохранить'),
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // Кнопки
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text('Отмена'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          'Сохранить',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
