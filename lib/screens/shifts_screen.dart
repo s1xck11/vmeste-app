@@ -56,8 +56,6 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     });
   }
 
-  // ---------- ЛОГИКА ----------
-
   void _changeMonth(int delta) {
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
@@ -86,7 +84,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     if (partner.payType == 'fixed') {
       return partner.rate.toDouble();
     }
-    return (s.hours) * partner.rate;
+    return s.hours * partner.rate;
   }
 
   double _monthTotal() {
@@ -121,8 +119,6 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     return names[m - 1];
   }
 
-  // ---------- ДЕЙСТВИЯ ----------
-
   void _openAddForDay(DateTime day) {
     final key = _key(day.year, day.month, day.day);
     showModalBottomSheet(
@@ -151,8 +147,6 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     );
   }
 
-  // ---------- UI ----------
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -175,10 +169,8 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
               children: [
-                // Градиентная карточка зарплаты
                 _buildSalaryCard(total, cs),
                 const SizedBox(height: 12),
-                // Карточки партнёров
                 if (partner1 != null || partner2 != null)
                   Row(
                     children: [
@@ -194,7 +186,6 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                     ],
                   ),
                 const SizedBox(height: 20),
-                // Календарь
                 _buildCalendar(cs),
                 const SizedBox(height: 20),
               ],
@@ -226,10 +217,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
         children: [
           Text(
             'Зарплата за ${_monthName(_currentMonth.month).toLowerCase()}',
-            style: TextStyle(
-              fontSize: 14,
-              color: cs.onPrimary.withOpacity(0.85),
-            ),
+            style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85)),
           ),
           const SizedBox(height: 6),
           Text(
@@ -266,17 +254,10 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
           const SizedBox(height: 4),
           Text(
             '${sum.toStringAsFixed(0)} ₽',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: cs.onSurface),
           ),
           const SizedBox(height: 2),
-          Text(
-            '$count смен',
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-          ),
+          Text('$count смен', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
         ],
       ),
     );
@@ -312,11 +293,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                 child: Text(
                   '${_monthName(month)} $year',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface),
                 ),
               ),
               IconButton(
@@ -354,14 +331,10 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
             ),
             itemBuilder: (ctx, i) {
               final dayIndex = i - (startWeekday - 1) + 1;
-              if (dayIndex < 1 || dayIndex > daysInMonth) {
-                return const SizedBox.shrink();
-              }
+              if (dayIndex < 1 || dayIndex > daysInMonth) return const SizedBox.shrink();
               final day = DateTime(year, month, dayIndex);
               final shifts = _shiftsForDay(day);
-              final isToday = day.year == today.year &&
-                  day.month == today.month &&
-                  day.day == today.day;
+              final isToday = day.year == today.year && day.month == today.month && day.day == today.day;
 
               double dayTotal = 0;
               for (final s in shifts) {
@@ -374,9 +347,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                   decoration: BoxDecoration(
                     color: isToday ? cs.primaryContainer : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
-                    border: isToday
-                        ? Border.all(color: cs.primary, width: 1.5)
-                        : null,
+                    border: isToday ? Border.all(color: cs.primary, width: 1.5) : null,
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
                   child: Column(
@@ -397,11 +368,10 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                           children: shifts.take(3).map((s) {
                             final t = _types.firstWhere(
                               (x) => x.id == s.type,
-                              orElse: () => ShiftType(id: s.type, label: '', hours: 0, color: '#9E9E9E', order: 0),
+                              orElse: () => ShiftType(id: s.type, label: '', hours: 0, color: '#9E9E9E'),
                             );
                             return Container(
-                              width: 5,
-                              height: 5,
+                              width: 5, height: 5,
                               margin: const EdgeInsets.symmetric(horizontal: 1),
                               decoration: BoxDecoration(
                                 color: _parseColor(t.color),
