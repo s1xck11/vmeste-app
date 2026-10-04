@@ -740,4 +740,8 @@ class SyncService {
   }
 
   void _setStatus(String s) {
-    _status
+    _status = s;
+    _log.info('Sync', 'статус → $s');
+    onStatusChanged?.call();
+  }
+}
