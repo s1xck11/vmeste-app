@@ -1,5 +1,6 @@
 // lib/screens/settings_screen.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -93,12 +94,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _pickBackground() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result == null || result.files.single.bytes == null) return;
-    await _bgService.saveImage(result.files.single.bytes!);
-    if (!mounted) return;
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Фон сохранён')));
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: false,
+      );
+      if (result == null || result.files.single.path == null) return;
+
+      final path = result.files.single.path!;
+      final file = File(path);
+      if (!await file.exists()) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Файл не найден')),
+        );
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
+
+      // Ограничение 3 МБ
+      if (bytes.length > 3 * 1024 * 1024) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Файл слишком большой (макс 3 МБ). Выбери другой.')),
+        );
+        return;
+      }
+
+      await _bgService.saveImage(bytes);
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Фон сохранён')),
+      );
+    } catch (e, st) {
+      debugPrint('Background pick FAILED: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    }
   }
 
   Future<void> _clearBackground() async {
