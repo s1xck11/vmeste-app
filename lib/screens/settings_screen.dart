@@ -15,6 +15,7 @@ class SettingsScreen extends StatefulWidget {
   final VoidCallback onReconnect;
   final VoidCallback onOpenDebug;
   final VoidCallback onOpenDataManagement;
+  final VoidCallback onOpenThemePicker;
 
   const SettingsScreen({
     super.key,
@@ -29,6 +30,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onReconnect,
     required this.onOpenDebug,
     required this.onOpenDataManagement,
+    required this.onOpenThemePicker,
   });
 
   @override
@@ -85,12 +87,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Настройки'),
-        backgroundColor: const Color(0xFFFF8FAB),
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Настройки')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -98,13 +97,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFFE5EC), Color(0xFFFFF0F5)],
+              gradient: LinearGradient(
+                colors: [
+                  cs.primary.withOpacity(0.15),
+                  cs.primary.withOpacity(0.05),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFFF8FAB).withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: cs.primary.withOpacity(0.3)),
             ),
             child: Column(
               children: [
@@ -118,13 +120,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.pink[700],
+                        color: cs.primary,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '小程',
-                      style: TextStyle(fontSize: 18, color: Colors.pink[300]),
+                      style: TextStyle(fontSize: 18, color: cs.primary.withOpacity(0.6)),
                     ),
                   ],
                 ),
@@ -134,41 +136,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
-                    color: Colors.pink[400],
+                    color: cs.primary.withOpacity(0.8),
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Divider(color: Color(0xFFFF8FAB), thickness: 0.5),
+                Divider(color: cs.primary.withOpacity(0.3), thickness: 0.5),
                 const SizedBox(height: 12),
                 Text(
                   'Сделано с любовью для Серёжи и Насти\nпри участии Сяо Чэна ❤️',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.pink[800],
+                    color: cs.onSurface,
                     height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   alignment: WrapAlignment.center,
-                  spacing: 8,
+                  spacing: 4,
                   children: [
                     TextButton.icon(
+                      onPressed: widget.onOpenThemePicker,
+                      icon: const Icon(Icons.palette_outlined, size: 18),
+                      label: const Text('Тема'),
+                    ),
+                    TextButton.icon(
                       onPressed: widget.onOpenDebug,
-                      icon: const Icon(Icons.bug_report, size: 18),
+                      icon: const Icon(Icons.bug_report_outlined, size: 18),
                       label: const Text('Отладка'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.pink[600],
-                      ),
                     ),
                     TextButton.icon(
                       onPressed: widget.onOpenDataManagement,
-                      icon: const Icon(Icons.folder, size: 18),
+                      icon: const Icon(Icons.folder_outlined, size: 18),
                       label: const Text('Данные'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.pink[600],
-                      ),
                     ),
                   ],
                 ),
@@ -178,22 +179,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ============ СИНХРОНИЗАЦИЯ ============
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              'СИНХРОНИЗАЦИЯ',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
+          _sectionHeader('СИНХРОНИЗАЦИЯ', cs),
           Card(
-            elevation: 0,
-            color: const Color(0xFFF8F9FA),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Column(
               children: [
                 ListTile(
@@ -217,24 +204,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
+                Divider(height: 1, color: cs.outline),
                 ListTile(
                   title: const Text('Код группы'),
                   subtitle: Text(
                     widget.groupCode,
-                    style: const TextStyle(
-                      color: Color(0xFFFF8FAB),
+                    style: TextStyle(
+                      color: cs.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                       letterSpacing: 1.2,
                     ),
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.copy, color: Colors.grey),
+                    icon: Icon(Icons.copy, color: cs.onSurfaceVariant),
                     onPressed: () => _copyToClipboard(widget.groupCode, 'Код группы'),
                   ),
                 ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
+                Divider(height: 1, color: cs.outline),
                 ListTile(
                   title: const Text('Версия данных'),
                   trailing: Text(
@@ -243,12 +230,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 if (widget.syncStatus != 'online') ...[
-                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  Divider(height: 1, color: cs.outline),
                   ListTile(
-                    leading: const Icon(Icons.refresh, color: Color(0xFFFF8FAB)),
-                    title: const Text(
+                    leading: Icon(Icons.refresh, color: cs.primary),
+                    title: Text(
                       'Подключиться заново',
-                      style: TextStyle(color: Color(0xFFFF8FAB), fontWeight: FontWeight.bold),
+                      style: TextStyle(color: cs.primary, fontWeight: FontWeight.bold),
                     ),
                     onTap: widget.onReconnect,
                   ),
@@ -259,31 +246,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
 
           // ============ МОЙ КЛЮЧ ============
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              '🔑 МОЙ ЛИЧНЫЙ КЛЮЧ',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
+          _sectionHeader('🔑 МОЙ ЛИЧНЫЙ КЛЮЧ', cs),
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE5EC),
+              color: cs.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFFF8FAB)),
+              border: Border.all(color: cs.primary),
             ),
             child: Column(
               children: [
                 Text(
                   'Сохрани его! Он нужен для входа с нового телефона.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.pink[400], fontSize: 13),
+                  style: TextStyle(color: cs.primary.withOpacity(0.8), fontSize: 13),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -291,7 +267,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.pink[600],
+                    color: cs.primary,
                     letterSpacing: 2,
                   ),
                 ),
@@ -300,11 +276,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onPressed: () => _copyToClipboard(widget.myKey, 'Ключ'),
                   icon: const Icon(Icons.copy, size: 18),
                   label: const Text('Скопировать ключ'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFFF8FAB),
-                    side: const BorderSide(color: Color(0xFFFF8FAB)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
                 ),
               ],
             ),
@@ -312,22 +283,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
 
           // ============ ИМЯ ============
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              'МОЁ ИМЯ',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
+          _sectionHeader('МОЁ ИМЯ', cs),
           Card(
-            elevation: 0,
-            color: const Color(0xFFF8F9FA),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Column(
               children: [
                 ListTile(
@@ -336,7 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     widget.myName,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  trailing: const Icon(Icons.edit, color: Colors.grey, size: 20),
+                  trailing: Icon(Icons.edit, color: cs.onSurfaceVariant, size: 20),
                   onTap: () {
                     showDialog(
                       context: context,
@@ -359,9 +316,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 Navigator.pop(ctx);
                               }
                             },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF8FAB),
-                            ),
                             child: const Text('Сохранить'),
                           ),
                         ],
@@ -369,7 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
+                Divider(height: 1, color: cs.outline),
                 ListTile(
                   title: const Text('Имя партнёра'),
                   subtitle: Text(
@@ -405,9 +359,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Navigator.pop(ctx);
                           widget.onDisconnect();
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF3B30),
-                        ),
+                        style: ElevatedButton.styleFrom(backgroundColor: cs.error),
                         child: const Text('Отключиться'),
                       ),
                     ],
@@ -417,15 +369,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: const Icon(Icons.logout, size: 18),
               label: const Text('Отключиться от группы'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFF3B30),
-                side: const BorderSide(color: Color(0xFFFF3B30)),
+                foregroundColor: cs.error,
+                side: BorderSide(color: cs.error),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: cs.onSurfaceVariant,
+          letterSpacing: 1.2,
+        ),
       ),
     );
   }
