@@ -2,21 +2,19 @@
 
 import 'package:flutter/material.dart';
 
-/// Современный заголовок экрана: крупный текст + иконки действий.
-/// Аватарка — крайняя справа, ведёт в настройки.
 class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
-  final List<Widget>? actions;
   final VoidCallback onAvatarTap;
-  final String avatarLabel; // буква или эмодзи
+  final VoidCallback? onAdd;
+  final String avatarEmoji;
   final double height;
 
   const ModernAppBar({
     super.key,
     required this.title,
     required this.onAvatarTap,
-    this.actions,
-    this.avatarLabel = '👤',
+    this.onAdd,
+    this.avatarEmoji = '👤',
     this.height = 72,
   });
 
@@ -50,9 +48,14 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (actions != null) ...actions!,
+          if (onAdd != null)
+            IconButton(
+              onPressed: onAdd,
+              icon: Icon(Icons.add_circle_outline, color: cs.primary, size: 26),
+              tooltip: 'Добавить',
+            ),
           const SizedBox(width: 4),
-          _AvatarButton(label: avatarLabel, onTap: onAvatarTap),
+          _AvatarButton(emoji: avatarEmoji, onTap: onAvatarTap),
         ],
       ),
     );
@@ -60,10 +63,10 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class _AvatarButton extends StatelessWidget {
-  final String label;
+  final String emoji;
   final VoidCallback onTap;
 
-  const _AvatarButton({required this.label, required this.onTap});
+  const _AvatarButton({required this.emoji, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -81,16 +84,10 @@ class _AvatarButton extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Center(
-            child: label.length <= 2 && label.runes.length > 1
-                ? Text(label, style: const TextStyle(fontSize: 18))
-                : Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onPrimaryContainer,
-                    ),
-                  ),
+            child: Text(
+              emoji.isEmpty ? '👤' : emoji,
+              style: const TextStyle(fontSize: 22),
+            ),
           ),
         ),
       ),
