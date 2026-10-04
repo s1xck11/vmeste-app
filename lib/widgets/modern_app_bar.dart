@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final VoidCallback onAvatarTap;
-  final VoidCallback? onAdd;
   final String avatarEmoji;
   final double height;
 
@@ -13,7 +12,6 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.title,
     required this.onAvatarTap,
-    this.onAdd,
     this.avatarEmoji = '👤',
     this.height = 72,
   });
@@ -48,13 +46,6 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (onAdd != null)
-            IconButton(
-              onPressed: onAdd,
-              icon: Icon(Icons.add_circle_outline, color: cs.primary, size: 26),
-              tooltip: 'Добавить',
-            ),
-          const SizedBox(width: 4),
           _AvatarButton(emoji: avatarEmoji, onTap: onAvatarTap),
         ],
       ),
