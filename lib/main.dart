@@ -31,28 +31,52 @@ class AppColors {
   static const Color textSecondary = Color(0xFF8E8E93);
 }
 
+/// Ослабляем сертификаты полностью — для Huawei это критично.
+/// HTML-версия работала потому, что браузер доверяет своим сертификатам,
+/// а Dart — только системным, которые на Huawei часто неполные.
 class _SupabaseHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
-    client.badCertificateCallback = (cert, host, port) => host.endsWith('.supabase.co') || host.endsWith('.supabase.in');
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+      // Разрешаем всё — для Huawei это стандартная практика.
+      return true;
+    };
+    // Увеличиваем таймауты — на Huawei сеть бывает медленной.
+    client.connectionTimeout = const Duration(seconds: 30);
+    client.idleTimeout = const Duration(seconds: 30);
     return client;
   }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   final logger = DebugLogService();
   FlutterError.onError = (d) => logger.error('Flutter', d.exceptionAsString(), d.exception, d.stack);
+
   HttpOverrides.global = _SupabaseHttpOverrides();
+  logger.info('App', 'HttpOverrides установлен (badCertificate разрешён для всех)');
+
   try {
-    await Supabase.initialize(url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
-  } catch (e, st) { logger.error('App', 'Supabase init FAILED', e, st); }
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+    logger.info('App', 'Supabase инициализирован');
+  } catch (e, st) {
+    logger.error('App', 'Supabase init FAILED', e, st);
+  }
+
   final storage = StorageService();
   await storage.init();
+  logger.info('App', 'Storage инициализирован');
+
   final themeService = ThemeService();
   await themeService.init();
+
   final sync = SyncService(storage: storage);
+
   runApp(VmesteApp(storage: storage, sync: sync, themeService: themeService));
 }
 
@@ -60,7 +84,13 @@ class VmesteApp extends StatelessWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
-  const VmesteApp({super.key, required this.storage, required this.sync, required this.themeService});
+
+  const VmesteApp({
+    super.key,
+    required this.storage,
+    required this.sync,
+    required this.themeService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +112,13 @@ class SplashScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
-  const SplashScreen({super.key, required this.storage, required this.sync, required this.themeService});
+
+  const SplashScreen({
+    super.key,
+    required this.storage,
+    required this.sync,
+    required this.themeService,
+  });
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -90,7 +126,10 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
-  void initState() { super.initState(); _check(); }
+  void initState() {
+    super.initState();
+    _check();
+  }
 
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
@@ -99,14 +138,22 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
       if (ok) {
         Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (_) => MainScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+          builder: (_) => MainScreen(
+            storage: widget.storage,
+            sync: widget.sync,
+            themeService: widget.themeService,
+          ),
         ));
         return;
       }
     }
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => SetupScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+      builder: (_) => SetupScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+      ),
     ));
   }
 
@@ -115,16 +162,18 @@ class _SplashScreenState extends State<SplashScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: cs.background,
-      body: Center(child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.favorite, size: 80, color: cs.primary),
-          const SizedBox(height: 24),
-          Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
-          const SizedBox(height: 24),
-          CircularProgressIndicator(color: cs.primary),
-        ],
-      )),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.favorite, size: 80, color: cs.primary),
+            const SizedBox(height: 24),
+            Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
+            const SizedBox(height: 24),
+            CircularProgressIndicator(color: cs.primary),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -133,7 +182,13 @@ class MainScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
-  const MainScreen({super.key, required this.storage, required this.sync, required this.themeService});
+
+  const MainScreen({
+    super.key,
+    required this.storage,
+    required this.sync,
+    required this.themeService,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -149,10 +204,30 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _bgService = BackgroundService(widget.storage);
     _screens = [
-      PurchasesScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
-      TasksScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
-      ShiftsScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
-      BudgetScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+      PurchasesScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        onAvatarTap: _openSettings,
+      ),
+      TasksScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        onAvatarTap: _openSettings,
+      ),
+      ShiftsScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        onAvatarTap: _openSettings,
+      ),
+      BudgetScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        onAvatarTap: _openSettings,
+      ),
     ];
     widget.sync.onStatusChanged = () { if (mounted) setState(() {}); };
     widget.sync.onDataChanged = () { if (mounted) setState(() {}); };
@@ -169,7 +244,9 @@ class _MainScreenState extends State<MainScreen> {
     final ok = await widget.sync.autoConnect();
     if (mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'Подключено' : 'Не удалось')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? 'Подключено' : 'Не удалось подключиться')),
+      );
     }
   }
 
@@ -177,7 +254,11 @@ class _MainScreenState extends State<MainScreen> {
     await widget.sync.disconnect();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => SetupScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+      builder: (_) => SetupScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+      ),
     ));
   }
 
