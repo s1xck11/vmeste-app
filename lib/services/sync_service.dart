@@ -41,13 +41,10 @@ class SyncService {
 
   // ============ СОЗДАНИЕ ГРУППЫ ============
 
-  /// Создать новую группу. Я становлюсь partner1, автоматически
-  /// генерируется ключ для меня и «заготовка» для партнёра.
   Future<Map<String, String>> createGroup() async {
     final uid = await signInAnonymously();
     final myKey = _generateKey();
 
-    // Ищем свободный код группы
     String code;
     int attempts = 0;
     do {
@@ -61,7 +58,6 @@ class SyncService {
       attempts++;
     } while (attempts < 5);
 
-    // Профили: мой и «заглушка» для партнёра
     final profiles = {
       myKey: {
         'key': myKey,
@@ -99,7 +95,6 @@ class SyncService {
   }
 
   /// Присоединиться к существующей группе как партнёр
-  /// (если ещё нет второго участника).
   Future<String> joinGroup(String code) async {
     code = code.trim().toUpperCase();
     final uid = await signInAnonymously();
@@ -115,22 +110,27 @@ class SyncService {
     final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
     final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
 
-    // Ищем свободный слот (partner2, если partner1 уже занят)
-    String? myRole;
-    String? myKey;
+    // Ищем свободный слот (uids пустой)
+    String? foundRole;
+    String? foundKey;
     for (final entry in profiles.entries) {
       final profile = Map<String, dynamic>.from(entry.value as Map);
       final uids = List<String>.from(profile['uids'] as List? ?? []);
       if (uids.isEmpty) {
-        // Слот свободен
-        myRole = profile['role'] as String;
-        myKey = entry.key as String;
+        foundRole = profile['role'] as String?;
+        foundKey = entry.key;
         break;
       }
     }
 
     // Если нет свободного слота — создаём partner2
-    if (myRole == null) {
+    String myRole;
+    String myKey;
+
+    if (foundRole != null && foundKey != null) {
+      myRole = foundRole;
+      myKey = foundKey;
+    } else {
       final existingRoles = profiles.values
           .map((p) => (p as Map)['role'] as String?)
           .where((r) => r != null)
@@ -146,22 +146,20 @@ class SyncService {
         'key': myKey,
         'role': myRole,
         'name': '',
-        'uids': [],
+        'uids': <String>[],
       };
     }
 
-    // Добавляем себя
+    // Добавляем себя в профиль
     final myProfile = Map<String, dynamic>.from(profiles[myKey] as Map);
     final uids = List<String>.from(myProfile['uids'] as List? ?? []);
     if (!uids.contains(uid)) uids.add(uid);
     myProfile['uids'] = uids;
     profiles[myKey] = myProfile;
 
-    // Обновляем members
     final members = List<String>.from(group['members'] as List? ?? []);
     if (!members.contains(uid)) members.add(uid);
 
-    // Сохраняем обратно
     data['profiles'] = profiles;
     await _supabase.from('couples').update({
       'members': members,
@@ -174,7 +172,6 @@ class SyncService {
     storage.myPartnerId = myRole;
     storage.serverVersion = (group['version'] as int?) ?? 0;
 
-    // Загружаем данные
     _isRemoteUpdate = true;
     _applyData(data);
     _isRemoteUpdate = false;
@@ -185,8 +182,7 @@ class SyncService {
     return myKey;
   }
 
-  /// Войти под существующим личным ключом.
-  /// Используется при смене устройства.
+  /// Войти под существующим личным ключом (для смены устройства)
   Future<void> restoreByKey(String key) async {
     final code = storage.coupleCode;
     if (code == null || code.isEmpty) {
@@ -266,13 +262,11 @@ class SyncService {
       final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
       final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
 
-      // Проверяем, что наш ключ всё ещё в группе
       if (!profiles.containsKey(key)) {
         _setStatus('offline');
         return false;
       }
 
-      // Обновляем свой UID в профиле
       final myProfile = Map<String, dynamic>.from(profiles[key] as Map);
       final uids = List<String>.from(myProfile['uids'] as List? ?? []);
       if (!uids.contains(uid)) {
@@ -296,7 +290,6 @@ class SyncService {
       storage.myName = (myProfile['name'] as String?) ?? '';
       storage.serverVersion = (group['version'] as int?) ?? 0;
 
-      // Загружаем данные
       _isRemoteUpdate = true;
       _applyData(data);
       _isRemoteUpdate = false;
@@ -363,7 +356,6 @@ class SyncService {
   void _applyData(Map<String, dynamic> data) {
     storage.restoreFromSnapshot(data);
 
-    // Обновляем profiles
     final profiles = data['profiles'] as Map?;
     if (profiles != null && storage.myKey != null) {
       final myProfile = profiles[storage.myKey!] as Map?;
@@ -371,7 +363,6 @@ class SyncService {
         storage.myName = (myProfile['name'] as String?) ?? '';
       }
 
-      // Ищем имя партнёра
       for (final entry in profiles.entries) {
         if (entry.key == storage.myKey) continue;
         final profile = entry.value as Map?;
@@ -422,14 +413,15 @@ class SyncService {
         onDataChanged?.call();
       }
 
-      // Собираем наш снапшот + сохраняем profiles из remote
       final myData = storage.snapshot();
       myData['profiles'] = remoteData['profiles'] ?? {};
 
-      // Обновляем моё имя в profiles
+      // Обновляем своё имя в profiles
       if (storage.myKey != null) {
         final profiles = Map<String, dynamic>.from(myData['profiles'] as Map);
-        final myProfile = Map<String, dynamic>.from(profiles[storage.myKey] as Map? ?? {});
+        final myProfile = Map<String, dynamic>.from(
+          profiles[storage.myKey] as Map? ?? <String, dynamic>{},
+        );
         myProfile['name'] = storage.myName;
         profiles[storage.myKey!] = myProfile;
         myData['profiles'] = profiles;
@@ -479,19 +471,17 @@ class SyncService {
     return buffer.toString();
   }
 
-  /// Генерирует личный ключ: M-XXXX-XXXX
+  /// Генерирует личный ключ: X-XXXX-XXXX (10 символов)
   String _generateKey() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final rand = Random.secure();
     final buffer = StringBuffer();
-    // Первая буква — M (муж) или W (жена), но так как мы не знаем роль,
-    // используем просто случайную букву из A-Z
-    buffer.write(chars[rand.nextInt(26)]); // только буквы
+    buffer.write(chars.substring(0, 26)[rand.nextInt(26)]); // только буквы
     for (int i = 0; i < 8; i++) {
       if (i == 4) buffer.write('-');
       buffer.write(chars[rand.nextInt(chars.length)]);
     }
-    return buffer.toString(); // формат: X-XXXX-XXXX (10 символов)
+    return buffer.toString();
   }
 
   void _setStatus(String s) {
