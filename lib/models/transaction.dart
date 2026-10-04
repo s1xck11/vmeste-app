@@ -4,13 +4,14 @@ class Transaction {
   final String id;
   final String type; // 'expense' или 'income'
   final double amount;
-  final String categoryId; // Ссылка на BudgetCategory
-  final String comment; // Например, "Пятёрочка"
+  final String categoryId;
+  final String comment;
   final String nature; // 'obligatory', 'conscious', 'impulsive'
-  final DateTime date; // Дата совершения
+  final DateTime date;
   final DateTime createdAt;
-  final DateTime updatedAt;
+  final int updatedAt; // миллисекунды
   final String? updatedBy;
+  final int? deletedAt; // миллисекунды, если удалено
 
   Transaction({
     required this.id,
@@ -21,10 +22,11 @@ class Transaction {
     this.nature = 'conscious',
     required this.date,
     DateTime? createdAt,
-    DateTime? updatedAt,
+    int? updatedAt,
     this.updatedBy,
+    this.deletedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+        updatedAt = updatedAt ?? DateTime.now().millisecondsSinceEpoch;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -35,13 +37,14 @@ class Transaction {
         'nature': nature,
         'date': date.toIso8601String(),
         'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
+        'updatedAt': updatedAt,
         'updatedBy': updatedBy,
+        'deletedAt': deletedAt,
       };
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     return Transaction(
-      id: json['id'] ?? '',
+      id: json['id']?.toString() ?? '',
       type: json['type'] ?? 'expense',
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       categoryId: json['categoryId'] ?? '',
@@ -53,10 +56,17 @@ class Transaction {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : DateTime.now(),
+      updatedAt: json['updatedAt'] is int
+          ? json['updatedAt']
+          : (json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt']).millisecondsSinceEpoch
+              : DateTime.now().millisecondsSinceEpoch),
       updatedBy: json['updatedBy'],
+      deletedAt: json['deletedAt'] is int
+          ? json['deletedAt']
+          : (json['deletedAt'] != null
+              ? DateTime.parse(json['deletedAt']).millisecondsSinceEpoch
+              : null),
     );
   }
 
@@ -67,8 +77,9 @@ class Transaction {
     String? comment,
     String? nature,
     DateTime? date,
-    DateTime? updatedAt,
+    int? updatedAt,
     String? updatedBy,
+    int? deletedAt,
   }) {
     return Transaction(
       id: id,
@@ -81,6 +92,7 @@ class Transaction {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
+      deletedAt: deletedAt ?? this.deletedAt,
     );
   }
 }
