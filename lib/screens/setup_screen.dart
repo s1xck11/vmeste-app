@@ -28,6 +28,7 @@ class _SetupScreenState extends State<SetupScreen> {
   final TextEditingController _keyController = TextEditingController();
   bool _loading = false;
   String? _error;
+  String? _errorDetails;
 
   String? _createdCode;
   String? _createdKey;
@@ -41,12 +42,34 @@ class _SetupScreenState extends State<SetupScreen> {
     super.dispose();
   }
 
-  Future<void> _createGroup() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  /// Превращает сырую ошибку в понятное сообщение.
+  String _humanizeError(Object e) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('socketexception') || s.contains('connection abort') ||
+        s.contains('connection refused') || s.contains('network is unreachable')) {
+      return 'Нет соединения с сервером.\n\n'
+          'Проверь интернет. Если у тебя Huawei — попробуй VPN '
+          'или смени Wi-Fi на мобильный интернет (или наоборот).';
+    }
+    if (s.contains('timeout') || s.contains('timed out')) {
+      return 'Сервер не отвечает слишком долго.\n\n'
+          'Попробуй ещё раз через минуту. Если не поможет — смени сеть.';
+    }
+    if (s.contains('сертификат') || s.contains('certificate')) {
+      return 'Проблема с сертификатом безопасности.\n\n'
+          'Попробуй переустановить приложение.';
+    }
+    if (s.contains('group') || s.contains('группа')) {
+      return 'Группа не найдена. Проверь код группы.';
+    }
+    if (s.contains('ключ') || s.contains('key')) {
+      return 'Ключ не найден в этой группе. Проверь ключ.';
+    }
+    return 'Что-то пошло не так. Попробуй ещё раз.';
+  }
 
+  Future<void> _createGroup() async {
+    setState(() { _loading = true; _error = null; _errorDetails = null; });
     try {
       final result = await widget.sync.createGroup();
       setState(() {
@@ -56,7 +79,8 @@ class _SetupScreenState extends State<SetupScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Ошибка: $e';
+        _error = _humanizeError(e);
+        _errorDetails = e.toString();
         _loading = false;
       });
     }
@@ -65,19 +89,16 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _joinGroup() async {
     final code = _codeController.text.trim().toUpperCase();
     if (code.length < 9) {
-      setState(() => _error = 'Введите код группы (например, ABC-123-XYZ)');
+      setState(() {
+        _error = 'Введите код группы (например, ABC-123-XYZ)';
+        _errorDetails = null;
+      });
       return;
     }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
+    setState(() { _loading = true; _error = null; _errorDetails = null; });
     try {
       widget.storage.coupleCode = code;
       final myKey = await widget.sync.joinGroup(code);
-
       setState(() {
         _createdCode = code;
         _createdKey = myKey;
@@ -86,7 +107,8 @@ class _SetupScreenState extends State<SetupScreen> {
     } catch (e) {
       widget.storage.coupleCode = null;
       setState(() {
-        _error = 'Ошибка: $e';
+        _error = _humanizeError(e);
+        _errorDetails = e.toString();
         _loading = false;
       });
     }
@@ -95,21 +117,21 @@ class _SetupScreenState extends State<SetupScreen> {
   Future<void> _restoreByKey() async {
     final key = _keyController.text.trim().toUpperCase();
     if (key.length < 9) {
-      setState(() => _error = 'Введите ключ (например, M-7X4K-9P2Q)');
+      setState(() {
+        _error = 'Введите ключ (например, M-7X4K-9P2Q)';
+        _errorDetails = null;
+      });
       return;
     }
-
     final code = _codeController.text.trim().toUpperCase();
     if (code.length < 9) {
-      setState(() => _error = 'Сначала введи код группы');
+      setState(() {
+        _error = 'Сначала введи код группы';
+        _errorDetails = null;
+      });
       return;
     }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
+    setState(() { _loading = true; _error = null; _errorDetails = null; });
     try {
       widget.storage.coupleCode = code;
       await widget.sync.restoreByKey(key);
@@ -117,7 +139,8 @@ class _SetupScreenState extends State<SetupScreen> {
     } catch (e) {
       widget.storage.coupleCode = null;
       setState(() {
-        _error = 'Ошибка: $e';
+        _error = _humanizeError(e);
+        _errorDetails = e.toString();
         _loading = false;
       });
     }
@@ -139,7 +162,7 @@ class _SetupScreenState extends State<SetupScreen> {
   void _copy(String text) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Скопировано')),
+      const SnackBar(content: Text('Скопировано')),
     );
   }
 
@@ -192,19 +215,36 @@ class _SetupScreenState extends State<SetupScreen> {
                 const SizedBox(height: 24),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFE5E5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.danger),
+                    color: const Color(0xFFFFEEF0),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.danger.withOpacity(0.5)),
                   ),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(
-                      color: AppColors.danger,
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
+                          const SizedBox(width: 8),
+                          const Text('Не получилось',
+                              style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error!,
+                        style: const TextStyle(color: AppColors.textLight, fontSize: 14, height: 1.4),
+                      ),
+                      if (_errorDetails != null) ...[
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => _copy(_errorDetails!),
+                          child: const Text('Скопировать техническую ошибку'),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -224,7 +264,7 @@ class _SetupScreenState extends State<SetupScreen> {
           child: ElevatedButton.icon(
             onPressed: _loading ? null : _createGroup,
             icon: const Icon(Icons.add_circle_outline),
-            label: Text(_loading ? 'Создаю...' : '✨ Создать новую группу'),
+            label: Text(_loading ? 'Создаю...' : 'Создать новую группу'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.accent,
               foregroundColor: Colors.white,
@@ -237,9 +277,9 @@ class _SetupScreenState extends State<SetupScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _loading ? null : () => setState(() { _mode = 'join'; _error = null; }),
+            onPressed: _loading ? null : () => setState(() { _mode = 'join'; _error = null; _errorDetails = null; }),
             icon: const Icon(Icons.link),
-            label: const Text('🔗 Присоединиться по коду'),
+            label: const Text('Присоединиться по коду'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.info,
               foregroundColor: Colors.white,
@@ -252,9 +292,9 @@ class _SetupScreenState extends State<SetupScreen> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _loading ? null : () => setState(() { _mode = 'restore'; _error = null; }),
+            onPressed: _loading ? null : () => setState(() { _mode = 'restore'; _error = null; _errorDetails = null; }),
             icon: const Icon(Icons.key),
-            label: const Text('🔑 Войти под своим ключом'),
+            label: const Text('Войти под своим ключом'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.accent,
               side: const BorderSide(color: AppColors.accent),
@@ -270,21 +310,15 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget _showJoinForm() {
     return Column(
       children: [
-        const Text(
-          'Введи код группы',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
+        const Text('Введи код группы',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         const SizedBox(height: 16),
         TextField(
           controller: _codeController,
           textAlign: TextAlign.center,
           textCapitalization: TextCapitalization.characters,
           maxLength: 11,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 2,
-          ),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: 2),
           decoration: InputDecoration(
             hintText: 'ABC-123-XYZ',
             counterText: '',
@@ -306,7 +340,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
         const SizedBox(height: 8),
         TextButton(
-          onPressed: () => setState(() { _mode = 'main'; _error = null; }),
+          onPressed: () => setState(() { _mode = 'main'; _error = null; _errorDetails = null; }),
           child: const Text('Назад', style: TextStyle(color: AppColors.textSecondary)),
         ),
       ],
@@ -316,16 +350,12 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget _showRestoreForm() {
     return Column(
       children: [
-        const Text(
-          'Восстановление доступа',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
+        const Text('Восстановление доступа',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
-        const Text(
-          'Введи код группы и свой личный ключ',
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-          textAlign: TextAlign.center,
-        ),
+        const Text('Введи код группы и свой личный ключ',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            textAlign: TextAlign.center),
         const SizedBox(height: 16),
         TextField(
           controller: _codeController,
@@ -367,7 +397,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
         const SizedBox(height: 8),
         TextButton(
-          onPressed: () => setState(() { _mode = 'main'; _error = null; }),
+          onPressed: () => setState(() { _mode = 'main'; _error = null; _errorDetails = null; }),
           child: const Text('Назад', style: TextStyle(color: AppColors.textSecondary)),
         ),
       ],
@@ -386,25 +416,15 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
           child: Column(
             children: [
-              const Text(
-                '🎉 Готово!',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text('Готово!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              const Text(
-                'Код группы (отправь партнёру):',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
+              const Text('Код группы (отправь партнёру):',
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
               const SizedBox(height: 8),
-              Text(
-                _createdCode!,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 3,
-                  color: AppColors.accent,
-                ),
-              ),
+              Text(_createdCode!,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+                      letterSpacing: 3, color: AppColors.accent)),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () => _copy(_createdCode!),
@@ -424,27 +444,16 @@ class _SetupScreenState extends State<SetupScreen> {
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      '🔑 Твой личный ключ:',
-                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                    ),
+                    const Text('Твой личный ключ:',
+                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                     const SizedBox(height: 8),
-                    Text(
-                      _createdKey!,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        fontFamily: 'monospace',
-                        color: AppColors.info,
-                      ),
-                    ),
+                    Text(_createdKey!,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+                            letterSpacing: 2, fontFamily: 'monospace', color: AppColors.info)),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Сохрани его! Он нужен для входа с нового телефона.',
-                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                      textAlign: TextAlign.center,
-                    ),
+                    const Text('Сохрани его! Он нужен для входа с нового телефона.',
+                        style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: () => _copy(_createdKey!),
