@@ -1,45 +1,79 @@
 // lib/widgets/app_background.dart
 
+import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/background_service.dart';
 
-class AppBackground extends StatelessWidget {
+class AppBackground extends StatefulWidget {
   final Widget child;
   final BackgroundService? service;
 
   const AppBackground({super.key, required this.child, this.service});
 
   @override
+  State<AppBackground> createState() => _AppBackgroundState();
+}
+
+class _AppBackgroundState extends State<AppBackground> {
+  Uint8List? _bytes;
+  double _blur = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(AppBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.service != widget.service) _load();
+  }
+
+  Future<void> _load() async {
+    if (widget.service == null) {
+      if (mounted) setState(() { _bytes = null; _blur = 0; });
+      return;
+    }
+    final bytes = await widget.service!.loadImageBytes();
+    if (!mounted) return;
+    setState(() {
+      _bytes = bytes;
+      _blur = widget.service!.blur;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bytes = service?.getImageBytes();
 
-    if (bytes == null || bytes.isEmpty || service == null) {
-      return Container(color: cs.background, child: child);
+    if (_bytes == null || widget.service == null) {
+      return Container(color: cs.background, child: widget.child);
     }
 
     return Stack(
       children: [
         Positioned.fill(
           child: Image.memory(
-            bytes,
+            _bytes!,
             fit: BoxFit.cover,
             gaplessPlayback: true,
             errorBuilder: (_, __, ___) => Container(color: cs.background),
           ),
         ),
-        if (service!.blur > 0)
+        if (_blur > 0)
           Positioned.fill(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: service!.blur, sigmaY: service!.blur),
+              filter: ImageFilter.blur(sigmaX: _blur, sigmaY: _blur),
               child: const SizedBox.shrink(),
             ),
           ),
         Positioned.fill(
           child: Container(color: cs.background.withOpacity(0.45)),
         ),
-        child,
+        widget.child,
       ],
     );
   }
