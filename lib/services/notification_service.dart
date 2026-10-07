@@ -2,6 +2,7 @@
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/shift.dart';
+import '../models/shift_type.dart';
 import '../models/partner.dart';
 import 'storage_service.dart';
 import 'debug_log_service.dart';
@@ -127,7 +128,7 @@ class NotificationService {
 
   /// Обёртка над tz.TZDateTime для удобства
   dynamic _tz(DateTime dt) {
-    // Используем локальный DateTime без таймзон — для локальных смен подходит
+    // Используем локальный DateTime без таймзон — для локальных смен подходит.
     // Если понадобится точная таймзона — добавим пакет timezone.
     return dt;
   }
