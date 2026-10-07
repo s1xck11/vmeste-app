@@ -27,11 +27,15 @@ class SyncService {
 
   RealtimeChannel? _channel;
   Timer? _pushDebounce;
+  Timer? _pullTimer;
+  Timer? _reconnectTimer;
   bool _isFirstLoad = true;
   bool _isRemoteUpdate = false;
   bool _isPushInProgress = false;
+  bool _isPulling = false;
 
-  VoidCallback? onDataChanged;
+  // Слушатели обновлений — ВСЕ экраны подписываются сюда
+  final List<VoidCallback> _listeners = [];
   VoidCallback? onStatusChanged;
 
   String _status = 'offline';
@@ -39,19 +43,40 @@ class SyncService {
 
   SyncService({required this.storage});
 
-  /// Анонимный вход с retry — важно для Huawei с нестабильной сетью.
+  // ============================================================
+  // ПОДПИСКА ЭКРАНОВ НА ОБНОВЛЕНИЯ
+  // ============================================================
+
+  void addListener(VoidCallback listener) {
+    if (!_listeners.contains(listener)) {
+      _listeners.add(listener);
+    }
+  }
+
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+  }
+
+  void _notifyAll() {
+    for (final l in List<VoidCallback>.from(_listeners)) {
+      try { l(); } catch (e, st) { _log.error('Sync', 'listener error', e, st); }
+    }
+  }
+
+  // ============================================================
+  // АВТОРИЗАЦИЯ
+  // ============================================================
+
   Future<String> signInAnonymously() async {
     final existing = _supabase.auth.currentUser;
     if (existing != null) {
       storage.currentUserId = existing.id;
-      _log.info('Auth', 'уже есть сессия: ${existing.id}');
       return existing.id;
     }
-
     Exception? lastError;
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
-        _log.info('Auth', 'попытка $attempt/3: signInAnonymously...');
+        _log.info('Auth', 'попытка $attempt/3');
         final response = await _supabase.auth
             .signInAnonymously()
             .timeout(const Duration(seconds: 30));
@@ -63,13 +88,15 @@ class SyncService {
       } catch (e, st) {
         lastError = e is Exception ? e : Exception('$e');
         _log.error('Auth', 'попытка $attempt FAILED', e, st);
-        if (attempt < 3) {
-          await Future.delayed(const Duration(seconds: 2));
-        }
+        if (attempt < 3) await Future.delayed(const Duration(seconds: 2));
       }
     }
-    throw lastError ?? Exception('Не удалось войти после 3 попыток');
+    throw lastError ?? Exception('Не удалось войти');
   }
+
+  // ============================================================
+  // СОЗДАНИЕ / ПРИСОЕДИНЕНИЕ
+  // ============================================================
 
   Future<Map<String, String>> createGroup() async {
     final uid = await signInAnonymously();
@@ -78,63 +105,51 @@ class SyncService {
     int attempts = 0;
     do {
       code = _generateGroupCode();
-      final existing = await _supabase
-          .from('couples')
-          .select('code')
-          .eq('code', code)
-          .maybeSingle()
-          .timeout(const Duration(seconds: 30));
+      final existing = await _supabase.from('couples').select('code').eq('code', code).maybeSingle().timeout(const Duration(seconds: 30));
       if (existing == null) break;
       attempts++;
     } while (attempts < 5);
-    final profiles = {
-      myKey: {'key': myKey, 'role': 'partner1', 'name': '', 'uids': [uid]},
-    };
+
+    final profiles = {myKey: {'key': myKey, 'role': 'partner1', 'name': '', 'uids': [uid]}};
     await _supabase.from('couples').insert({
-      'code': code,
-      'members': [uid],
+      'code': code, 'members': [uid],
       'data': {...storage.snapshot(), 'profiles': profiles},
-      'version': 1,
-      'updated_by': uid,
+      'version': 1, 'updated_by': uid,
     }).timeout(const Duration(seconds: 30));
+
     storage.coupleCode = code;
     storage.members = [uid];
     storage.serverVersion = 1;
     storage.myKey = myKey;
     storage.myPartnerId = 'partner1';
+
     _setStatus('online');
     _isFirstLoad = false;
     _subscribe();
+    _startPullTimer();
     return {'code': code, 'myKey': myKey};
   }
 
   Future<String> joinGroup(String code) async {
     code = code.trim().toUpperCase();
     final uid = await signInAnonymously();
-    final group = await _supabase
-        .from('couples')
-        .select()
-        .eq('code', code)
-        .maybeSingle()
-        .timeout(const Duration(seconds: 30));
+    final group = await _supabase.from('couples').select().eq('code', code).maybeSingle().timeout(const Duration(seconds: 30));
     if (group == null) throw Exception('Группа не найдена');
     final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
     final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
+
     String? foundRole, foundKey;
     for (final entry in profiles.entries) {
       final profile = Map<String, dynamic>.from(entry.value as Map);
       final uids = List<String>.from(profile['uids'] as List? ?? []);
       if (uids.isEmpty) { foundRole = profile['role'] as String?; foundKey = entry.key; break; }
     }
+
     String myRole, myKey;
     if (foundRole != null && foundKey != null) {
-      myRole = foundRole;
-      myKey = foundKey;
+      myRole = foundRole; myKey = foundKey;
     } else {
-      final existingRoles = profiles.values
-          .map((p) => (p as Map)['role'] as String?)
-          .where((r) => r != null)
-          .toSet();
+      final existingRoles = profiles.values.map((p) => (p as Map)['role'] as String?).where((r) => r != null).toSet();
       if (existingRoles.contains('partner1') && existingRoles.contains('partner2')) {
         throw Exception('В группе уже 2 участника');
       }
@@ -142,6 +157,7 @@ class SyncService {
       myKey = _generateKey();
       profiles[myKey] = {'key': myKey, 'role': myRole, 'name': '', 'uids': <String>[]};
     }
+
     final myProfile = Map<String, dynamic>.from(profiles[myKey] as Map);
     final uids = List<String>.from(myProfile['uids'] as List? ?? []);
     if (!uids.contains(uid)) uids.add(uid);
@@ -150,22 +166,23 @@ class SyncService {
     final members = List<String>.from(group['members'] as List? ?? []);
     if (!members.contains(uid)) members.add(uid);
     data['profiles'] = profiles;
-    await _supabase
-        .from('couples')
-        .update({'members': members, 'data': data})
-        .eq('code', code)
-        .timeout(const Duration(seconds: 30));
+
+    await _supabase.from('couples').update({'members': members, 'data': data}).eq('code', code).timeout(const Duration(seconds: 30));
+
     storage.coupleCode = code;
     storage.members = members;
     storage.myKey = myKey;
     storage.myPartnerId = myRole;
     storage.serverVersion = (group['version'] as int?) ?? 0;
+
     _isRemoteUpdate = true;
     _applyData(data);
     _isRemoteUpdate = false;
+
     _setStatus('online');
     _isFirstLoad = false;
     _subscribe();
+    _startPullTimer();
     return myKey;
   }
 
@@ -174,12 +191,7 @@ class SyncService {
     if (code == null || code.isEmpty) throw Exception('Нет кода группы');
     key = key.trim().toUpperCase();
     final uid = await signInAnonymously();
-    final group = await _supabase
-        .from('couples')
-        .select()
-        .eq('code', code)
-        .maybeSingle()
-        .timeout(const Duration(seconds: 30));
+    final group = await _supabase.from('couples').select().eq('code', code).maybeSingle().timeout(const Duration(seconds: 30));
     if (group == null) throw Exception('Группа не найдена');
     final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
     final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
@@ -192,11 +204,7 @@ class SyncService {
     final members = List<String>.from(group['members'] as List? ?? []);
     if (!members.contains(uid)) members.add(uid);
     data['profiles'] = profiles;
-    await _supabase
-        .from('couples')
-        .update({'members': members, 'data': data})
-        .eq('code', code)
-        .timeout(const Duration(seconds: 30));
+    await _supabase.from('couples').update({'members': members, 'data': data}).eq('code', code).timeout(const Duration(seconds: 30));
     storage.members = members;
     storage.myKey = key;
     storage.myPartnerId = myProfile['role'] as String;
@@ -208,24 +216,19 @@ class SyncService {
     _setStatus('online');
     _isFirstLoad = false;
     _subscribe();
-    onDataChanged?.call();
-    onStatusChanged?.call();
+    _startPullTimer();
+    _notifyAll();
   }
 
   Future<bool> autoConnect() async {
     final code = storage.coupleCode;
     final key = storage.myKey;
     if (code == null || code.isEmpty || key == null) return false;
-    for (int attempt = 1; attempt <= 2; attempt++) {
+    for (int attempt = 1; attempt <= 3; attempt++) {
       try {
         _setStatus('syncing');
         final uid = await signInAnonymously();
-        final group = await _supabase
-            .from('couples')
-            .select()
-            .eq('code', code)
-            .maybeSingle()
-            .timeout(const Duration(seconds: 30));
+        final group = await _supabase.from('couples').select().eq('code', code).maybeSingle().timeout(const Duration(seconds: 30));
         if (group == null) {
           storage.coupleCode = null;
           storage.myKey = null;
@@ -235,6 +238,7 @@ class SyncService {
         final data = Map<String, dynamic>.from(group['data'] as Map? ?? {});
         final profiles = Map<String, dynamic>.from(data['profiles'] as Map? ?? {});
         if (!profiles.containsKey(key)) { _setStatus('offline'); return false; }
+
         final myProfile = Map<String, dynamic>.from(profiles[key] as Map);
         final uids = List<String>.from(myProfile['uids'] as List? ?? []);
         if (!uids.contains(uid)) {
@@ -244,13 +248,10 @@ class SyncService {
           final members = List<String>.from(group['members'] as List? ?? []);
           if (!members.contains(uid)) members.add(uid);
           data['profiles'] = profiles;
-          await _supabase
-              .from('couples')
-              .update({'members': members, 'data': data})
-              .eq('code', code)
-              .timeout(const Duration(seconds: 30));
+          await _supabase.from('couples').update({'members': members, 'data': data}).eq('code', code).timeout(const Duration(seconds: 30));
           storage.members = members;
         }
+
         storage.myPartnerId = myProfile['role'] as String;
         storage.myName = (myProfile['name'] as String?) ?? '';
         storage.serverVersion = (group['version'] as int?) ?? 0;
@@ -260,17 +261,21 @@ class SyncService {
         _setStatus('online');
         _isFirstLoad = false;
         _subscribe();
-        onDataChanged?.call();
-        onStatusChanged?.call();
+        _startPullTimer();
+        _notifyAll();
         return true;
       } catch (e, st) {
         _log.error('AutoConnect', 'attempt $attempt FAILED', e, st);
-        if (attempt == 2) { _setStatus('offline'); _isFirstLoad = false; return false; }
-        await Future.delayed(const Duration(seconds: 2));
+        if (attempt == 3) { _setStatus('offline'); _isFirstLoad = false; return false; }
+        await Future.delayed(const Duration(seconds: 3));
       }
     }
     return false;
   }
+
+  // ============================================================
+  // REALTIME
+  // ============================================================
 
   void _subscribe() {
     final code = storage.coupleCode;
@@ -288,21 +293,84 @@ class SyncService {
             if (newRecord.isEmpty) return;
             final newVersion = (newRecord['version'] as int?) ?? 0;
             if (newVersion <= storage.serverVersion) return;
+            _log.info('Realtime', 'обновление v$newVersion');
             final data = Map<String, dynamic>.from(newRecord['data'] as Map? ?? {});
             _isRemoteUpdate = true;
             _applyData(data);
             storage.serverVersion = newVersion;
             _isRemoteUpdate = false;
             _setStatus('online');
-            onDataChanged?.call();
+            _notifyAll();
           },
         )
         .subscribe((status, error) {
-          if (status == RealtimeSubscribeStatus.subscribed) _setStatus('online');
-          else if (status == RealtimeSubscribeStatus.channelError) _setStatus('error');
-          else if (status == RealtimeSubscribeStatus.timedOut) _setStatus('offline');
+          _log.info('Realtime', 'статус: $status');
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            _setStatus('online');
+          } else if (status == RealtimeSubscribeStatus.channelError) {
+            _setStatus('error');
+            _scheduleReconnect();
+          } else if (status == RealtimeSubscribeStatus.timedOut) {
+            _setStatus('offline');
+            _scheduleReconnect();
+          } else if (status == RealtimeSubscribeStatus.closed) {
+            _setStatus('offline');
+            _scheduleReconnect();
+          }
         });
   }
+
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 3), () {
+      _log.info('Realtime', 'переподключаюсь...');
+      _subscribe();
+    });
+  }
+
+  // ============================================================
+  // PERIODIC PULL (страховка)
+  // ============================================================
+
+  void _startPullTimer() {
+    _pullTimer?.cancel();
+    _pullTimer = Timer.periodic(const Duration(seconds: 30), (_) => pullNow());
+  }
+
+  /// Читает актуальные данные с сервера и применяет, если версия больше локальной.
+  Future<void> pullNow() async {
+    if (_isPulling) return;
+    if (storage.coupleCode == null) return;
+    _isPulling = true;
+    try {
+      final remote = await _supabase
+          .from('couples')
+          .select('data, version')
+          .eq('code', storage.coupleCode!)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 20));
+      if (remote == null) return;
+      final remoteVersion = (remote['version'] as int?) ?? 0;
+      if (remoteVersion <= storage.serverVersion) return;
+
+      _log.info('Pull', 'нашёл обновление v$remoteVersion (было v${storage.serverVersion})');
+      final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
+      _isRemoteUpdate = true;
+      _applyData(remoteData);
+      storage.serverVersion = remoteVersion;
+      _isRemoteUpdate = false;
+      _setStatus('online');
+      _notifyAll();
+    } catch (e, st) {
+      _log.error('Pull', 'FAILED', e, st);
+    } finally {
+      _isPulling = false;
+    }
+  }
+
+  // ============================================================
+  // ПРИМЕНЕНИЕ ДАННЫХ
+  // ============================================================
 
   void _applyData(Map<String, dynamic> data) {
     _mergeList<Purchase>(data, 'purchases', localItems: storage.purchases, fromJson: (j) => Purchase.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.purchases = items);
@@ -370,7 +438,7 @@ class SyncService {
     try {
       final list = (raw as Map).values.map((v) => PurchaseList.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       if (list.isNotEmpty) storage.purchaseLists = list;
-    } catch (e) { _log.error('Sync', 'purchaseLists', e); }
+    } catch (e) {}
   }
 
   void _replacePurchaseCategories(Map<String, dynamic> data) {
@@ -378,7 +446,7 @@ class SyncService {
     try {
       final list = (raw as Map).values.map((v) => PurchaseCategory.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       if (list.isNotEmpty) storage.purchaseCategories = list;
-    } catch (e) { _log.error('Sync', 'purchaseCategories', e); }
+    } catch (e) {}
   }
 
   void _replaceTaskCategories(Map<String, dynamic> data) {
@@ -386,7 +454,7 @@ class SyncService {
     try {
       final list = (raw as Map).values.map((v) => TaskCategory.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       if (list.isNotEmpty) storage.taskCategories = list;
-    } catch (e) { _log.error('Sync', 'taskCategories', e); }
+    } catch (e) {}
   }
 
   void _replaceShiftTypes(Map<String, dynamic> data) {
@@ -394,7 +462,7 @@ class SyncService {
     try {
       final list = (raw as Map).values.map((v) => ShiftType.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       if (list.isNotEmpty) storage.shiftTypes = list;
-    } catch (e) { _log.error('Sync', 'shiftTypes', e); }
+    } catch (e) {}
   }
 
   void _replacePartners(Map<String, dynamic> data) {
@@ -402,7 +470,7 @@ class SyncService {
     try {
       final list = (raw as Map).values.map((v) => Partner.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       if (list.isNotEmpty) storage.partners = list;
-    } catch (e) { _log.error('Sync', 'partners', e); }
+    } catch (e) {}
   }
 
   void _replaceBudgetCategories(Map<String, dynamic> data) {
@@ -410,7 +478,7 @@ class SyncService {
     try {
       final list = (raw as Map).values.map((v) => BudgetCategory.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       if (list.isNotEmpty) storage.budgetCategories = list;
-    } catch (e) { _log.error('Sync', 'budgetCategories', e); }
+    } catch (e) {}
   }
 
   void _replaceHistory(Map<String, dynamic> data) {
@@ -418,8 +486,12 @@ class SyncService {
     try {
       final list = (raw as List).map((e) => PurchaseHistoryEntry.fromJson(Map<String, dynamic>.from(e as Map))).toList();
       if (list.isNotEmpty) storage.purchaseHistory = list;
-    } catch (e) { _log.error('Sync', 'history', e); }
+    } catch (e) {}
   }
+
+  // ============================================================
+  // ОТПРАВКА
+  // ============================================================
 
   void schedulePush() {
     if (storage.coupleCode == null) return;
@@ -427,7 +499,7 @@ class SyncService {
     if (_isFirstLoad) return;
     _setStatus('syncing');
     _pushDebounce?.cancel();
-    _pushDebounce = Timer(const Duration(milliseconds: 1000), _push);
+    _pushDebounce = Timer(const Duration(milliseconds: 800), _push);
   }
 
   Future<void> _push() async {
@@ -435,12 +507,7 @@ class SyncService {
     if (storage.coupleCode == null) return;
     _isPushInProgress = true;
     try {
-      final remote = await _supabase
-          .from('couples')
-          .select('data, version')
-          .eq('code', storage.coupleCode!)
-          .maybeSingle()
-          .timeout(const Duration(seconds: 30));
+      final remote = await _supabase.from('couples').select('data, version').eq('code', storage.coupleCode!).maybeSingle().timeout(const Duration(seconds: 30));
       if (remote == null) return;
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
       final remoteVersion = (remote['version'] as int?) ?? 0;
@@ -449,7 +516,7 @@ class SyncService {
         _applyData(remoteData);
         storage.serverVersion = remoteVersion;
         _isRemoteUpdate = false;
-        onDataChanged?.call();
+        _notifyAll();
       }
       final myData = storage.snapshot();
       myData['profiles'] = remoteData['profiles'] ?? {};
@@ -461,16 +528,11 @@ class SyncService {
         myData['profiles'] = profiles;
       }
       final newVersion = remoteVersion + 1;
-      await _supabase
-          .from('couples')
-          .update({
-            'data': myData,
-            'version': newVersion,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-            'updated_by': storage.currentUserId,
-          })
-          .eq('code', storage.coupleCode!)
-          .timeout(const Duration(seconds: 30));
+      await _supabase.from('couples').update({
+        'data': myData, 'version': newVersion,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+        'updated_by': storage.currentUserId,
+      }).eq('code', storage.coupleCode!).timeout(const Duration(seconds: 30));
       storage.serverVersion = newVersion;
       _setStatus('online');
     } catch (e, st) {
@@ -479,13 +541,23 @@ class SyncService {
     } finally { _isPushInProgress = false; }
   }
 
+  // ============================================================
+  // ОТКЛЮЧЕНИЕ
+  // ============================================================
+
   Future<void> disconnect() async {
     _channel?.unsubscribe();
     _channel = null;
+    _pullTimer?.cancel();
+    _reconnectTimer?.cancel();
     await _supabase.auth.signOut();
     await storage.clearAll();
     _setStatus('offline');
   }
+
+  // ============================================================
+  // УТИЛИТЫ
+  // ============================================================
 
   String _generateGroupCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -512,7 +584,6 @@ class SyncService {
 
   void _setStatus(String s) {
     _status = s;
-    _log.info('Sync', 'статус → $s');
     onStatusChanged?.call();
   }
 }
