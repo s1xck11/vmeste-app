@@ -40,12 +40,12 @@ class _TasksScreenState extends State<TasksScreen> {
   void initState() {
     super.initState();
     _load();
-    widget.sync.onDataChanged = _load;
+    widget.sync.addListener(_load);
   }
 
   @override
   void dispose() {
-    widget.sync.onDataChanged = null;
+    widget.sync.removeListener(_load);
     _quickController.dispose();
     super.dispose();
   }
@@ -257,29 +257,18 @@ class _TasksScreenState extends State<TasksScreen> {
         children: [
           Row(
             children: [
-              Text(
-                'Выполнено сегодня',
-                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-              ),
+              Text('Выполнено сегодня', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
               const Spacer(),
-              Text(
-                '$_doneToday из $_totalToday',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: cs.primary,
-                ),
-              ),
+              Text('$_doneToday из $_totalToday',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.primary)),
             ],
           ),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 6,
-              backgroundColor: cs.surfaceVariant,
-              color: cs.primary,
+              value: ratio, minHeight: 6,
+              backgroundColor: cs.surfaceVariant, color: cs.primary,
             ),
           ),
         ],
@@ -289,11 +278,8 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget _buildFilters(ColorScheme cs) {
     final filters = [
-      ('all', 'Все'),
-      ('active', 'Активные'),
-      ('high', 'Важные'),
-      ('today', 'Сегодня'),
-      ('archive', 'Архив'),
+      ('all', 'Все'), ('active', 'Активные'), ('high', 'Важные'),
+      ('today', 'Сегодня'), ('archive', 'Архив'),
     ];
     return SizedBox(
       height: 44,
@@ -314,14 +300,11 @@ class _TasksScreenState extends State<TasksScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                    color: sel ? cs.onPrimary : cs.onSurface,
-                  ),
-                ),
+                child: Text(label, style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                  color: sel ? cs.onPrimary : cs.onSurface,
+                )),
               ),
             ),
           );
@@ -355,8 +338,7 @@ class _TasksScreenState extends State<TasksScreen> {
           ),
           const SizedBox(width: 8),
           SizedBox(
-            height: 52,
-            width: 52,
+            height: 52, width: 52,
             child: ElevatedButton(
               onPressed: _quickAdd,
               style: ElevatedButton.styleFrom(
@@ -393,12 +375,9 @@ class _TaskTile extends StatelessWidget {
 
   Color _priorityColor(ColorScheme cs) {
     switch (task.priority) {
-      case 'high':
-        return cs.error;
-      case 'low':
-        return cs.tertiary;
-      default:
-        return cs.secondary;
+      case 'high': return cs.error;
+      case 'low': return cs.tertiary;
+      default: return cs.secondary;
     }
   }
 
@@ -429,11 +408,8 @@ class _TaskTile extends StatelessWidget {
         child: Icon(Icons.delete_outline, color: cs.error),
       ),
       confirmDismiss: (direction) async {
-        if (direction == DismissDirection.startToEnd) {
-          onArchive();
-        } else {
-          onDelete();
-        }
+        if (direction == DismissDirection.startToEnd) onArchive();
+        else onDelete();
         return false;
       },
       child: Material(
@@ -459,8 +435,7 @@ class _TaskTile extends StatelessWidget {
                   onTap: onToggleDone,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    width: 24,
-                    height: 24,
+                    width: 24, height: 24,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isDone ? cs.tertiary : Colors.transparent,
@@ -469,9 +444,7 @@ class _TaskTile extends StatelessWidget {
                         width: 2,
                       ),
                     ),
-                    child: isDone
-                        ? Icon(Icons.check, size: 14, color: cs.onTertiary)
-                        : null,
+                    child: isDone ? Icon(Icons.check, size: 14, color: cs.onTertiary) : null,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -479,20 +452,15 @@ class _TaskTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        task.text,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSurface,
-                          decoration: isDone ? TextDecoration.lineThrough : null,
-                          decorationColor: cs.onSurfaceVariant,
-                        ),
-                      ),
+                      Text(task.text, style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w500,
+                        color: cs.onSurface,
+                        decoration: isDone ? TextDecoration.lineThrough : null,
+                        decorationColor: cs.onSurfaceVariant,
+                      )),
                       const SizedBox(height: 4),
                       Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
+                        spacing: 6, runSpacing: 4,
                         children: [
                           _tag('${category.emoji} ${category.label}', cs.surface, cs.onSurfaceVariant),
                           if (task.priority == 'high')
@@ -517,10 +485,7 @@ class _TaskTile extends StatelessWidget {
   Widget _tag(String text, Color bg, Color fg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
       child: Text(text, style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w500)),
     );
   }
@@ -538,10 +503,7 @@ class _EmptyTasks extends StatelessWidget {
         children: [
           Icon(Icons.task_alt, size: 64, color: cs.tertiary),
           const SizedBox(height: 16),
-          Text(
-            'Задач нет',
-            style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant),
-          ),
+          Text('Задач нет', style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
         ],
       ),
     );
