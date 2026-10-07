@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -97,42 +98,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _pickBackground() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        withData: true,
-        allowMultiple: false,
+      final picker = ImagePicker();
+      final XFile? picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2000,
+        maxHeight: 2000,
+        imageQuality: 85,
       );
-      if (result == null || result.files.isEmpty) return;
 
-      final picked = result.files.first;
-      Uint8List? bytes = picked.bytes;
+      if (picked == null) return;
 
-      if (bytes == null && picked.path != null) {
-        final f = File(picked.path!);
-        if (await f.exists()) bytes = await f.readAsBytes();
-      }
-
-      if (bytes == null || bytes.isEmpty) {
+      final bytes = await picked.readAsBytes();
+      if (bytes.isEmpty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Не удалось прочитать изображение')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Пустой файл')),
+        );
         return;
       }
 
-      // 8 МБ — уже много, но не критично, сохраним в файл, а не в память.
       if (bytes.length > 8 * 1024 * 1024) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Файл больше 8 МБ. Выбери поменьше.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Файл больше 8 МБ. Выбери поменьше.')),
+        );
         return;
       }
 
       await _bgService.saveImage(bytes);
       if (!mounted) return;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Фон сохранён')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Фон сохранён')),
+      );
     } catch (e, st) {
       debugPrint('BACKGROUND FAILED: $e\n$st');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
     }
   }
 
