@@ -51,6 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _nameController = TextEditingController(text: widget.storage.myName);
     _bgService = BackgroundService(widget.storage);
     _notifService = NotificationService(widget.storage);
+    _notifService.init();
   }
 
   @override
@@ -108,39 +109,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (bytes == null && picked.path != null) {
         final f = File(picked.path!);
-        if (await f.exists()) {
-          bytes = await f.readAsBytes();
-        }
+        if (await f.exists()) bytes = await f.readAsBytes();
       }
 
       if (bytes == null || bytes.isEmpty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось прочитать изображение')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Не удалось прочитать изображение')));
         return;
       }
 
-      if (bytes.length > 5 * 1024 * 1024) {
+      // 8 МБ — уже много, но не критично, сохраним в файл, а не в память.
+      if (bytes.length > 8 * 1024 * 1024) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Файл больше 5 МБ. Выбери поменьше.')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Файл больше 8 МБ. Выбери поменьше.')));
         return;
       }
 
       await _bgService.saveImage(bytes);
       if (!mounted) return;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Фон сохранён')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Фон сохранён')));
     } catch (e, st) {
       debugPrint('BACKGROUND FAILED: $e\n$st');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
@@ -223,17 +215,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text('Сяо Чэн 小程', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.primary)),
                 ]),
                 const SizedBox(height: 6),
-                Text('Сделано с любовью для Серёжи и Насти ❤️', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurface)),
+                Text('Сделано с любовью для Серёжи и Насти ❤️',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurface)),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
           _sectionTitle('АККАУНТ', cs),
-          _tile(icon: Icons.person_outline, title: 'Моё имя', subtitle: widget.storage.myName.isEmpty ? 'Не задано' : widget.storage.myName, onTap: _editName, cs: cs),
+          _tile(icon: Icons.person_outline, title: 'Моё имя',
+              subtitle: widget.storage.myName.isEmpty ? 'Не задано' : widget.storage.myName,
+              onTap: _editName, cs: cs),
           _tile(icon: Icons.palette_outlined, title: 'Оформление', subtitle: 'Тема и палитра',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ThemePickerScreen(themeService: widget.themeService))), cs: cs),
-          _tile(icon: Icons.wallpaper, title: 'Фон приложения', subtitle: _bgService.getImageBytes() == null ? 'Не задан' : 'Задан',
+          _tile(icon: Icons.wallpaper, title: 'Фон приложения',
+              subtitle: _bgService.hasImage ? 'Задан' : 'Не задан',
               onTap: () => _showBackgroundDialog(cs), cs: cs),
 
           const SizedBox(height: 16),
@@ -244,7 +240,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _tile(icon: Icons.numbers, title: 'Версия данных', subtitle: '${widget.storage.serverVersion}', cs: cs),
           _tile(icon: Icons.sync, title: 'Отправить в облако', subtitle: 'Принудительная синхронизация',
               onTap: () { widget.sync.schedulePush(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Отправлено'))); }, cs: cs),
-          _tile(icon: Icons.people_outline, title: 'Участники группы', subtitle: '${widget.storage.members.length} устройств', onTap: () => _showMembers(cs), cs: cs),
+          _tile(icon: Icons.people_outline, title: 'Участники группы',
+              subtitle: '${widget.storage.members.length} устройств',
+              onTap: () => _showMembers(cs), cs: cs),
           if (widget.sync.status != 'online')
             _tile(icon: Icons.refresh, title: 'Подключиться заново', onTap: widget.onReconnect, cs: cs),
 
@@ -261,7 +259,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Text('Сохрани его!', style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer.withOpacity(0.8))),
                 const SizedBox(height: 10),
-                Text(widget.storage.myKey ?? '', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2, color: cs.onPrimaryContainer)),
+                Text(widget.storage.myKey ?? '',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2, color: cs.onPrimaryContainer)),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(onPressed: () => _copy(widget.storage.myKey ?? '', 'Ключ'), icon: const Icon(Icons.copy, size: 16), label: const Text('Скопировать')),
               ],
@@ -270,40 +269,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 16),
           _sectionTitle('РЕДАКТОРЫ', cs),
-          _tile(icon: Icons.category_outlined, title: 'Категории покупок', onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.purchase))), cs: cs),
-          _tile(icon: Icons.checklist, title: 'Категории задач', onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.task))), cs: cs),
-          _tile(icon: Icons.calendar_today_outlined, title: 'Типы смен', onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.shiftType))), cs: cs),
-          _tile(icon: Icons.people, title: 'Партнёры и зарплата', onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => PartnersEditorScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
+          _tile(icon: Icons.category_outlined, title: 'Категории покупок',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.purchase))), cs: cs),
+          _tile(icon: Icons.checklist, title: 'Категории задач',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.task))), cs: cs),
+          _tile(icon: Icons.calendar_today_outlined, title: 'Типы смен',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.shiftType))), cs: cs),
+          _tile(icon: Icons.people, title: 'Партнёры и зарплата',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => PartnersEditorScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
 
           const SizedBox(height: 16),
           _sectionTitle('ИНСТРУМЕНТЫ', cs),
           _tile(icon: Icons.download, title: 'Импорт из Курьера', subtitle: 'Вставить JSON',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => CourierImportScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.view_list, title: 'Шаблоны покупок', onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => PurchaseTemplatesScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.history, title: 'История покупок', onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => PurchaseHistoryScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
+          _tile(icon: Icons.view_list, title: 'Шаблоны покупок',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => PurchaseTemplatesScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
+          _tile(icon: Icons.history, title: 'История покупок',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => PurchaseHistoryScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
           _tile(icon: Icons.folder_outlined, title: 'Данные', subtitle: 'Экспорт / Импорт JSON',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.bug_report_outlined, title: 'Отладка', onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const DebugScreen())), cs: cs),
+          _tile(icon: Icons.bug_report_outlined, title: 'Отладка',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen())), cs: cs),
 
           const SizedBox(height: 16),
           _sectionTitle('УВЕДОМЛЕНИЯ', cs),
-          SwitchListTile(
-            value: _notifService.enabled,
-            onChanged: (v) async {
-              await _notifService.setEnabled(v);
-              setState(() {});
-            },
-            title: const Text('Напоминания о сменах'),
-            subtitle: const Text('Требуется разрешение системы'),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  value: _notifService.enabled,
+                  onChanged: (v) async {
+                    await _notifService.setEnabled(v);
+                    setState(() {});
+                  },
+                  title: const Text('Напоминания о сменах'),
+                  subtitle: const Text('Разрешение системы запросится автоматически'),
+                ),
+                if (_notifService.enabled)
+                  ListTile(
+                    title: const Text('Напомнить за'),
+                    subtitle: Text('${_notifService.timing} минут'),
+                    trailing: DropdownButton<int>(
+                      value: _notifService.timing,
+                      items: const [
+                        DropdownMenuItem(value: 15, child: Text('15 мин')),
+                        DropdownMenuItem(value: 30, child: Text('30 мин')),
+                        DropdownMenuItem(value: 60, child: Text('60 мин')),
+                        DropdownMenuItem(value: 120, child: Text('120 мин')),
+                      ],
+                      onChanged: (v) async {
+                        if (v != null) {
+                          await _notifService.setTiming(v);
+                          setState(() {});
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 24),
