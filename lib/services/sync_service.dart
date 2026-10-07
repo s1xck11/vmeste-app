@@ -34,7 +34,6 @@ class SyncService {
   bool _isPushInProgress = false;
   bool _isPulling = false;
 
-  // Слушатели обновлений — ВСЕ экраны подписываются сюда
   final List<VoidCallback> _listeners = [];
   VoidCallback? onStatusChanged;
 
@@ -43,14 +42,8 @@ class SyncService {
 
   SyncService({required this.storage});
 
-  // ============================================================
-  // ПОДПИСКА ЭКРАНОВ НА ОБНОВЛЕНИЯ
-  // ============================================================
-
   void addListener(VoidCallback listener) {
-    if (!_listeners.contains(listener)) {
-      _listeners.add(listener);
-    }
+    if (!_listeners.contains(listener)) _listeners.add(listener);
   }
 
   void removeListener(VoidCallback listener) {
@@ -62,10 +55,6 @@ class SyncService {
       try { l(); } catch (e, st) { _log.error('Sync', 'listener error', e, st); }
     }
   }
-
-  // ============================================================
-  // АВТОРИЗАЦИЯ
-  // ============================================================
 
   Future<String> signInAnonymously() async {
     final existing = _supabase.auth.currentUser;
@@ -93,10 +82,6 @@ class SyncService {
     }
     throw lastError ?? Exception('Не удалось войти');
   }
-
-  // ============================================================
-  // СОЗДАНИЕ / ПРИСОЕДИНЕНИЕ
-  // ============================================================
 
   Future<Map<String, String>> createGroup() async {
     final uid = await signInAnonymously();
@@ -273,10 +258,6 @@ class SyncService {
     return false;
   }
 
-  // ============================================================
-  // REALTIME
-  // ============================================================
-
   void _subscribe() {
     final code = storage.coupleCode;
     if (code == null) return;
@@ -328,16 +309,11 @@ class SyncService {
     });
   }
 
-  // ============================================================
-  // PERIODIC PULL (страховка)
-  // ============================================================
-
   void _startPullTimer() {
     _pullTimer?.cancel();
     _pullTimer = Timer.periodic(const Duration(seconds: 30), (_) => pullNow());
   }
 
-  /// Читает актуальные данные с сервера и применяет, если версия больше локальной.
   Future<void> pullNow() async {
     if (_isPulling) return;
     if (storage.coupleCode == null) return;
@@ -367,10 +343,6 @@ class SyncService {
       _isPulling = false;
     }
   }
-
-  // ============================================================
-  // ПРИМЕНЕНИЕ ДАННЫХ
-  // ============================================================
 
   void _applyData(Map<String, dynamic> data) {
     _mergeList<Purchase>(data, 'purchases', localItems: storage.purchases, fromJson: (j) => Purchase.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.purchases = items);
@@ -489,10 +461,6 @@ class SyncService {
     } catch (e) {}
   }
 
-  // ============================================================
-  // ОТПРАВКА
-  // ============================================================
-
   void schedulePush() {
     if (storage.coupleCode == null) return;
     if (_isRemoteUpdate) return;
@@ -541,10 +509,6 @@ class SyncService {
     } finally { _isPushInProgress = false; }
   }
 
-  // ============================================================
-  // ОТКЛЮЧЕНИЕ
-  // ============================================================
-
   Future<void> disconnect() async {
     _channel?.unsubscribe();
     _channel = null;
@@ -554,10 +518,6 @@ class SyncService {
     await storage.clearAll();
     _setStatus('offline');
   }
-
-  // ============================================================
-  // УТИЛИТЫ
-  // ============================================================
 
   String _generateGroupCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
