@@ -33,6 +33,12 @@ jobs:
           echo "=== root build.gradle ==="
           cat android/build.gradle
       
+      - name: Copy settings.gradle template
+        run: |
+          cp .github/settings.gradle.template android/settings.gradle
+          echo "=== settings.gradle ==="
+          cat android/settings.gradle
+      
       - name: Copy app build.gradle template
         run: |
           cp .github/build.gradle.template android/app/build.gradle
