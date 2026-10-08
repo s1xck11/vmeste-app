@@ -9,6 +9,8 @@ import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/add_purchase_modal.dart';
+import 'purchase_templates_screen.dart';
+import 'purchase_history_screen.dart';
 
 class PurchasesScreen extends StatefulWidget {
   final StorageService storage;
@@ -62,30 +64,54 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     });
   }
 
-  void _quickAdd() {
+  /// Открывает модалку с категориями. Текст — из поля быстрого ввода.
+  void _openQuickModal() {
     final text = _quickController.text.trim();
-    if (text.isEmpty) return;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final p = Purchase(
-      id: now,
-      text: text,
-      done: false,
-      missing: false,
-      category: 'other',
-      qty: 1,
-      unit: 'шт',
-      price: 0,
-      listId: _selectedListId,
-      order: _purchases.length,
-      createdAt: now,
-      updatedAt: now,
-    );
-    final list = List<Purchase>.from(_purchases)..add(p);
-    widget.storage.purchases = list;
     _quickController.clear();
     FocusScope.of(context).unfocus();
-    _load();
-    widget.sync.schedulePush();
+    _openAddModal(initialText: text);
+  }
+
+  void _openAddModal({String initialText = ''}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddPurchaseModal(
+        categories: _categories,
+        lists: _lists,
+        initialListId: _selectedListId,
+        initialText: initialText,
+        onSave: (p) {
+          final list = List<Purchase>.from(_purchases)..add(p);
+          widget.storage.purchases = list;
+          _load();
+          widget.sync.schedulePush();
+        },
+      ),
+    );
+  }
+
+  void _openEditModal(Purchase p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddPurchaseModal(
+        categories: _categories,
+        lists: _lists,
+        initialListId: _selectedListId,
+        initialPurchase: p,
+        onSave: (updated) {
+          final list = List<Purchase>.from(_purchases);
+          final i = list.indexWhere((e) => e.id == updated.id);
+          if (i >= 0) list[i] = updated;
+          widget.storage.purchases = list;
+          _load();
+          widget.sync.schedulePush();
+        },
+      ),
+    );
   }
 
   void _toggleDone(Purchase p) {
@@ -123,44 +149,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     widget.storage.purchases = list;
     _load();
     widget.sync.schedulePush();
-  }
-
-  void _openAddModal() {
-    FocusScope.of(context).unfocus();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => AddPurchaseModal(
-        categories: _categories,
-        lists: _lists,
-        initialListId: _selectedListId,
-        onSave: (p) {
-          final list = List<Purchase>.from(_purchases)..add(p);
-          widget.storage.purchases = list;
-          _load();
-          widget.sync.schedulePush();
-        },
-      ),
-    );
-  }
-
-  void _openEditModal(Purchase p) {
-    FocusScope.of(context).unfocus();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => AddPurchaseModal(
-        categories: _categories,
-        lists: _lists,
-        initialListId: _selectedListId,
-        initialPurchase: p,
-        onSave: (updated) {
-          _replace(updated);
-        },
-      ),
-    );
   }
 
   List<Purchase> get _visiblePurchases {
@@ -209,6 +197,28 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             title: 'Покупки',
             onAvatarTap: widget.onAvatarTap,
             avatarEmoji: widget.storage.myAvatar,
+            actions: [
+              IconButton(
+                tooltip: 'Шаблоны',
+                icon: Icon(Icons.view_list, color: cs.primary),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => PurchaseTemplatesScreen(
+                    storage: widget.storage,
+                    sync: widget.sync,
+                  ),
+                )),
+              ),
+              IconButton(
+                tooltip: 'История',
+                icon: Icon(Icons.history, color: cs.primary),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => PurchaseHistoryScreen(
+                    storage: widget.storage,
+                    sync: widget.sync,
+                  ),
+                )),
+              ),
+            ],
           ),
           Expanded(
             child: CustomScrollView(
@@ -298,7 +308,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           Expanded(
             child: TextField(
               controller: _quickController,
-              onSubmitted: (_) => _quickAdd(),
+              onSubmitted: (_) => _openQuickModal(),
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
                 hintText: 'Что купить?',
@@ -318,7 +328,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             height: 52,
             width: 52,
             child: ElevatedButton(
-              onPressed: _quickAdd,
+              onPressed: _openQuickModal,
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
