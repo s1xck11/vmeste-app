@@ -70,8 +70,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label скопирован')));
   }
 
-  // ---------- Профиль ----------
-
   Future<void> _pickAvatar() async {
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => AvatarPickerScreen(currentAvatar: widget.storage.myAvatar)),
@@ -101,8 +99,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {});
     }
   }
-
-  // ---------- Фон ----------
 
   Future<void> _pickBackground() async {
     try {
@@ -141,8 +137,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _bgService.setBlur(v);
     setState(() {});
   }
-
-  // ---------- Обновления ----------
 
   Future<void> _checkUpdates() async {
     if (_checkingUpdate) return;
@@ -200,8 +194,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ---------- Утилиты ----------
-
   Color _syncColor() {
     switch (widget.sync.status) {
       case 'online': return const Color(0xFF34C759);
@@ -220,8 +212,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ============ UI ============
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -231,7 +221,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          // Профиль
           Center(
             child: Column(
               children: [
@@ -255,7 +244,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Сяо Чэн
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -281,7 +269,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 20),
 
-          // ПРОФИЛЬ
           _sectionTitle('ПРОФИЛЬ', cs),
           _tile(icon: Icons.person_outline, title: 'Моё имя',
               subtitle: widget.storage.myName.isEmpty ? 'Не задано' : widget.storage.myName,
@@ -295,7 +282,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // СВЯЗЬ
           _sectionTitle('СВЯЗЬ', cs),
           _tile(icon: Icons.circle, iconColor: _syncColor(), title: 'Статус', subtitle: _syncText(), cs: cs),
           _tile(icon: Icons.copy, title: 'Код группы', subtitle: widget.storage.coupleCode ?? '—',
@@ -314,7 +300,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // НАСТРОЙКИ
           _sectionTitle('НАСТРОЙКИ', cs),
           _expandableCategories(cs),
           _expandableTaskCategories(cs),
@@ -361,7 +346,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // ДАННЫЕ
           _sectionTitle('ДАННЫЕ', cs),
           _tile(icon: Icons.download, title: 'Импорт из Курьера', subtitle: 'Вставить JSON',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -375,7 +359,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // ПРОЧЕЕ
           _sectionTitle('ПРОЧЕЕ', cs),
           _tile(icon: Icons.system_update_alt, title: 'Проверить обновления',
               subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentVersion}',
@@ -419,8 +402,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ---------- Раскрывающиеся редакторы ----------
-
   Widget _expandableCategories(ColorScheme cs) {
     return _ExpandableSection(
       title: 'Категории покупок',
@@ -440,7 +421,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
                 widget.storage.purchaseCategories = cats;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
               onEmoji: (v) {
                 cats[i] = PurchaseCategory(
@@ -448,13 +429,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
                 widget.storage.purchaseCategories = cats;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
               onDelete: () {
                 cats.removeAt(i);
                 widget.storage.purchaseCategories = cats;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
             )),
             TextButton.icon(
@@ -468,7 +449,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ));
                 widget.storage.purchaseCategories = cats;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Добавить'),
@@ -498,7 +479,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
                 widget.storage.taskCategories = cats;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
               onEmoji: (v) {
                 cats[i] = TaskCategory(
@@ -506,13 +487,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
                 widget.storage.taskCategories = cats;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
               onDelete: () {
                 cats.removeAt(i);
                 widget.storage.taskCategories = cats;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
             )),
             TextButton.icon(
@@ -526,7 +507,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ));
                 widget.storage.taskCategories = cats;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Добавить'),
@@ -582,7 +563,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       types.removeAt(i);
                       widget.storage.shiftTypes = types;
                       widget.sync.schedulePush();
-                      setSt(() {});
+                      setSt();
                     },
                   ),
                 ],
@@ -598,7 +579,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ));
                 widget.storage.shiftTypes = types;
                 widget.sync.schedulePush();
-                setSt(() {});
+                setSt();
               },
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Добавить'),
@@ -690,7 +671,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               payType: v ?? 'hourly');
                             widget.storage.partners = partners;
                             widget.sync.schedulePush();
-                            setSt(() {});
+                            setSt();
                           },
                         ),
                       ),
@@ -759,8 +740,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ---------- Диалоги ----------
-
   Future<void> _showBackgroundDialog(ColorScheme cs) async {
     await showDialog(
       context: context,
@@ -817,8 +796,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ---------- Секции ----------
-
   Widget _sectionTitle(String text, ColorScheme cs) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
@@ -840,13 +817,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// ============ Раскрывающаяся секция ============
-
 class _ExpandableSection extends StatefulWidget {
   final String title;
   final IconData icon;
   final ColorScheme cs;
-  final Widget Function(void Function()) builder;
+  final Widget Function(VoidCallback) builder;
 
   const _ExpandableSection({
     required this.title,
