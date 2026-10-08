@@ -50,7 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.storage.myName);
-    _bgService = BackgroundService(widget.storage);
+    _bgService = BackgroundService.instance;
     _notifService = NotificationService(widget.storage);
     _notifService.init();
   }
