@@ -56,15 +56,23 @@ void main() async {
   await storage.init();
   final themeService = ThemeService();
   await themeService.init();
+  final bgService = BackgroundService.init(storage);
   final sync = SyncService(storage: storage);
-  runApp(VmesteApp(storage: storage, sync: sync, themeService: themeService));
+  runApp(VmesteApp(storage: storage, sync: sync, themeService: themeService, bgService: bgService));
 }
 
 class VmesteApp extends StatelessWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
-  const VmesteApp({super.key, required this.storage, required this.sync, required this.themeService});
+  final BackgroundService bgService;
+  const VmesteApp({
+    super.key,
+    required this.storage,
+    required this.sync,
+    required this.themeService,
+    required this.bgService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +83,7 @@ class VmesteApp extends StatelessWidget {
           title: 'Вместе',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.build(config),
-          home: SplashScreen(storage: storage, sync: sync, themeService: themeService),
+          home: SplashScreen(storage: storage, sync: sync, themeService: themeService, bgService: bgService),
         );
       },
     );
@@ -86,7 +94,14 @@ class SplashScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
-  const SplashScreen({super.key, required this.storage, required this.sync, required this.themeService});
+  final BackgroundService bgService;
+  const SplashScreen({
+    super.key,
+    required this.storage,
+    required this.sync,
+    required this.themeService,
+    required this.bgService,
+  });
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -103,7 +118,12 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
       if (ok) {
         Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (_) => MainScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+          builder: (_) => MainScreen(
+            storage: widget.storage,
+            sync: widget.sync,
+            themeService: widget.themeService,
+            bgService: widget.bgService,
+          ),
         ));
         return;
       }
@@ -137,7 +157,14 @@ class MainScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
-  const MainScreen({super.key, required this.storage, required this.sync, required this.themeService});
+  final BackgroundService bgService;
+  const MainScreen({
+    super.key,
+    required this.storage,
+    required this.sync,
+    required this.themeService,
+    required this.bgService,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -146,13 +173,11 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final List<Widget> _screens;
-  late BackgroundService _bgService;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _bgService = BackgroundService(widget.storage);
     _screens = [
       PurchasesScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
       TasksScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
@@ -213,7 +238,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: cs.background,
       body: AppBackground(
-        service: _bgService,
+        service: widget.bgService,
         child: IndexedStack(index: _currentIndex, children: _screens),
       ),
       bottomNavigationBar: GlassContainer(
