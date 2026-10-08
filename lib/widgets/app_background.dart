@@ -1,6 +1,5 @@
 // lib/widgets/app_background.dart
 
-import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -24,12 +23,17 @@ class _AppBackgroundState extends State<AppBackground> {
   void initState() {
     super.initState();
     _load();
+    widget.service?.notifier.addListener(_onNotifierChange);
   }
 
   @override
-  void didUpdateWidget(AppBackground oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.service != widget.service) _load();
+  void dispose() {
+    widget.service?.notifier.removeListener(_onNotifierChange);
+    super.dispose();
+  }
+
+  void _onNotifierChange() {
+    _load();
   }
 
   Future<void> _load() async {
