@@ -5,18 +5,21 @@ import 'package:flutter/services.dart';
 import '../services/sync_service.dart';
 import '../services/storage_service.dart';
 import '../services/theme_service.dart';
+import '../services/background_service.dart';
 import '../main.dart' show AppColors, MainScreen;
 
 class SetupScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
+  final BackgroundService bgService;
 
   const SetupScreen({
     super.key,
     required this.storage,
     required this.sync,
     required this.themeService,
+    required this.bgService,
   });
 
   @override
@@ -42,7 +45,6 @@ class _SetupScreenState extends State<SetupScreen> {
     super.dispose();
   }
 
-  /// Превращает сырую ошибку в понятное сообщение.
   String _humanizeError(Object e) {
     final s = e.toString().toLowerCase();
     if (s.contains('socketexception') || s.contains('connection abort') ||
@@ -154,6 +156,7 @@ class _SetupScreenState extends State<SetupScreen> {
           storage: widget.storage,
           sync: widget.sync,
           themeService: widget.themeService,
+          bgService: widget.bgService,
         ),
       ),
     );
@@ -188,11 +191,7 @@ class _SetupScreenState extends State<SetupScreen> {
               const SizedBox(height: 24),
               const Text(
                 'Вместе',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textLight,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textLight),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -233,10 +232,8 @@ class _SetupScreenState extends State<SetupScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        _error!,
-                        style: const TextStyle(color: AppColors.textLight, fontSize: 14, height: 1.4),
-                      ),
+                      Text(_error!,
+                          style: const TextStyle(color: AppColors.textLight, fontSize: 14, height: 1.4)),
                       if (_errorDetails != null) ...[
                         const SizedBox(height: 8),
                         TextButton(
