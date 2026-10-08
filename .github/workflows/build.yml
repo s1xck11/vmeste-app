@@ -27,17 +27,21 @@ jobs:
       - name: Create Android project files
         run: flutter create --org com.vmeste --project-name vmeste_app .
       
-      - name: Copy build.gradle template
+      - name: Copy root build.gradle template
+        run: |
+          cp .github/build.gradle.root.template android/build.gradle
+          echo "=== root build.gradle ==="
+          cat android/build.gradle
+      
+      - name: Copy app build.gradle template
         run: |
           cp .github/build.gradle.template android/app/build.gradle
-          echo "=== build.gradle ==="
+          echo "=== app build.gradle ==="
           cat android/app/build.gradle
       
       - name: Add permissions to AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          echo "=== Перед ==="
-          cat "$MANIFEST"
           
           if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
             sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>|' "$MANIFEST"
@@ -51,15 +55,13 @@ jobs:
             sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>|' "$MANIFEST"
           fi
           
-          echo "=== После ==="
+          echo "=== Манифест ==="
           cat "$MANIFEST"
       
       - name: Set app name to Вместе
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i 's|android:label="vmeste_app"|android:label="Вместе"|' "$MANIFEST"
-          echo "=== Манифест после правок ==="
-          cat "$MANIFEST"
       
       - name: Restore keystore
         run: |
@@ -74,8 +76,6 @@ jobs:
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=release.keystore
           EOF
-          echo "=== key.properties ==="
-          cat android/key.properties
       
       - name: Get dependencies
         run: flutter pub get
@@ -83,10 +83,9 @@ jobs:
       - name: Generate launcher icons
         run: |
           if [ -f "assets/icon/app_icon.png" ]; then
-            echo "🎨 Генерирую иконки..."
             flutter pub run flutter_launcher_icons
           else
-            echo "⚠️ Нет assets/icon/app_icon.png — пропускаю генерацию иконок"
+            echo "⚠️ Нет assets/icon/app_icon.png — пропускаю"
           fi
       
       - name: Build APK
