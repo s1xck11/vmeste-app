@@ -67,8 +67,9 @@ jobs:
             sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>|' "$MANIFEST"
           fi
           
-          echo "=== Манифест ==="
-          cat "$MANIFEST"
+          if ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$MANIFEST"; then
+            sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>|' "$MANIFEST"
+          fi
       
       - name: Set app name to Вместе
         run: |
@@ -118,12 +119,16 @@ jobs:
           path: release/*.apk
           retention-days: 30
       
+      - name: Get short sha
+        id: short_sha
+        run: echo "SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
       - name: Create Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
+          tag_name: v1.1.${{ github.run_number }}
+          name: Вместе 1.1.${{ github.run_number }} (${{ steps.short_sha.outputs.SHA }})
           files: release/*.apk
           generate_release_notes: true
         env:
