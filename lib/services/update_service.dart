@@ -99,65 +99,122 @@ class UpdateService {
     }
   }
 
-  /// Скачивает APK с прогрессом. [onProgress] вызывается с (получено, всего).
-  /// Возвращает File или null.
+  /// Скачивает APK с поддержкой докачки.
+  /// Файл сохраняется как .part. После успеха — переименовывается в .apk.
   Future<File?> downloadApk(
     UpdateInfo info, {
     void Function(int received, int total)? onProgress,
+    void Function(String status)? onStatus,
   }) async {
     if (info.apkUrl == null) {
       _log.warn('Update', 'нет APK в релизе');
       return null;
     }
-    HttpClient? client;
-    try {
-      _log.info('Update', 'скачиваю ${info.apkUrl}');
 
-      // Свой HttpClient с followRedirects — надёжнее на Huawei
-      client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 30);
-      client.idleTimeout = const Duration(seconds: 60);
-      client.badCertificateCallback = (cert, host, port) => true;
+    const maxAttempts = 5;
+    final dir = await getTemporaryDirectory();
+    final partFile = File('${dir.path}/vmeste-${info.tag}.apk.part');
+    final finalFile = File('${dir.path}/vmeste-${info.tag}.apk');
 
-      final request = await client.getUrl(Uri.parse(info.apkUrl!));
-      request.followRedirects = true;
-      request.headers.set('Accept', '*/*');
-      final response = await request.close();
-
-      if (response.statusCode != 200) {
-        _log.warn('Update', 'HTTP ${response.statusCode}');
-        return null;
-      }
-
-      final total = response.contentLength > 0 ? response.contentLength : info.apkSize;
-
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/vmeste-${info.tag}.apk');
-      if (await file.exists()) await file.delete();
-
-      final sink = file.openWrite();
-      int received = 0;
-
-      await for (final chunk in response) {
-        sink.add(chunk);
-        received += chunk.length;
-        if (onProgress != null) onProgress(received, total);
-      }
-
-      await sink.flush();
-      await sink.close();
-
-      _log.info('Update', 'сохранено: ${file.path} (${received ~/ 1024} КБ)');
-      return file;
-    } catch (e, st) {
-      _log.error('Update', 'downloadApk FAILED', e, st);
-      return null;
-    } finally {
-      client?.close(force: true);
+    // Если уже есть готовый APK — используем его
+    if (await finalFile.exists()) {
+      _log.info('Update', 'уже скачан: ${finalFile.path}');
+      return finalFile;
     }
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        int existingLength = 0;
+        if (await partFile.exists()) {
+          existingLength = await partFile.length();
+        }
+
+        _log.info('Update', 'попытка $attempt/$maxAttempts, уже есть $existingLength байт');
+        if (onStatus != null) {
+          onStatus(attempt == 1 && existingLength == 0
+              ? 'Скачивание...'
+              : 'Докачка (попытка $attempt)...');
+        }
+
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(seconds: 30);
+        client.idleTimeout = const Duration(seconds: 60);
+        client.badCertificateCallback = (cert, host, port) => true;
+
+        try {
+          final uri = Uri.parse(info.apkUrl!);
+          final request = await client.getUrl(uri);
+          request.followRedirects = true;
+          request.headers.set('Accept', '*/*');
+          if (existingLength > 0) {
+            request.headers.set('Range', 'bytes=$existingLength-');
+          }
+
+          final response = await request.close();
+          final status = response.statusCode;
+
+          // 200 = начинаем с нуля, 206 = Partial Content (докачка)
+          if (status != 200 && status != 206) {
+            _log.warn('Update', 'HTTP $status');
+            client.close(force: true);
+            return null;
+          }
+
+          int startFrom = 0;
+          if (status == 206 && existingLength > 0) {
+            startFrom = existingLength;
+            _log.info('Update', 'сервер поддержал докачку с $startFrom');
+          } else if (status == 200) {
+            // Сервер не поддержал Range — начинаем с нуля
+            if (existingLength > 0) {
+              _log.info('Update', 'сервер НЕ поддержал докачку — начинаем с нуля');
+            }
+            startFrom = 0;
+            if (await partFile.exists()) await partFile.delete();
+          }
+
+          final total = (response.contentLength > 0
+                  ? response.contentLength + startFrom
+                  : info.apkSize);
+
+          final sink = partFile.openWrite(mode: FileMode.append);
+          int received = startFrom;
+          if (onProgress != null) onProgress(received, total);
+
+          await for (final chunk in response) {
+            sink.add(chunk);
+            received += chunk.length;
+            if (onProgress != null) onProgress(received, total);
+          }
+
+          await sink.flush();
+          await sink.close();
+          client.close();
+
+          // Успех — переименовываем
+          if (await finalFile.exists()) await finalFile.delete();
+          await partFile.rename(finalFile.path);
+          _log.info('Update', 'скачано: ${finalFile.path} (${received ~/ 1024} КБ)');
+          return finalFile;
+        } finally {
+          client.close(force: true);
+        }
+      } catch (e, st) {
+        _log.error('Update', 'попытка $attempt FAILED', e, st);
+        if (onStatus != null) {
+          onStatus('Обрыв, повтор через 3 сек...');
+        }
+        if (attempt < maxAttempts) {
+          await Future.delayed(const Duration(seconds: 3));
+        }
+      }
+    }
+
+    _log.warn('Update', 'не удалось скачать за $maxAttempts попыток, файл .part сохранён');
+    return null;
   }
 
-  /// Открывает системный установщик для скачанного файла.
+  /// Открывает системный установщик.
   Future<bool> installApk(File file) async {
     try {
       final uri = Uri.file(file.path);
@@ -171,6 +228,15 @@ class UpdateService {
       _log.error('Update', 'installApk FAILED', e, st);
       return false;
     }
+  }
+
+  /// Удаляет временный файл .part — на случай, если нужно начать заново.
+  Future<void> clearPartial(String tag) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final f = File('${dir.path}/vmeste-$tag.apk.part');
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
   }
 
   List<int>? _parseVersion(String tag) {
