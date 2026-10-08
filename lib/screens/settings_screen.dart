@@ -138,6 +138,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
+  // ============ ОБНОВЛЕНИЯ ============
+
   Future<void> _checkUpdates() async {
     if (_checkingUpdate) return;
     setState(() => _checkingUpdate = true);
@@ -157,6 +159,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showUpdateDialog(UpdateInfo info) {
+    final sizeMb = info.apkSize > 0
+        ? '${(info.apkSize / 1024 / 1024).toStringAsFixed(1)} МБ'
+        : 'неизвестно';
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -166,9 +172,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (info.apkSize > 0)
-                Text('Размер: ${(info.apkSize / 1024 / 1024).toStringAsFixed(1)} МБ',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('Размер: $sizeMb',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 8),
               if (info.body.isNotEmpty)
                 Text(info.body, style: const TextStyle(fontSize: 13)),
@@ -178,16 +183,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
           ElevatedButton.icon(
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(ctx);
-              final ok = await _updateService.downloadAndInstall(info);
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(ok ? 'Открываю установщик...' : 'Не удалось скачать')),
-              );
+              _downloadWithProgress(info);
             },
             icon: const Icon(Icons.download),
             label: const Text('Скачать'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _downloadWithProgress(UpdateInfo info) {
+    double progress = 0;
+    int received = 0;
+    int total = info.apkSize;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setSt) {
+          return AlertDialog(
+            title: const Text('Скачивание обновления...'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinearProgressIndicator(
+                  value: total > 0 ? progress : null,
+                  backgroundColor: Colors.grey[300],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  total > 0
+                      ? '${(received / 1024 / 1024).toStringAsFixed(1)} / ${(total / 1024 / 1024).toStringAsFixed(1)} МБ'
+                      : '${(received / 1024 / 1024).toStringAsFixed(1)} МБ',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    _updateService.downloadApk(info, onProgress: (r, t) {
+      received = r;
+      total = t;
+      progress = t > 0 ? r / t : 0;
+      if (mounted) {
+        // Принудительно перестраиваем верхний диалог
+        Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst || r.settings.name == null);
+      }
+    }).then((file) {
+      if (!mounted) return;
+      // Закрываем диалог прогресса
+      Navigator.of(context, rootNavigator: true).pop();
+
+      if (file == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось скачать обновление')),
+        );
+        return;
+      }
+      _showInstallDialog(file, info.tag);
+    });
+  }
+
+  void _showInstallDialog(File file, String tag) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Готово к установке'),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Обновление $tag скачано. Нажми «Установить», чтобы открыть системный установщик.'),
+            const SizedBox(height: 8),
+            const Text(
+              'Если Android попросит разрешение на установку из неизвестных источников — разреши для «Вместе».',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await _updateService.installApk(file);
+              if (!mounted) return;
+              if (!ok) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Не удалось открыть установщик')),
+                );
+              }
+            },
+            icon: const Icon(Icons.install_mobile),
+            label: const Text('Установить'),
           ),
         ],
       ),
