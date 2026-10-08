@@ -45,6 +45,12 @@ jobs:
           echo "=== app build.gradle ==="
           cat android/app/build.gradle
       
+      - name: Copy gradle-wrapper.properties template
+        run: |
+          cp .github/gradle-wrapper.properties.template android/gradle/wrapper/gradle-wrapper.properties
+          echo "=== gradle-wrapper.properties ==="
+          cat android/gradle/wrapper/gradle-wrapper.properties
+      
       - name: Add permissions to AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
