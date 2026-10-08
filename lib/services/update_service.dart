@@ -1,5 +1,6 @@
 // lib/services/update_service.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -28,14 +29,10 @@ class UpdateInfo {
 class UpdateService {
   final _log = DebugLogService();
 
-  /// Текущая версия из pubspec (хардкод — синхронизируем с pubspec.yaml)
   static const String currentVersion = '1.1.0';
   static const int currentBuild = 100;
-
-  /// GitHub repo — владелец/имя
   static const String _repo = 's1xck11/vmeste-app';
 
-  /// Проверяет последний релиз. Возвращает UpdateInfo или null, если обновлений нет.
   Future<UpdateInfo?> checkForUpdate() async {
     try {
       _log.info('Update', 'проверка обновлений...');
@@ -55,7 +52,6 @@ class UpdateService {
       final name = (data['name'] as String?) ?? tag;
       final body = (data['body'] as String?) ?? '';
 
-      // Ищем APK в assets — предпочтение arm64-v8a
       final assets = (data['assets'] as List?) ?? [];
       String? apkUrl;
       int apkSize = 0;
@@ -80,7 +76,6 @@ class UpdateService {
         }
       }
 
-      // Парсим версию из тега: "v1.1.123" → [1, 1, 123]
       final ver = _parseVersion(tag) ?? [0, 0, 0];
       final currentVer = _parseVersion('v$currentVersion') ?? [0, 0, 0];
 
@@ -104,25 +99,67 @@ class UpdateService {
     }
   }
 
-  /// Скачивает APK в кэш и открывает системный установщик.
-  Future<bool> downloadAndInstall(UpdateInfo info) async {
+  /// Скачивает APK с прогрессом. [onProgress] вызывается с (получено, всего).
+  /// Возвращает File или null.
+  Future<File?> downloadApk(
+    UpdateInfo info, {
+    void Function(int received, int total)? onProgress,
+  }) async {
     if (info.apkUrl == null) {
       _log.warn('Update', 'нет APK в релизе');
-      return false;
+      return null;
     }
+    HttpClient? client;
     try {
       _log.info('Update', 'скачиваю ${info.apkUrl}');
-      final resp = await http.get(Uri.parse(info.apkUrl!)).timeout(const Duration(minutes: 3));
-      if (resp.statusCode != 200) {
-        _log.warn('Update', 'скачивание HTTP ${resp.statusCode}');
-        return false;
+
+      // Свой HttpClient с followRedirects — надёжнее на Huawei
+      client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 30);
+      client.idleTimeout = const Duration(seconds: 60);
+      client.badCertificateCallback = (cert, host, port) => true;
+
+      final request = await client.getUrl(Uri.parse(info.apkUrl!));
+      request.followRedirects = true;
+      request.headers.set('Accept', '*/*');
+      final response = await request.close();
+
+      if (response.statusCode != 200) {
+        _log.warn('Update', 'HTTP ${response.statusCode}');
+        return null;
       }
+
+      final total = response.contentLength > 0 ? response.contentLength : info.apkSize;
 
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/vmeste-${info.tag}.apk');
-      await file.writeAsBytes(resp.bodyBytes);
-      _log.info('Update', 'сохранено: ${file.path}');
+      if (await file.exists()) await file.delete();
 
+      final sink = file.openWrite();
+      int received = 0;
+
+      await for (final chunk in response) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (onProgress != null) onProgress(received, total);
+      }
+
+      await sink.flush();
+      await sink.close();
+
+      _log.info('Update', 'сохранено: ${file.path} (${received ~/ 1024} КБ)');
+      return file;
+    } catch (e, st) {
+      _log.error('Update', 'downloadApk FAILED', e, st);
+      return null;
+    } finally {
+      client?.close(force: true);
+    }
+  }
+
+  /// Открывает системный установщик для скачанного файла.
+  Future<bool> installApk(File file) async {
+    try {
       final uri = Uri.file(file.path);
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok) {
@@ -131,7 +168,7 @@ class UpdateService {
       }
       return true;
     } catch (e, st) {
-      _log.error('Update', 'downloadAndInstall FAILED', e, st);
+      _log.error('Update', 'installApk FAILED', e, st);
       return false;
     }
   }
