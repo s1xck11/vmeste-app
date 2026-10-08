@@ -11,6 +11,7 @@ import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../services/background_service.dart';
 import '../services/notification_service.dart';
+import '../services/update_service.dart';
 import 'avatar_picker_screen.dart';
 import 'data_management_screen.dart';
 import 'debug_screen.dart';
@@ -45,6 +46,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _nameController;
   late BackgroundService _bgService;
   late NotificationService _notifService;
+  final _updateService = UpdateService();
+  bool _checkingUpdate = false;
 
   @override
   void initState() {
@@ -105,38 +108,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         maxHeight: 2000,
         imageQuality: 85,
       );
-
       if (picked == null) return;
-
       final bytes = await picked.readAsBytes();
-      if (bytes.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Пустой файл')),
-        );
-        return;
-      }
-
+      if (bytes.isEmpty) return;
       if (bytes.length > 8 * 1024 * 1024) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Файл больше 8 МБ. Выбери поменьше.')),
+          const SnackBar(content: Text('Файл больше 8 МБ')),
         );
         return;
       }
-
       await _bgService.saveImage(bytes);
       if (!mounted) return;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Фон сохранён')),
-      );
-    } catch (e, st) {
-      debugPrint('BACKGROUND FAILED: $e\n$st');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Фон сохранён')));
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
@@ -149,6 +137,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _setBlur(double v) async {
     await _bgService.setBlur(v);
     setState(() {});
+  }
+
+  Future<void> _checkUpdates() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    try {
+      final info = await _updateService.checkForUpdate();
+      if (!mounted) return;
+      if (info == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Обновлений нет. У тебя последняя версия.')),
+        );
+      } else {
+        _showUpdateDialog(info);
+      }
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
+  }
+
+  void _showUpdateDialog(UpdateInfo info) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Доступна версия ${info.tag}'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (info.apkSize > 0)
+                Text('Размер: ${(info.apkSize / 1024 / 1024).toStringAsFixed(1)} МБ',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 8),
+              if (info.body.isNotEmpty)
+                Text(info.body, style: const TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await _updateService.downloadAndInstall(info);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(ok ? 'Открываю установщик...' : 'Не удалось скачать')),
+              );
+            },
+            icon: const Icon(Icons.download),
+            label: const Text('Скачать и установить'),
+          ),
+        ],
+      ),
+    );
   }
 
   Color _syncColor() {
@@ -288,6 +332,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 16),
           _sectionTitle('ИНСТРУМЕНТЫ', cs),
+          _tile(icon: Icons.system_update_alt, title: 'Проверить обновления',
+              subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentVersion}',
+              onTap: _checkingUpdate ? null : _checkUpdates, cs: cs),
           _tile(icon: Icons.download, title: 'Импорт из Курьера', subtitle: 'Вставить JSON',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => CourierImportScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
