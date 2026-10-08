@@ -23,17 +23,21 @@ class NotificationService {
   void _initTimezone() {
     if (_tzInitialized) return;
     tz_data.initializeTimeZones();
-    // Устанавливаем локальную таймзону по offset
     try {
       final offset = DateTime.now().timeZoneOffset;
       final name = offset.inHours >= 0
           ? 'Etc/GMT-${offset.inHours}'
           : 'Etc/GMT+${offset.inHours.abs()}';
       tz.setLocalLocation(tz.getLocation(name));
-    } catch (_) {
-      // если не нашлось — оставляем UTC, для локальных смен работает
-    }
+    } catch (_) {}
     _tzInitialized = true;
+  }
+
+  /// Превращает 64-битный ID смены в 32-битный ID уведомления.
+  /// Берём последние 9 цифр и делаем положительным.
+  int _safeId(int id) {
+    final mod = id.abs() % 1000000000; // максимум 9 цифр = до 999 999 999
+    return mod == 0 ? 1 : mod;
   }
 
   Future<void> init() async {
@@ -77,7 +81,6 @@ class NotificationService {
     if (enabled) await scheduleAll();
   }
 
-  /// Планирует уведомления для всех смен на ближайшие 30 дней.
   Future<void> scheduleAll() async {
     if (!enabled) return;
     _initTimezone();
@@ -122,7 +125,7 @@ class NotificationService {
         final body = '${p.name} — ${t.label} в ${s.startTime}';
 
         await _plugin.zonedSchedule(
-          s.id,
+          _safeId(s.id),
           '⏰ Смена через $timing мин',
           body,
           tz.TZDateTime.from(notifyTime, tz.local),
