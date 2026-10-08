@@ -6,6 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import '../models/purchase_category.dart';
+import '../models/task_category.dart';
+import '../models/shift_type.dart';
+import '../models/partner.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -17,9 +21,6 @@ import 'data_management_screen.dart';
 import 'debug_screen.dart';
 import 'courier_import_screen.dart';
 import 'theme_picker_screen.dart';
-import 'categories_editor_screen.dart';
-import 'partners_editor_screen.dart';
-import 'purchase_templates_screen.dart';
 import 'purchase_history_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -69,6 +70,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label скопирован')));
   }
 
+  // ---------- Профиль ----------
+
   Future<void> _pickAvatar() async {
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => AvatarPickerScreen(currentAvatar: widget.storage.myAvatar)),
@@ -99,6 +102,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // ---------- Фон ----------
+
   Future<void> _pickBackground() async {
     try {
       final picker = ImagePicker();
@@ -113,9 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (bytes.isEmpty) return;
       if (bytes.length > 8 * 1024 * 1024) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Файл больше 8 МБ')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Файл больше 8 МБ')));
         return;
       }
       await _bgService.saveImage(bytes);
@@ -139,6 +142,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
+  // ---------- Обновления ----------
+
   Future<void> _checkUpdates() async {
     if (_checkingUpdate) return;
     setState(() => _checkingUpdate = true);
@@ -147,7 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       if (info == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Обновлений нет. У тебя последняя версия.')),
+          const SnackBar(content: Text('Обновлений нет')),
         );
       } else {
         _showUpdateDialog(info);
@@ -188,12 +193,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
             icon: const Icon(Icons.download),
-            label: const Text('Скачать и установить'),
+            label: const Text('Скачать'),
           ),
         ],
       ),
     );
   }
+
+  // ---------- Утилиты ----------
 
   Color _syncColor() {
     switch (widget.sync.status) {
@@ -213,6 +220,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // ============ UI ============
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -222,6 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
+          // Профиль
           Center(
             child: Column(
               children: [
@@ -245,6 +255,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 24),
 
+          // Сяо Чэн
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -270,18 +281,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 20),
 
-          _sectionTitle('АККАУНТ', cs),
+          // ПРОФИЛЬ
+          _sectionTitle('ПРОФИЛЬ', cs),
           _tile(icon: Icons.person_outline, title: 'Моё имя',
               subtitle: widget.storage.myName.isEmpty ? 'Не задано' : widget.storage.myName,
               onTap: _editName, cs: cs),
           _tile(icon: Icons.palette_outlined, title: 'Оформление', subtitle: 'Тема и палитра',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ThemePickerScreen(themeService: widget.themeService))), cs: cs),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => ThemePickerScreen(themeService: widget.themeService))), cs: cs),
           _tile(icon: Icons.wallpaper, title: 'Фон приложения',
               subtitle: _bgService.hasImage ? 'Задан' : 'Не задан',
               onTap: () => _showBackgroundDialog(cs), cs: cs),
 
           const SizedBox(height: 16),
-          _sectionTitle('СИНХРОНИЗАЦИЯ', cs),
+
+          // СВЯЗЬ
+          _sectionTitle('СВЯЗЬ', cs),
           _tile(icon: Icons.circle, iconColor: _syncColor(), title: 'Статус', subtitle: _syncText(), cs: cs),
           _tile(icon: Icons.copy, title: 'Код группы', subtitle: widget.storage.coupleCode ?? '—',
               onTap: () => _copy(widget.storage.coupleCode ?? '', 'Код'), cs: cs),
@@ -293,66 +308,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _showMembers(cs), cs: cs),
           if (widget.sync.status != 'online')
             _tile(icon: Icons.refresh, title: 'Подключиться заново', onTap: widget.onReconnect, cs: cs),
+          _tile(icon: Icons.key, title: 'Мой ключ',
+              subtitle: widget.storage.myKey ?? '—',
+              onTap: () => _copy(widget.storage.myKey ?? '', 'Ключ'), cs: cs),
 
           const SizedBox(height: 16),
-          _sectionTitle('🔑 МОЙ КЛЮЧ', cs),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.primary),
-            ),
-            child: Column(
-              children: [
-                Text('Сохрани его!', style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer.withOpacity(0.8))),
-                const SizedBox(height: 10),
-                Text(widget.storage.myKey ?? '',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2, color: cs.onPrimaryContainer)),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(onPressed: () => _copy(widget.storage.myKey ?? '', 'Ключ'), icon: const Icon(Icons.copy, size: 16), label: const Text('Скопировать')),
-              ],
-            ),
-          ),
 
-          const SizedBox(height: 16),
-          _sectionTitle('РЕДАКТОРЫ', cs),
-          _tile(icon: Icons.category_outlined, title: 'Категории покупок',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.purchase))), cs: cs),
-          _tile(icon: Icons.checklist, title: 'Категории задач',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.task))), cs: cs),
-          _tile(icon: Icons.calendar_today_outlined, title: 'Типы смен',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => CategoriesEditorScreen(storage: widget.storage, sync: widget.sync, kind: CategoryKind.shiftType))), cs: cs),
-          _tile(icon: Icons.people, title: 'Партнёры и зарплата',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => PartnersEditorScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-
-          const SizedBox(height: 16),
-          _sectionTitle('ИНСТРУМЕНТЫ', cs),
-          _tile(icon: Icons.system_update_alt, title: 'Проверить обновления',
-              subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentVersion}',
-              onTap: _checkingUpdate ? null : _checkUpdates, cs: cs),
-          _tile(icon: Icons.download, title: 'Импорт из Курьера', subtitle: 'Вставить JSON',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => CourierImportScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.view_list, title: 'Шаблоны покупок',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => PurchaseTemplatesScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.history, title: 'История покупок',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => PurchaseHistoryScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.folder_outlined, title: 'Данные', subtitle: 'Экспорт / Импорт JSON',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.bug_report_outlined, title: 'Отладка',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen())), cs: cs),
-
-          const SizedBox(height: 16),
-          _sectionTitle('УВЕДОМЛЕНИЯ', cs),
+          // НАСТРОЙКИ
+          _sectionTitle('НАСТРОЙКИ', cs),
+          _expandableCategories(cs),
+          _expandableTaskCategories(cs),
+          _expandableShiftTypes(cs),
+          _expandablePartners(cs),
           Card(
+            margin: const EdgeInsets.only(bottom: 8),
             child: Column(
               children: [
                 SwitchListTile(
@@ -361,13 +330,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     await _notifService.setEnabled(v);
                     setState(() {});
                   },
-                  title: const Text('Напоминания о сменах'),
-                  subtitle: const Text('Разрешение системы запросится автоматически'),
+                  secondary: Icon(Icons.notifications_outlined, color: cs.primary, size: 22),
+                  title: const Text('Уведомления'),
+                  subtitle: Text(_notifService.enabled
+                      ? 'За ${_notifService.timing} мин до смены'
+                      : 'Выключены'),
                 ),
                 if (_notifService.enabled)
                   ListTile(
                     title: const Text('Напомнить за'),
-                    subtitle: Text('${_notifService.timing} минут'),
                     trailing: DropdownButton<int>(
                       value: _notifService.timing,
                       items: const [
@@ -388,7 +359,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
+          const SizedBox(height: 16),
+
+          // ДАННЫЕ
+          _sectionTitle('ДАННЫЕ', cs),
+          _tile(icon: Icons.download, title: 'Импорт из Курьера', subtitle: 'Вставить JSON',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => CourierImportScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
+          _tile(icon: Icons.history, title: 'История покупок',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => PurchaseHistoryScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
+          _tile(icon: Icons.folder_outlined, title: 'Экспорт / Импорт JSON',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
+
+          const SizedBox(height: 16),
+
+          // ПРОЧЕЕ
+          _sectionTitle('ПРОЧЕЕ', cs),
+          _tile(icon: Icons.system_update_alt, title: 'Проверить обновления',
+              subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentVersion}',
+              onTap: _checkingUpdate ? null : _checkUpdates, cs: cs),
+          _tile(icon: Icons.bug_report_outlined, title: 'Отладка',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen())), cs: cs),
+
           const SizedBox(height: 24),
+
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -422,6 +418,348 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  // ---------- Раскрывающиеся редакторы ----------
+
+  Widget _expandableCategories(ColorScheme cs) {
+    return _ExpandableSection(
+      title: 'Категории покупок',
+      icon: Icons.category_outlined,
+      cs: cs,
+      builder: (setSt) {
+        final cats = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
+        return Column(
+          children: [
+            ...List.generate(cats.length, (i) => _editableRow(
+              cs: cs,
+              emoji: cats[i].emoji,
+              label: cats[i].label,
+              onLabel: (v) {
+                cats[i] = PurchaseCategory(
+                  id: cats[i].id, label: v, emoji: cats[i].emoji,
+                  order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
+                widget.storage.purchaseCategories = cats;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+              onEmoji: (v) {
+                cats[i] = PurchaseCategory(
+                  id: cats[i].id, label: cats[i].label, emoji: v,
+                  order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
+                widget.storage.purchaseCategories = cats;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+              onDelete: () {
+                cats.removeAt(i);
+                widget.storage.purchaseCategories = cats;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+            )),
+            TextButton.icon(
+              onPressed: () {
+                cats.add(PurchaseCategory(
+                  id: 'cat_${DateTime.now().millisecondsSinceEpoch}',
+                  label: 'Новая',
+                  emoji: '📦',
+                  order: cats.length,
+                  updatedAt: DateTime.now().millisecondsSinceEpoch,
+                ));
+                widget.storage.purchaseCategories = cats;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Добавить'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _expandableTaskCategories(ColorScheme cs) {
+    return _ExpandableSection(
+      title: 'Категории задач',
+      icon: Icons.checklist,
+      cs: cs,
+      builder: (setSt) {
+        final cats = List<TaskCategory>.from(widget.storage.taskCategories);
+        return Column(
+          children: [
+            ...List.generate(cats.length, (i) => _editableRow(
+              cs: cs,
+              emoji: cats[i].emoji,
+              label: cats[i].label,
+              onLabel: (v) {
+                cats[i] = TaskCategory(
+                  id: cats[i].id, label: v, emoji: cats[i].emoji,
+                  order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
+                widget.storage.taskCategories = cats;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+              onEmoji: (v) {
+                cats[i] = TaskCategory(
+                  id: cats[i].id, label: cats[i].label, emoji: v,
+                  order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
+                widget.storage.taskCategories = cats;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+              onDelete: () {
+                cats.removeAt(i);
+                widget.storage.taskCategories = cats;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+            )),
+            TextButton.icon(
+              onPressed: () {
+                cats.add(TaskCategory(
+                  id: 'tcat_${DateTime.now().millisecondsSinceEpoch}',
+                  label: 'Новая',
+                  emoji: '📦',
+                  order: cats.length,
+                  updatedAt: DateTime.now().millisecondsSinceEpoch,
+                ));
+                widget.storage.taskCategories = cats;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Добавить'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _expandableShiftTypes(ColorScheme cs) {
+    return _ExpandableSection(
+      title: 'Типы смен',
+      icon: Icons.calendar_today_outlined,
+      cs: cs,
+      builder: (setSt) {
+        final types = List<ShiftType>.from(widget.storage.shiftTypes);
+        return Column(
+          children: [
+            ...List.generate(types.length, (i) => Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: cs.surfaceVariant,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 12, height: 12,
+                    decoration: BoxDecoration(
+                      color: _parseColor(types[i].color),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextFormField(
+                      initialValue: types[i].label,
+                      style: TextStyle(color: cs.onSurface),
+                      decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+                      onFieldSubmitted: (v) {
+                        types[i] = ShiftType(
+                          id: types[i].id, label: v, hours: types[i].hours, color: types[i].color);
+                        widget.storage.shiftTypes = types;
+                        widget.sync.schedulePush();
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
+                    onPressed: () {
+                      types.removeAt(i);
+                      widget.storage.shiftTypes = types;
+                      widget.sync.schedulePush();
+                      setSt(() {});
+                    },
+                  ),
+                ],
+              ),
+            )),
+            TextButton.icon(
+              onPressed: () {
+                types.add(ShiftType(
+                  id: 'st_${DateTime.now().millisecondsSinceEpoch}',
+                  label: 'Новый',
+                  hours: 8,
+                  color: '#FF8FAB',
+                ));
+                widget.storage.shiftTypes = types;
+                widget.sync.schedulePush();
+                setSt(() {});
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Добавить'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _expandablePartners(ColorScheme cs) {
+    return _ExpandableSection(
+      title: 'Партнёры и зарплата',
+      icon: Icons.people,
+      cs: cs,
+      builder: (setSt) {
+        final partners = List<Partner>.from(widget.storage.partners);
+        return Column(
+          children: List.generate(partners.length, (i) {
+            final p = partners[i];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    initialValue: p.name,
+                    style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Имя партнёра',
+                      labelStyle: TextStyle(color: cs.onSurfaceVariant),
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onFieldSubmitted: (v) {
+                      partners[i] = Partner(
+                        id: p.id, name: v, rate: p.rate, payType: p.payType);
+                      widget.storage.partners = partners;
+                      widget.sync.schedulePush();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: p.rate.toStringAsFixed(0),
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: cs.onSurface),
+                          decoration: InputDecoration(
+                            labelText: 'Ставка',
+                            suffixText: '₽',
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onFieldSubmitted: (v) {
+                            partners[i] = Partner(
+                              id: p.id, name: p.name,
+                              rate: double.tryParse(v) ?? 0,
+                              payType: p.payType);
+                            widget.storage.partners = partners;
+                            widget.sync.schedulePush();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: p.payType,
+                          decoration: const InputDecoration(
+                            labelText: 'Тип',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'hourly', child: Text('Почасовая')),
+                            DropdownMenuItem(value: 'fixed', child: Text('Фиксированная')),
+                            DropdownMenuItem(value: 'piecework', child: Text('Сдельная')),
+                          ],
+                          onChanged: (v) {
+                            partners[i] = Partner(
+                              id: p.id, name: p.name, rate: p.rate,
+                              payType: v ?? 'hourly');
+                            widget.storage.partners = partners;
+                            widget.sync.schedulePush();
+                            setSt(() {});
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  Widget _editableRow({
+    required ColorScheme cs,
+    required String emoji,
+    required String label,
+    required void Function(String) onLabel,
+    required void Function(String) onEmoji,
+    required VoidCallback onDelete,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 40,
+            child: TextFormField(
+              initialValue: emoji,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 20),
+              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+              onFieldSubmitted: onEmoji,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextFormField(
+              initialValue: label,
+              style: TextStyle(color: cs.onSurface),
+              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+              onFieldSubmitted: onLabel,
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
+            onPressed: onDelete,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _parseColor(String hex) {
+    try {
+      final h = hex.replaceAll('#', '');
+      return Color(int.parse('FF$h', radix: 16));
+    } catch (_) {
+      return const Color(0xFF9E9E9E);
+    }
+  }
+
+  // ---------- Диалоги ----------
 
   Future<void> _showBackgroundDialog(ColorScheme cs) async {
     await showDialog(
@@ -479,6 +817,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ---------- Секции ----------
+
   Widget _sectionTitle(String text, ColorScheme cs) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
@@ -495,6 +835,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
         subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant)) : null,
         trailing: onTap != null ? Icon(Icons.chevron_right, color: cs.onSurfaceVariant, size: 20) : null,
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+// ============ Раскрывающаяся секция ============
+
+class _ExpandableSection extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final ColorScheme cs;
+  final Widget Function(void Function()) builder;
+
+  const _ExpandableSection({
+    required this.title,
+    required this.icon,
+    required this.cs,
+    required this.builder,
+  });
+
+  @override
+  State<_ExpandableSection> createState() => _ExpandableSectionState();
+}
+
+class _ExpandableSectionState extends State<_ExpandableSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        children: [
+          ListTile(
+            leading: Icon(widget.icon, color: cs.primary, size: 22),
+            title: Text(widget.title, style: TextStyle(fontWeight: FontWeight.w500, color: cs.onSurface)),
+            trailing: Icon(_expanded ? Icons.expand_less : Icons.expand_more, color: cs.onSurfaceVariant),
+            onTap: () => setState(() => _expanded = !_expanded),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: widget.builder(() => setState(() {})),
+            ),
+        ],
       ),
     );
   }
