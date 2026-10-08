@@ -81,30 +81,23 @@ class UpdateService {
       }
 
       // Парсим версию из тега: "v1.1.123" → [1, 1, 123]
-      final ver = _parseVersion(tag);
-      final currentVer = _parseVersion('v$currentVersion');
+      final ver = _parseVersion(tag) ?? [0, 0, 0];
+      final currentVer = _parseVersion('v$currentVersion') ?? [0, 0, 0];
 
-      if (ver == null) {
-        _log.warn('Update', 'не удалось распарсить тег: $tag');
-        return null;
+      if (_isNewer(ver, currentVer)) {
+        _log.info('Update', 'найдено обновление: $tag');
+        return UpdateInfo(
+          tag: tag,
+          version: tag,
+          name: name,
+          body: body,
+          apkUrl: apkUrl,
+          apkSize: apkSize,
+        );
       }
 
-      final hasNewer = _isNewer(ver, currentVer);
-
-      if (!hasNewer) {
-        _log.info('Update', 'обновлений нет (текущая $currentVersion, последняя $tag)');
-        return null;
-      }
-
-      _log.info('Update', 'найдено обновление: $tag');
-      return UpdateInfo(
-        tag: tag,
-        version: tag,
-        name: name,
-        body: body,
-        apkUrl: apkUrl,
-        apkSize: apkSize,
-      );
+      _log.info('Update', 'обновлений нет (текущая $currentVersion, последняя $tag)');
+      return null;
     } catch (e, st) {
       _log.error('Update', 'checkForUpdate FAILED', e, st);
       return null;
@@ -130,7 +123,6 @@ class UpdateService {
       await file.writeAsBytes(resp.bodyBytes);
       _log.info('Update', 'сохранено: ${file.path}');
 
-      // Открываем системный установщик
       final uri = Uri.file(file.path);
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!ok) {
@@ -148,7 +140,9 @@ class UpdateService {
     try {
       final clean = tag.replaceAll(RegExp(r'^[vV]'), '');
       final parts = clean.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-      while (parts.length < 3) parts.add(0);
+      while (parts.length < 3) {
+        parts.add(0);
+      }
       return parts.take(3).toList();
     } catch (_) {
       return null;
