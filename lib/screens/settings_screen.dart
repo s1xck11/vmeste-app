@@ -196,54 +196,109 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _downloadWithProgress(UpdateInfo info) {
-    double progress = 0;
-    int received = 0;
-    int total = info.apkSize;
+    // Прогресс и статус для обновления UI диалога
+    final progressNotifier = ValueNotifier<double>(0);
+    final receivedNotifier = ValueNotifier<int>(0);
+    final totalNotifier = ValueNotifier<int>(info.apkSize);
+    final statusNotifier = ValueNotifier<String>('Скачивание...');
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx2, setSt) {
-          return AlertDialog(
-            title: const Text('Скачивание обновления...'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinearProgressIndicator(
-                  value: total > 0 ? progress : null,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Скачивание обновления'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ValueListenableBuilder<String>(
+                valueListenable: statusNotifier,
+                builder: (_, v, __) => Text(v, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+              ),
+              const SizedBox(height: 12),
+              ValueListenableBuilder<double>(
+                valueListenable: progressNotifier,
+                builder: (_, v, __) => LinearProgressIndicator(
+                  value: v > 0 ? v : null,
+                  minHeight: 6,
                   backgroundColor: Colors.grey[300],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  total > 0
-                      ? '${(received / 1024 / 1024).toStringAsFixed(1)} / ${(total / 1024 / 1024).toStringAsFixed(1)} МБ'
-                      : '${(received / 1024 / 1024).toStringAsFixed(1)} МБ',
-                  style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 10),
+              ValueListenableBuilder<int>(
+                valueListenable: receivedNotifier,
+                builder: (_, r, __) => ValueListenableBuilder<int>(
+                  valueListenable: totalNotifier,
+                  builder: (_, t, __) => Text(
+                    t > 0
+                        ? '${(r / 1024 / 1024).toStringAsFixed(1)} / ${(t / 1024 / 1024).toStringAsFixed(1)} МБ'
+                        : '${(r / 1024 / 1024).toStringAsFixed(1)} МБ',
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
-              ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                // Отменяем — оставляем .part, чтобы можно было докачать
+                Navigator.pop(ctx);
+                await _updateService.clearPartial(info.tag);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Отменено')),
+                );
+              },
+              child: const Text('Отмена'),
             ),
-          );
-        },
-      ),
+          ],
+        );
+      },
     );
 
-    _updateService.downloadApk(info, onProgress: (r, t) {
-      received = r;
-      total = t;
-      progress = t > 0 ? r / t : 0;
-      if (mounted) {
-        // Принудительно перестраиваем верхний диалог
-        Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst || r.settings.name == null);
-      }
-    }).then((file) {
+    _updateService.downloadApk(
+      info,
+      onProgress: (r, t) {
+        receivedNotifier.value = r;
+        totalNotifier.value = t;
+        progressNotifier.value = t > 0 ? r / t : 0;
+      },
+      onStatus: (s) {
+        statusNotifier.value = s;
+      },
+    ).then((file) {
       if (!mounted) return;
-      // Закрываем диалог прогресса
       Navigator.of(context, rootNavigator: true).pop();
 
       if (file == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось скачать обновление')),
+        // Скачивание не удалось — но .part сохранён, следующий клик продолжит
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Обрыв связи'),
+            content: const Text(
+              'Скачивание прервалось. Файл сохранён — при следующей попытке '
+              'загрузка продолжится с того же места.',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _downloadWithProgress(info);
+                },
+                child: const Text('Повторить'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await _updateService.clearPartial(info.tag);
+                },
+                child: const Text('Начать заново'),
+              ),
+            ],
+          ),
         );
         return;
       }
