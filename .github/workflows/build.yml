@@ -1,8 +1,6 @@
 name: Build APK
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -56,6 +54,93 @@ jobs:
           sed -i 's|android:label="vmeste_app"|android:label="Вместе"|' "$MANIFEST"
           echo "=== Манифест после правок ==="
           cat "$MANIFEST"
+      
+      - name: Restore keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+          ls -la android/app/release.keystore
+      
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=release.keystore
+          EOF
+          echo "=== key.properties ==="
+          cat android/key.properties
+      
+      - name: Patch build.gradle for signing
+        run: |
+          GRADLE="android/app/build.gradle"
+          echo "=== Исходный build.gradle (верх) ==="
+          head -20 "$GRADLE"
+          
+          # Добавляем загрузку key.properties и signingConfigs перед блоком android {
+          python3 - <<'PYEOF'
+          import re
+          
+          path = "android/app/build.gradle"
+          with open(path, 'r', encoding='utf-8') as f:
+              content = f.read()
+          
+          # Если уже пропатчен — не дублируем
+          if "keystoreProperties" in content:
+              print("Уже пропатчен, пропускаю")
+          else:
+              # Загружаем key.properties
+              load_block = '''def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file('key.properties')
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+          }
+          
+          '''
+              content = load_block + content
+          
+              # Внутри android { ... } добавляем signingConfigs
+              signing_block = '''    signingConfigs {
+                  release {
+                      keyAlias keystoreProperties['keyAlias']
+                      keyPassword keystoreProperties['keyPassword']
+                      storeFile file(keystoreProperties['storeFile'])
+                      storePassword keystoreProperties['storePassword']
+                  }
+              }
+          '''
+              # Находим "android {" и вставляем после него
+              idx = content.find("android {")
+              if idx != -1:
+                  insert_at = idx + len("android {")
+                  content = content[:insert_at] + "\n" + signing_block + content[insert_at:]
+          
+              # Заменяем buildTypes.release на подписанную
+              content = re.sub(
+                  r'release\s*\{[^}]*signingConfig\s+signingConfigs\.debug[^}]*\}',
+                  '''release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                      shrinkResources false
+                  }''',
+                  content,
+                  flags=re.DOTALL
+              )
+          
+              # Если не нашли signingConfig debug — добавим release buildType
+              if "signingConfig signingConfigs.release" not in content:
+                  content = content.replace(
+                      "buildTypes {",
+                      "buildTypes {\n        release {\n            signingConfig signingConfigs.release\n            minifyEnabled false\n            shrinkResources false\n        }",
+                      1
+                  )
+          
+              with open(path, 'w', encoding='utf-8') as f:
+                  f.write(content)
+          
+              print("=== Пропатченный build.gradle ===")
+              print(content)
+          PYEOF
       
       - name: Get dependencies
         run: flutter pub get
