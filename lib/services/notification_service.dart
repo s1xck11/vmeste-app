@@ -33,10 +33,8 @@ class NotificationService {
     _tzInitialized = true;
   }
 
-  /// Превращает 64-битный ID смены в 32-битный ID уведомления.
-  /// Берём последние 9 цифр и делаем положительным.
   int _safeId(int id) {
-    final mod = id.abs() % 1000000000; // максимум 9 цифр = до 999 999 999
+    final mod = id.abs() % 1000000000;
     return mod == 0 ? 1 : mod;
   }
 
