@@ -6,6 +6,7 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final VoidCallback onAvatarTap;
   final String avatarEmoji;
+  final List<Widget>? actions;
   final double height;
 
   const ModernAppBar({
@@ -13,6 +14,7 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     required this.onAvatarTap,
     this.avatarEmoji = '👤',
+    this.actions,
     this.height = 72,
   });
 
@@ -46,6 +48,8 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (actions != null) ...actions!,
+          const SizedBox(width: 4),
           _AvatarButton(emoji: avatarEmoji, onTap: onAvatarTap),
         ],
       ),
