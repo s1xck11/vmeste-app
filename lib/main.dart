@@ -130,7 +130,12 @@ class _SplashScreenState extends State<SplashScreen> {
     }
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => SetupScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+      builder: (_) => SetupScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        bgService: widget.bgService,
+      ),
     ));
   }
 
@@ -216,7 +221,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     await widget.sync.disconnect();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => SetupScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService),
+      builder: (_) => SetupScreen(
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        bgService: widget.bgService,
+      ),
     ));
   }
 
