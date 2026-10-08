@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
@@ -44,20 +45,26 @@ class _SupabaseHttpOverrides extends HttpOverrides {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  tz_data.initializeTimeZones();
+
   final logger = DebugLogService();
   FlutterError.onError = (d) => logger.error('Flutter', d.exceptionAsString(), d.exception, d.stack);
   HttpOverrides.global = _SupabaseHttpOverrides();
   logger.info('App', 'HttpOverrides установлен');
+
   try {
     await Supabase.initialize(url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
     logger.info('App', 'Supabase инициализирован');
   } catch (e, st) { logger.error('App', 'Supabase init FAILED', e, st); }
+
   final storage = StorageService();
   await storage.init();
   final themeService = ThemeService();
   await themeService.init();
   final bgService = BackgroundService.init(storage);
   final sync = SyncService(storage: storage);
+
   runApp(VmesteApp(storage: storage, sync: sync, themeService: themeService, bgService: bgService));
 }
 
