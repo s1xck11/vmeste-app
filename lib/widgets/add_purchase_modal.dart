@@ -9,6 +9,7 @@ class AddPurchaseModal extends StatefulWidget {
   final List<PurchaseCategory> categories;
   final List<PurchaseList> lists;
   final String initialListId;
+  final String initialText;
   final Purchase? initialPurchase;
   final Function(Purchase) onSave;
 
@@ -17,6 +18,7 @@ class AddPurchaseModal extends StatefulWidget {
     required this.categories,
     required this.lists,
     required this.initialListId,
+    this.initialText = '',
     this.initialPurchase,
     required this.onSave,
   });
@@ -32,6 +34,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
   String _unit = 'шт';
   String _categoryId = 'other';
   late String _listId;
+  bool _showDetails = false;
 
   @override
   void initState() {
@@ -45,7 +48,9 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
       _unit = p.unit;
       _categoryId = p.category;
       _listId = p.listId;
+      _showDetails = true;
     } else {
+      _nameCtrl.text = widget.initialText;
       if (widget.categories.isNotEmpty) {
         _categoryId = widget.categories.first.id;
       }
@@ -126,19 +131,20 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
 
               TextField(
                 controller: _nameCtrl,
+                autofocus: widget.initialPurchase == null,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Название',
                   hintText: 'Молоко',
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
               Text(
-                'Категория',
+                'КАТЕГОРИЯ',
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                   color: cs.onSurfaceVariant,
                   letterSpacing: 0.5,
                 ),
@@ -175,46 +181,68 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 16),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _qtyCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(labelText: 'Кол-во'),
-                    ),
+              // Кнопка «С деталями»
+              InkWell(
+                onTap: () => setState(() => _showDetails = !_showDetails),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(_showDetails ? Icons.expand_less : Icons.expand_more,
+                          color: cs.primary, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        _showDetails ? 'Скрыть детали' : 'Количество и цена',
+                        style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 100,
-                    child: DropdownButtonFormField<String>(
-                      value: _unit,
-                      items: const [
-                        DropdownMenuItem(value: 'шт', child: Text('шт')),
-                        DropdownMenuItem(value: 'кг', child: Text('кг')),
-                        DropdownMenuItem(value: 'г', child: Text('г')),
-                        DropdownMenuItem(value: 'л', child: Text('л')),
-                        DropdownMenuItem(value: 'мл', child: Text('мл')),
-                        DropdownMenuItem(value: 'упак', child: Text('упак')),
-                      ],
-                      onChanged: (v) => setState(() => _unit = v ?? 'шт'),
-                      decoration: const InputDecoration(labelText: 'Ед.'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              TextField(
-                controller: _priceCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Цена за единицу',
-                  suffixText: '₽',
                 ),
               ),
-              const SizedBox(height: 20),
 
+              if (_showDetails) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _qtyCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Кол-во'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 100,
+                      child: DropdownButtonFormField<String>(
+                        value: _unit,
+                        items: const [
+                          DropdownMenuItem(value: 'шт', child: Text('шт')),
+                          DropdownMenuItem(value: 'кг', child: Text('кг')),
+                          DropdownMenuItem(value: 'г', child: Text('г')),
+                          DropdownMenuItem(value: 'л', child: Text('л')),
+                          DropdownMenuItem(value: 'мл', child: Text('мл')),
+                          DropdownMenuItem(value: 'упак', child: Text('упак')),
+                        ],
+                        onChanged: (v) => setState(() => _unit = v ?? 'шт'),
+                        decoration: const InputDecoration(labelText: 'Ед.'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _priceCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Цена за единицу',
+                    suffixText: '₽',
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
@@ -232,7 +260,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
                     child: ElevatedButton.icon(
                       onPressed: _save,
                       icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Сохранить'),
+                      label: const Text('Добавить'),
                     ),
                   ),
                 ],
