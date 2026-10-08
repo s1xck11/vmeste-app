@@ -1,6 +1,8 @@
 // lib/services/notification_service.dart
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 import '../models/shift.dart';
 import '../models/shift_type.dart';
 import '../models/partner.dart';
@@ -11,13 +13,31 @@ class NotificationService {
   final StorageService storage;
   final _log = DebugLogService();
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  bool _tzInitialized = false;
 
   NotificationService(this.storage);
 
   bool get enabled => storage.notificationsEnabled;
   int get timing => storage.notificationTiming;
 
+  void _initTimezone() {
+    if (_tzInitialized) return;
+    tz_data.initializeTimeZones();
+    // Устанавливаем локальную таймзону по offset
+    try {
+      final offset = DateTime.now().timeZoneOffset;
+      final name = offset.inHours >= 0
+          ? 'Etc/GMT-${offset.inHours}'
+          : 'Etc/GMT+${offset.inHours.abs()}';
+      tz.setLocalLocation(tz.getLocation(name));
+    } catch (_) {
+      // если не нашлось — оставляем UTC, для локальных смен работает
+    }
+    _tzInitialized = true;
+  }
+
   Future<void> init() async {
+    _initTimezone();
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
     try {
@@ -60,6 +80,7 @@ class NotificationService {
   /// Планирует уведомления для всех смен на ближайшие 30 дней.
   Future<void> scheduleAll() async {
     if (!enabled) return;
+    _initTimezone();
     await _plugin.cancelAll();
 
     final now = DateTime.now();
@@ -104,7 +125,7 @@ class NotificationService {
           s.id,
           '⏰ Смена через $timing мин',
           body,
-          _tz(notifyTime),
+          tz.TZDateTime.from(notifyTime, tz.local),
           const NotificationDetails(
             android: AndroidNotificationDetails(
               'shifts_channel',
@@ -124,12 +145,5 @@ class NotificationService {
       }
     }
     _log.info('Notif', 'запланировано $scheduled уведомлений');
-  }
-
-  /// Обёртка над tz.TZDateTime для удобства
-  dynamic _tz(DateTime dt) {
-    // Используем локальный DateTime без таймзон — для локальных смен подходит.
-    // Если понадобится точная таймзона — добавим пакет timezone.
-    return dt;
   }
 }
