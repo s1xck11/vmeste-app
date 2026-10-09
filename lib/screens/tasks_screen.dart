@@ -198,7 +198,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final list = _filtered;
 
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           ModernAppBar(
