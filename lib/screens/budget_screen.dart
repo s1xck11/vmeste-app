@@ -55,6 +55,11 @@ class _BudgetScreenState extends State<BudgetScreen> {
     });
   }
 
+  Future<void> _refresh() async {
+    await widget.sync.forcePullNow();
+    _load();
+  }
+
   List<Transaction> get _monthTransactions {
     final start = DateTime(_currentMonth.year, _currentMonth.month, 1);
     final end = DateTime(_currentMonth.year, _currentMonth.month + 1, 0, 23, 59);
@@ -189,17 +194,23 @@ class _BudgetScreenState extends State<BudgetScreen> {
             ),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
-              children: [
-                _buildBalanceCard(cs),
-                const SizedBox(height: 16),
-                _buildTabs(cs),
-                const SizedBox(height: 16),
-                if (_tab == 'overview') _buildOverview(cs),
-                if (_tab == 'transactions') _buildTransactions(cs),
-                if (_tab == 'categories') _buildCategories(cs),
-              ],
+            child: RefreshIndicator(
+              color: cs.primary,
+              backgroundColor: cs.surface,
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                children: [
+                  _buildBalanceCard(cs),
+                  const SizedBox(height: 16),
+                  _buildTabs(cs),
+                  const SizedBox(height: 16),
+                  if (_tab == 'overview') _buildOverview(cs),
+                  if (_tab == 'transactions') _buildTransactions(cs),
+                  if (_tab == 'categories') _buildCategories(cs),
+                ],
+              ),
             ),
           ),
         ],
