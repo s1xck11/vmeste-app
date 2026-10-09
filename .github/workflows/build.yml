@@ -24,9 +24,11 @@ jobs:
           channel: 'stable'
           cache: true
       
-      - name: Set build number from run number
+      - name: Set version from run number
         run: |
-          sed -i "s|^version: \(.*\)+.*|version: \1+${{ github.run_number }}|" pubspec.yaml
+          # version: 1.1.{run_number}+{run_number}
+          NEW_VERSION="1.1.${{ github.run_number }}"
+          sed -i "s|^version: .*|version: $NEW_VERSION+${{ github.run_number }}|" pubspec.yaml
           echo "=== pubspec version ==="
           grep "^version:" pubspec.yaml
       
