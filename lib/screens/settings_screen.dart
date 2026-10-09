@@ -353,7 +353,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case 'online': return 'Подключено';
       case 'syncing': return 'Синхронизация...';
       case 'error': return 'Ошибка';
-      default: return 'Не подключено';
+      default: return 'Офлайн';
     }
   }
 
