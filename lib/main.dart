@@ -54,7 +54,7 @@ void main() async {
   FlutterError.onError = (d) => logger.error('Flutter', d.exceptionAsString(), d.exception, d.stack);
   HttpOverrides.global = _SupabaseHttpOverrides();
   logger.info('App', 'HttpOverrides установлен');
-  logger.info('App', 'Версия приложения: ${UpdateService.currentVersion}+${UpdateService.currentBuild}');
+  logger.info('App', 'Версия приложения: ${UpdateService.currentFull}');
 
   try {
     await Supabase.initialize(url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
