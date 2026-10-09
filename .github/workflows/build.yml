@@ -75,8 +75,6 @@ jobs:
           mkdir -p android/app/src/main/kotlin/com/vmeste/vmeste_app
           cp .github/vmeste_widget_provider.kt.template \
              android/app/src/main/kotlin/com/vmeste/vmeste_app/VmesteWidgetProvider.kt
-          echo "=== Kotlin provider ==="
-          ls -la android/app/src/main/kotlin/com/vmeste/vmeste_app/
       
       - name: Install widget resources
         run: |
@@ -90,31 +88,30 @@ jobs:
           cp .github/widget_shifts_info.xml.template    android/app/src/main/res/xml/widget_shifts_info.xml
           cp .github/widget_purchases_info.xml.template android/app/src/main/res/xml/widget_purchases_info.xml
           cp .github/widget_tasks_info.xml.template     android/app/src/main/res/xml/widget_tasks_info.xml
-          echo "=== layouts ==="
-          ls -la android/app/src/main/res/layout/
-          echo "=== xml ==="
-          ls -la android/app/src/main/res/xml/
       
       - name: Inject widget receivers into AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          BLOCK=".github/manifest_widgets.xml.template"
-          
-          # Вставляем содержимое BLOCK перед </application>
-          awk -v block="$BLOCK" '
-            /<\/application>/ {
-              while ((getline line < block) > 0) print line
-              close(block)
-            }
-            { print }
-          ' "$MANIFEST" > "$MANIFEST.new"
-          mv "$MANIFEST.new" "$MANIFEST"
-          
-          # Проверка
-          echo "=== receivers в манифесте ==="
-          grep -c "VmesteShiftsWidget" "$MANIFEST"
-          grep -c "VmestePurchasesWidget" "$MANIFEST"
-          grep -c "VmesteTasksWidget" "$MANIFEST"
+          LINE=$(grep -n '</application>' "$MANIFEST" | head -1 | cut -d: -f1)
+          echo "Line: $LINE"
+          head -n $((LINE - 1)) "$MANIFEST" > /tmp/m.xml
+          cat >> /tmp/m.xml <<'WIDGETS'
+              <receiver android:name=".VmesteShiftsWidget" android:exported="true" android:label="Вместе · Смены">
+                  <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+                  <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_shifts_info" />
+              </receiver>
+              <receiver android:name=".VmestePurchasesWidget" android:exported="true" android:label="Вместе · Покупки">
+                  <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+                  <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_purchases_info" />
+              </receiver>
+              <receiver android:name=".VmesteTasksWidget" android:exported="true" android:label="Вместе · Задачи">
+                  <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+                  <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_tasks_info" />
+              </receiver>
+          WIDGETS
+          tail -n +$LINE "$MANIFEST" >> /tmp/m.xml
+          mv /tmp/m.xml "$MANIFEST"
+          grep -c "VmesteShiftsWidget" "$MANIFEST" || true
       
       - name: Set app name to Вместе
         run: |
