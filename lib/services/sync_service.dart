@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:math';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/purchase.dart';
 import '../models/purchase_list.dart';
@@ -24,15 +25,19 @@ class SyncService {
   final StorageService storage;
   final SupabaseClient _supabase = Supabase.instance.client;
   final _log = DebugLogService();
+  final _connectivity = Connectivity();
 
   RealtimeChannel? _channel;
   Timer? _pushDebounce;
   Timer? _pullTimer;
   Timer? _reconnectTimer;
+  StreamSubscription<List<ConnectivityResult>>? _netSub;
   bool _isFirstLoad = true;
   bool _isRemoteUpdate = false;
   bool _isPushInProgress = false;
   bool _isPulling = false;
+  bool _isOnline = true;
+  bool _pendingPush = false;
 
   final List<VoidCallback> _listeners = [];
   VoidCallback? onStatusChanged;
@@ -53,6 +58,47 @@ class SyncService {
   void _notifyAll() {
     for (final l in List<VoidCallback>.from(_listeners)) {
       try { l(); } catch (e, st) { _log.error('Sync', 'listener error', e, st); }
+    }
+  }
+
+  // ============================================================
+  // СЕТЬ
+  // ============================================================
+
+  void _startWatchingNetwork() {
+    if (_netSub != null) return; // уже слушаем
+    _netSub = _connectivity.onConnectivityChanged.listen((results) {
+      final online = results.any((r) => r != ConnectivityResult.none);
+      _onNetworkChanged(online);
+    });
+    // Первичная проверка
+    _connectivity.checkConnectivity().then((results) {
+      final online = results.any((r) => r != ConnectivityResult.none);
+      _onNetworkChanged(online);
+    });
+  }
+
+  void _onNetworkChanged(bool online) {
+    if (_isOnline == online) return;
+    _isOnline = online;
+    _log.info('Network', online ? 'интернет появился' : 'интернета нет');
+
+    if (online) {
+      _setStatus('syncing');
+      // 1. Переподписаться на realtime
+      _subscribe();
+      _startPullTimer();
+      // 2. Подтянуть данные с сервера (вдруг партнёр что-то добавил)
+      pullNow().then((_) {
+        // 3. Если были отложенные изменения — отправить
+        if (_pendingPush) {
+          _pendingPush = false;
+          _log.info('Network', 'отправляю отложенные изменения');
+          schedulePush();
+        }
+      });
+    } else {
+      _setStatus('offline');
     }
   }
 
@@ -112,6 +158,7 @@ class SyncService {
     _isFirstLoad = false;
     _subscribe();
     _startPullTimer();
+    _startWatchingNetwork();
     return {'code': code, 'myKey': myKey};
   }
 
@@ -168,6 +215,7 @@ class SyncService {
     _isFirstLoad = false;
     _subscribe();
     _startPullTimer();
+    _startWatchingNetwork();
     return myKey;
   }
 
@@ -202,6 +250,7 @@ class SyncService {
     _isFirstLoad = false;
     _subscribe();
     _startPullTimer();
+    _startWatchingNetwork();
     _notifyAll();
   }
 
@@ -247,11 +296,18 @@ class SyncService {
         _isFirstLoad = false;
         _subscribe();
         _startPullTimer();
+        _startWatchingNetwork();
         _notifyAll();
         return true;
       } catch (e, st) {
         _log.error('AutoConnect', 'attempt $attempt FAILED', e, st);
-        if (attempt == 3) { _setStatus('offline'); _isFirstLoad = false; return false; }
+        if (attempt == 3) {
+          _setStatus('offline');
+          _isFirstLoad = false;
+          // Запускаем слушателя сети, чтобы поймать, когда интернет появится
+          _startWatchingNetwork();
+          return false;
+        }
         await Future.delayed(const Duration(seconds: 3));
       }
     }
@@ -261,6 +317,10 @@ class SyncService {
   void _subscribe() {
     final code = storage.coupleCode;
     if (code == null) return;
+    if (!_isOnline) {
+      _log.info('Realtime', 'офлайн — пропускаю подписку');
+      return;
+    }
     _channel?.unsubscribe();
     _channel = _supabase
         .channel('couple:$code')
@@ -304,6 +364,10 @@ class SyncService {
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 3), () {
+      if (!_isOnline) {
+        _log.info('Realtime', 'офлайн — откладываю переподписку');
+        return;
+      }
       _log.info('Realtime', 'переподключаюсь...');
       _subscribe();
     });
@@ -311,13 +375,15 @@ class SyncService {
 
   void _startPullTimer() {
     _pullTimer?.cancel();
-    _pullTimer = Timer.periodic(const Duration(seconds: 30), (_) => pullNow());
+    _pullTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_isOnline) pullNow();
+    });
   }
 
-  /// Обычный pull — применяет только если версия сервера выше.
   Future<void> pullNow() async {
     if (_isPulling) return;
     if (storage.coupleCode == null) return;
+    if (!_isOnline) return;
     _isPulling = true;
     try {
       final remote = await _supabase
@@ -345,11 +411,10 @@ class SyncService {
     }
   }
 
-  /// Принудительное обновление — вызывается из pull-to-refresh.
-  /// Всегда перечитывает данные с сервера, даже если версия не изменилась.
   Future<void> forcePullNow() async {
     if (_isPulling) return;
     if (storage.coupleCode == null) return;
+    if (!_isOnline) return;
     _isPulling = true;
     try {
       _log.info('Pull', 'force refresh...');
@@ -497,6 +562,15 @@ class SyncService {
     if (storage.coupleCode == null) return;
     if (_isRemoteUpdate) return;
     if (_isFirstLoad) return;
+
+    // Если офлайн — ставим флаг, отправим при появлении сети
+    if (!_isOnline) {
+      _pendingPush = true;
+      _log.info('Sync', 'офлайн — изменения ждут отправки');
+      _setStatus('offline');
+      return;
+    }
+
     _setStatus('syncing');
     _pushDebounce?.cancel();
     _pushDebounce = Timer(const Duration(milliseconds: 800), _push);
@@ -505,6 +579,10 @@ class SyncService {
   Future<void> _push() async {
     if (_isPushInProgress) return;
     if (storage.coupleCode == null) return;
+    if (!_isOnline) {
+      _pendingPush = true;
+      return;
+    }
     _isPushInProgress = true;
     try {
       final remote = await _supabase.from('couples').select('data, version').eq('code', storage.coupleCode!).maybeSingle().timeout(const Duration(seconds: 30));
@@ -537,6 +615,8 @@ class SyncService {
       _setStatus('online');
     } catch (e, st) {
       _log.error('Push', 'FAILED', e, st);
+      // Если упало по сети — ставим флаг, чтобы отправить при появлении интернета
+      _pendingPush = true;
       _setStatus('error');
     } finally { _isPushInProgress = false; }
   }
@@ -546,6 +626,8 @@ class SyncService {
     _channel = null;
     _pullTimer?.cancel();
     _reconnectTimer?.cancel();
+    _netSub?.cancel();
+    _netSub = null;
     await _supabase.auth.signOut();
     await storage.clearAll();
     _setStatus('offline');
@@ -575,6 +657,7 @@ class SyncService {
   }
 
   void _setStatus(String s) {
+    if (_status == s) return;
     _status = s;
     onStatusChanged?.call();
   }
