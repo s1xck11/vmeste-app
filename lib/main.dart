@@ -8,6 +8,7 @@ import 'services/sync_service.dart';
 import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
+import 'services/update_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/glass_container.dart';
@@ -47,11 +48,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   tz_data.initializeTimeZones();
+  await UpdateService.loadVersion();
 
   final logger = DebugLogService();
   FlutterError.onError = (d) => logger.error('Flutter', d.exceptionAsString(), d.exception, d.stack);
   HttpOverrides.global = _SupabaseHttpOverrides();
   logger.info('App', 'HttpOverrides установлен');
+  logger.info('App', 'Версия приложения: ${UpdateService.currentVersion}+${UpdateService.currentBuild}');
 
   try {
     await Supabase.initialize(url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
