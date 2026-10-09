@@ -24,32 +24,30 @@ jobs:
           channel: 'stable'
           cache: true
       
+      - name: Set build number from run number
+        run: |
+          sed -i "s|^version: \(.*\)+.*|version: \1+${{ github.run_number }}|" pubspec.yaml
+          echo "=== pubspec version ==="
+          grep "^version:" pubspec.yaml
+      
       - name: Create Android project files
         run: flutter create --org com.vmeste --project-name vmeste_app .
       
       - name: Copy root build.gradle template
         run: |
           cp .github/build.gradle.root.template android/build.gradle
-          echo "=== root build.gradle ==="
-          cat android/build.gradle
       
       - name: Copy settings.gradle template
         run: |
           cp .github/settings.gradle.template android/settings.gradle
-          echo "=== settings.gradle ==="
-          cat android/settings.gradle
       
       - name: Copy app build.gradle template
         run: |
           cp .github/build.gradle.template android/app/build.gradle
-          echo "=== app build.gradle ==="
-          cat android/app/build.gradle
       
       - name: Copy gradle-wrapper.properties template
         run: |
           cp .github/gradle-wrapper.properties.template android/gradle/wrapper/gradle-wrapper.properties
-          echo "=== gradle-wrapper.properties ==="
-          cat android/gradle/wrapper/gradle-wrapper.properties
       
       - name: Add permissions to AndroidManifest
         run: |
@@ -79,7 +77,6 @@ jobs:
       - name: Restore keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
-          ls -la android/app/release.keystore
       
       - name: Create key.properties
         run: |
