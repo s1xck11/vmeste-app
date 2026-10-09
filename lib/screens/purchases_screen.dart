@@ -194,7 +194,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     final total = _totalSum;
 
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           ModernAppBar(
