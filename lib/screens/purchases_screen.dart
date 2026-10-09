@@ -64,7 +64,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     });
   }
 
-  /// Открывает модалку с категориями. Текст — из поля быстрого ввода.
+  Future<void> _refresh() async {
+    await widget.sync.forcePullNow();
+    _load();
+  }
+
   void _openQuickModal() {
     final text = _quickController.text.trim();
     _quickController.clear();
@@ -221,31 +225,37 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             ],
           ),
           Expanded(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(child: _buildListSegments(cs)),
-                SliverToBoxAdapter(child: _buildQuickAdd(cs)),
-                if (_visiblePurchases.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyPurchases(),
-                  )
-                else
-                  ...grouped.entries.map((entry) {
-                    final cat = _categoryOf(entry.key);
-                    return SliverToBoxAdapter(
-                      child: _CategoryGroup(
-                        category: cat,
-                        items: entry.value,
-                        onToggleDone: _toggleDone,
-                        onToggleMissing: _toggleMissing,
-                        onDelete: _delete,
-                        onEdit: _openEditModal,
-                      ),
-                    );
-                  }),
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
+            child: RefreshIndicator(
+              color: cs.primary,
+              backgroundColor: cs.surface,
+              onRefresh: _refresh,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(child: _buildListSegments(cs)),
+                  SliverToBoxAdapter(child: _buildQuickAdd(cs)),
+                  if (_visiblePurchases.isEmpty)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyPurchases(),
+                    )
+                  else
+                    ...grouped.entries.map((entry) {
+                      final cat = _categoryOf(entry.key);
+                      return SliverToBoxAdapter(
+                        child: _CategoryGroup(
+                          category: cat,
+                          items: entry.value,
+                          onToggleDone: _toggleDone,
+                          onToggleMissing: _toggleMissing,
+                          onDelete: _delete,
+                          onEdit: _openEditModal,
+                        ),
+                      );
+                    }),
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              ),
             ),
           ),
         ],
