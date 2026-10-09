@@ -36,16 +36,15 @@ class UpdateService {
   static int _currentBuild = 0;
   static bool _loaded = false;
 
-  /// Версия приложения из APK, например "1.1.0".
+  /// Версия приложения из APK, например "1.1.199".
   static String get currentVersion => _currentVersion;
 
-  /// Номер сборки из APK, например 201.
+  /// Номер сборки из APK, например 199.
   static int get currentBuild => _currentBuild;
 
-  /// Полная строка для UI: "1.1.0+201".
+  /// Полная строка для UI: "1.1.199+199".
   static String get currentFull => '$_currentVersion+$_currentBuild';
 
-  /// Загружает версию и build number из package_info. Вызывается один раз при старте.
   static Future<void> loadVersion() async {
     if (_loaded) return;
     try {
@@ -79,6 +78,24 @@ class UpdateService {
       final name = (data['name'] as String?) ?? tag;
       final body = (data['body'] as String?) ?? '';
 
+      // Убираем "v" из тега: "v1.1.199" → "1.1.199"
+      final remoteVersion = tag.replaceAll(RegExp(r'^[vV]'), '');
+
+      // Простое сравнение: если версия отличается → есть обновление
+      if (remoteVersion == currentVersion) {
+        _log.info('Update', 'обновлений нет (текущая $currentVersion, последняя $tag)');
+        return null;
+      }
+
+      // Дополнительная проверка: сравниваем по частям,
+      // чтобы откатить "понижение версии"
+      final ver = _parseVersion(remoteVersion);
+      final curVer = _parseVersion(currentVersion);
+      if (ver != null && curVer != null && !_isNewer(ver, curVer)) {
+        _log.info('Update', 'версия на сервере не новее (текущая $currentVersion, последняя $tag)');
+        return null;
+      }
+
       final assets = (data['assets'] as List?) ?? [];
       String? apkUrl;
       int apkSize = 0;
@@ -103,38 +120,15 @@ class UpdateService {
         }
       }
 
-      // Тег: "v1.1.199" → [1, 1, 199]
-      final ver = _parseVersion(tag);
-      final currentVer = _parseVersion(currentVersion) ?? [0, 0, 0];
-
-      if (ver == null) {
-        _log.warn('Update', 'не распарсил тег $tag');
-        return null;
-      }
-
-      // Сравнение:
-      //   major.minor из тега vs major.minor из APK
-      //   patch из тега vs build number из APK
-      final hasNewer = ver[0] > currentVer[0] ||
-          (ver[0] == currentVer[0] && ver[1] > currentVer[1]) ||
-          (ver[0] == currentVer[0] &&
-              ver[1] == currentVer[1] &&
-              ver[2] > currentBuild);
-
-      if (hasNewer) {
-        _log.info('Update', 'найдено обновление: $tag');
-        return UpdateInfo(
-          tag: tag,
-          version: tag,
-          name: name,
-          body: body,
-          apkUrl: apkUrl,
-          apkSize: apkSize,
-        );
-      }
-
-      _log.info('Update', 'обновлений нет (текущая ${currentFull}, последняя $tag)');
-      return null;
+      _log.info('Update', 'найдено обновление: $tag');
+      return UpdateInfo(
+        tag: tag,
+        version: remoteVersion,
+        name: name,
+        body: body,
+        apkUrl: apkUrl,
+        apkSize: apkSize,
+      );
     } catch (e, st) {
       _log.error('Update', 'checkForUpdate FAILED', e, st);
       return null;
@@ -270,10 +264,9 @@ class UpdateService {
     } catch (_) {}
   }
 
-  List<int>? _parseVersion(String tag) {
+  List<int>? _parseVersion(String v) {
     try {
-      final clean = tag.replaceAll(RegExp(r'^[vV]'), '');
-      final parts = clean.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+      final parts = v.split('.').map((s) => int.tryParse(s) ?? 0).toList();
       while (parts.length < 3) {
         parts.add(0);
       }
@@ -281,5 +274,13 @@ class UpdateService {
     } catch (_) {
       return null;
     }
+  }
+
+  bool _isNewer(List<int> a, List<int> b) {
+    for (int i = 0; i < 3; i++) {
+      if (a[i] > b[i]) return true;
+      if (a[i] < b[i]) return false;
+    }
+    return false;
   }
 }
