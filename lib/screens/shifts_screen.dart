@@ -156,7 +156,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     final total = _monthTotal();
 
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           ModernAppBar(
