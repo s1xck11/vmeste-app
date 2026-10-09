@@ -171,7 +171,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           ModernAppBar(
