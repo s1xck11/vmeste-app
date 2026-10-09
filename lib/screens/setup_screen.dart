@@ -6,6 +6,7 @@ import '../services/sync_service.dart';
 import '../services/storage_service.dart';
 import '../services/theme_service.dart';
 import '../services/background_service.dart';
+import '../services/widget_service.dart';
 import '../main.dart' show AppColors, MainScreen;
 
 class SetupScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class SetupScreen extends StatefulWidget {
   final SyncService sync;
   final ThemeService themeService;
   final BackgroundService bgService;
+  final WidgetService widgetService;
 
   const SetupScreen({
     super.key,
@@ -20,6 +22,7 @@ class SetupScreen extends StatefulWidget {
     required this.sync,
     required this.themeService,
     required this.bgService,
+    required this.widgetService,
   });
 
   @override
@@ -157,6 +160,7 @@ class _SetupScreenState extends State<SetupScreen> {
           sync: widget.sync,
           themeService: widget.themeService,
           bgService: widget.bgService,
+          widgetService: widget.widgetService,
         ),
       ),
     );
