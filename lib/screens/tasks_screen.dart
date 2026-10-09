@@ -59,6 +59,11 @@ class _TasksScreenState extends State<TasksScreen> {
     });
   }
 
+  Future<void> _refresh() async {
+    await widget.sync.forcePullNow();
+    _load();
+  }
+
   void _quickAdd() {
     final text = _quickController.text.trim();
     if (text.isEmpty) return;
@@ -202,37 +207,43 @@ class _TasksScreenState extends State<TasksScreen> {
             avatarEmoji: widget.storage.myAvatar,
           ),
           Expanded(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(child: _buildProgress(cs)),
-                SliverToBoxAdapter(child: _buildFilters(cs)),
-                SliverToBoxAdapter(child: _buildQuickAdd(cs)),
-                if (list.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyTasks(),
-                  )
-                else
-                  SliverList.builder(
-                    itemCount: list.length,
-                    itemBuilder: (ctx, i) => Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                      child: _TaskTile(
-                        task: list[i],
-                        category: _categories.firstWhere(
-                          (c) => c.id == list[i].category,
-                          orElse: () => TaskCategory(id: list[i].category, label: 'Прочее', emoji: '📦', order: 999),
+            child: RefreshIndicator(
+              color: cs.primary,
+              backgroundColor: cs.surface,
+              onRefresh: _refresh,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(child: _buildProgress(cs)),
+                  SliverToBoxAdapter(child: _buildFilters(cs)),
+                  SliverToBoxAdapter(child: _buildQuickAdd(cs)),
+                  if (list.isEmpty)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyTasks(),
+                    )
+                  else
+                    SliverList.builder(
+                      itemCount: list.length,
+                      itemBuilder: (ctx, i) => Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                        child: _TaskTile(
+                          task: list[i],
+                          category: _categories.firstWhere(
+                            (c) => c.id == list[i].category,
+                            orElse: () => TaskCategory(id: list[i].category, label: 'Прочее', emoji: '📦', order: 999),
+                          ),
+                          assigneeName: _assigneeName(list[i].assignee),
+                          onToggleDone: () => _toggleDone(list[i]),
+                          onArchive: () => _archive(list[i]),
+                          onDelete: () => _delete(list[i]),
+                          onTap: () => _openEditModal(list[i]),
                         ),
-                        assigneeName: _assigneeName(list[i].assignee),
-                        onToggleDone: () => _toggleDone(list[i]),
-                        onArchive: () => _archive(list[i]),
-                        onDelete: () => _delete(list[i]),
-                        onTap: () => _openEditModal(list[i]),
                       ),
                     ),
-                  ),
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              ),
             ),
           ),
         ],
