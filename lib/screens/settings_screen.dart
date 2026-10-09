@@ -138,8 +138,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
-  // ============ ОБНОВЛЕНИЯ ============
-
   Future<void> _checkUpdates() async {
     if (_checkingUpdate) return;
     setState(() => _checkingUpdate = true);
@@ -196,7 +194,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _downloadWithProgress(UpdateInfo info) {
-    // Прогресс и статус для обновления UI диалога
     final progressNotifier = ValueNotifier<double>(0);
     final receivedNotifier = ValueNotifier<int>(0);
     final totalNotifier = ValueNotifier<int>(info.apkSize);
@@ -243,7 +240,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () async {
-                // Отменяем — оставляем .part, чтобы можно было докачать
                 Navigator.pop(ctx);
                 await _updateService.clearPartial(info.tag);
                 if (!mounted) return;
@@ -273,7 +269,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       Navigator.of(context, rootNavigator: true).pop();
 
       if (file == null) {
-        // Скачивание не удалось — но .part сохранён, следующий клик продолжит
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -511,7 +506,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           _sectionTitle('ПРОЧЕЕ', cs),
           _tile(icon: Icons.system_update_alt, title: 'Проверить обновления',
-              subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentVersion}',
+              subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentFull}',
               onTap: _checkingUpdate ? null : _checkUpdates, cs: cs),
           _tile(icon: Icons.bug_report_outlined, title: 'Отладка',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen())), cs: cs),
