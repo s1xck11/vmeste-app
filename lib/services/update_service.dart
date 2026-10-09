@@ -4,8 +4,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'debug_log_service.dart';
 
 class UpdateInfo {
@@ -29,13 +30,33 @@ class UpdateInfo {
 class UpdateService {
   final _log = DebugLogService();
 
-  static const String currentVersion = '1.1.0';
-  static const int currentBuild = 100;
   static const String _repo = 's1xck11/vmeste-app';
+
+  /// Кэш текущей версии, чтобы не запрашивать каждый раз.
+  static String? _cachedVersion;
+  static int? _cachedBuild;
+
+  /// Возвращает реальную версию из pubspec (например, "1.1.0").
+  static String get currentVersion => _cachedVersion ?? '...';
+
+  /// Возвращает номер сборки (например, 100).
+  static int get currentBuild => _cachedBuild ?? 0;
+
+  /// Загружает версию из package_info_plus. Вызывается при старте приложения.
+  static Future<void> loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _cachedVersion = info.version;
+      _cachedBuild = int.tryParse(info.buildNumber) ?? 0;
+    } catch (_) {
+      _cachedVersion = '1.0.0';
+      _cachedBuild = 0;
+    }
+  }
 
   Future<UpdateInfo?> checkForUpdate() async {
     try {
-      _log.info('Update', 'проверка обновлений...');
+      _log.info('Update', 'проверка обновлений... (текущая $currentVersion+$currentBuild)');
       final uri = Uri.parse('https://api.github.com/repos/$_repo/releases/latest');
       final resp = await http.get(
         uri,
@@ -76,10 +97,16 @@ class UpdateService {
         }
       }
 
+      // Сравниваем по 4 частям: major.minor.build_number
       final ver = _parseVersion(tag) ?? [0, 0, 0];
       final currentVer = _parseVersion('v$currentVersion') ?? [0, 0, 0];
 
-      if (_isNewer(ver, currentVer)) {
+      // Сравниваем по major.minor (первые 2), а не по всему тегу
+      final hasNewer = ver[0] > currentVer[0] ||
+          (ver[0] == currentVer[0] && ver[1] > currentVer[1]) ||
+          (ver[0] == currentVer[0] && ver[1] == currentVer[1] && ver[2] > currentBuild);
+
+      if (hasNewer) {
         _log.info('Update', 'найдено обновление: $tag');
         return UpdateInfo(
           tag: tag,
@@ -91,7 +118,7 @@ class UpdateService {
         );
       }
 
-      _log.info('Update', 'обновлений нет (текущая $currentVersion, последняя $tag)');
+      _log.info('Update', 'обновлений нет (текущая $currentVersion+$currentBuild, последняя $tag)');
       return null;
     } catch (e, st) {
       _log.error('Update', 'checkForUpdate FAILED', e, st);
@@ -100,7 +127,6 @@ class UpdateService {
   }
 
   /// Скачивает APK с поддержкой докачки.
-  /// Файл сохраняется как .part. После успеха — переименовывается в .apk.
   Future<File?> downloadApk(
     UpdateInfo info, {
     void Function(int received, int total)? onProgress,
@@ -116,7 +142,6 @@ class UpdateService {
     final partFile = File('${dir.path}/vmeste-${info.tag}.apk.part');
     final finalFile = File('${dir.path}/vmeste-${info.tag}.apk');
 
-    // Если уже есть готовый APK — используем его
     if (await finalFile.exists()) {
       _log.info('Update', 'уже скачан: ${finalFile.path}');
       return finalFile;
@@ -153,7 +178,6 @@ class UpdateService {
           final response = await request.close();
           final status = response.statusCode;
 
-          // 200 = начинаем с нуля, 206 = Partial Content (докачка)
           if (status != 200 && status != 206) {
             _log.warn('Update', 'HTTP $status');
             client.close(force: true);
@@ -165,7 +189,6 @@ class UpdateService {
             startFrom = existingLength;
             _log.info('Update', 'сервер поддержал докачку с $startFrom');
           } else if (status == 200) {
-            // Сервер не поддержал Range — начинаем с нуля
             if (existingLength > 0) {
               _log.info('Update', 'сервер НЕ поддержал докачку — начинаем с нуля');
             }
@@ -174,8 +197,8 @@ class UpdateService {
           }
 
           final total = (response.contentLength > 0
-                  ? response.contentLength + startFrom
-                  : info.apkSize);
+              ? response.contentLength + startFrom
+              : info.apkSize);
 
           final sink = partFile.openWrite(mode: FileMode.append);
           int received = startFrom;
@@ -191,7 +214,6 @@ class UpdateService {
           await sink.close();
           client.close();
 
-          // Успех — переименовываем
           if (await finalFile.exists()) await finalFile.delete();
           await partFile.rename(finalFile.path);
           _log.info('Update', 'скачано: ${finalFile.path} (${received ~/ 1024} КБ)');
@@ -214,23 +236,19 @@ class UpdateService {
     return null;
   }
 
-  /// Открывает системный установщик.
+  /// Открывает системный установщик через open_filex (правильно на Android).
   Future<bool> installApk(File file) async {
     try {
-      final uri = Uri.file(file.path);
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        _log.warn('Update', 'не удалось открыть установщик');
-        return false;
-      }
-      return true;
+      _log.info('Update', 'открываю установщик: ${file.path}');
+      final result = await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
+      _log.info('Update', 'результат: ${result.type} — ${result.message}');
+      return result.type == ResultType.done;
     } catch (e, st) {
       _log.error('Update', 'installApk FAILED', e, st);
       return false;
     }
   }
 
-  /// Удаляет временный файл .part — на случай, если нужно начать заново.
   Future<void> clearPartial(String tag) async {
     try {
       final dir = await getTemporaryDirectory();
@@ -250,13 +268,5 @@ class UpdateService {
     } catch (_) {
       return null;
     }
-  }
-
-  bool _isNewer(List<int> a, List<int> b) {
-    for (int i = 0; i < 3; i++) {
-      if (a[i] > b[i]) return true;
-      if (a[i] < b[i]) return false;
-    }
-    return false;
   }
 }
