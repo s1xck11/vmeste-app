@@ -72,7 +72,6 @@ void main() async {
   final widgetService = WidgetService(storage);
   sync.widgetService = widgetService;
 
-  // Пробуем прочитать "куда открыться" — если запущено из виджета
   int? initialTab;
   try {
     final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
@@ -92,16 +91,6 @@ void main() async {
     widgetService: widgetService,
     initialTab: initialTab,
   ));
-}
-
-/// Разбирает URI из виджета: "vmeste://open?tab=2" → 2
-int? _tabFromUri(Uri? uri) {
-  if (uri == null) return null;
-  final t = uri.queryParameters['tab'];
-  if (t == null) return null;
-  final v = int.tryParse(t);
-  if (v == null || v < 0 || v > 3) return null;
-  return v;
 }
 
 class VmesteApp extends StatelessWidget {
@@ -196,6 +185,7 @@ class _SplashScreenState extends State<SplashScreen> {
         sync: widget.sync,
         themeService: widget.themeService,
         bgService: widget.bgService,
+        widgetService: widget.widgetService,
       ),
     ));
   }
@@ -263,11 +253,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     widget.sync.onStatusChanged = () { if (mounted) setState(() {}); };
     Future.delayed(const Duration(milliseconds: 500), () {
       widget.sync.pullNow();
-      // После подключения обновим виджеты — данные точно свежие
       widget.widgetService.updateAll();
     });
 
-    // Слушаем клики по виджету, пока приложение уже открыто
     try {
       HomeWidget.widgetClicked.listen((uri) {
         final tab = _tabFromUri(uri);
@@ -311,6 +299,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         sync: widget.sync,
         themeService: widget.themeService,
         bgService: widget.bgService,
+        widgetService: widget.widgetService,
       ),
     ));
   }
