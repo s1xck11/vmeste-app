@@ -1,0 +1,111 @@
+package com.vmeste.vmeste_app
+
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.Context
+import android.net.Uri
+import android.view.View
+import android.widget.RemoteViews
+import es.antonborri.home_widget.HomeWidgetPlugin
+import es.antonborri.home_widget.HomeWidgetLaunchIntent
+
+// ============================================================
+// Базовый провайдер. Наследники задают:
+//  - layoutId (R.layout.widget_*)
+//  - ключи в SharedPreferences для title/lines/sub
+//  - индекс вкладки для тапа
+// ============================================================
+
+abstract class BaseVmesteWidget : AppWidgetProvider() {
+
+    abstract val layoutId: Int
+    abstract val prefTitle: String
+    abstract val prefLines: String
+    abstract val prefSub: String
+    abstract val tabIndex: Int
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        for (widgetId in appWidgetIds) {
+            updateWidget(context, appWidgetManager, widgetId)
+        }
+    }
+
+    private fun updateWidget(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        widgetId: Int
+    ) {
+        val views = RemoteViews(context.packageName, layoutId)
+        val prefs = HomeWidgetPlugin.getData(context)
+
+        val title = prefs.getString(prefTitle, "") ?: ""
+        val linesRaw = prefs.getString(prefLines, "") ?: ""
+        val sub = prefs.getString(prefSub, "") ?: ""
+
+        val lines = if (linesRaw.isEmpty()) emptyList()
+                    else linesRaw.split("\n")
+
+        views.setTextViewText(R.id.widget_title, title)
+
+        val lineIds = intArrayOf(
+            R.id.widget_line0,
+            R.id.widget_line1,
+            R.id.widget_line2,
+            R.id.widget_line3,
+        )
+        for (i in lineIds.indices) {
+            val tv = lineIds[i]
+            if (i < lines.size) {
+                views.setTextViewText(tv, lines[i])
+                views.setViewVisibility(tv, View.VISIBLE)
+            } else {
+                views.setTextViewText(tv, "")
+                views.setViewVisibility(tv, View.GONE)
+            }
+        }
+
+        if (sub.isNotEmpty() && lines.isEmpty()) {
+            views.setTextViewText(R.id.widget_sub, sub)
+            views.setViewVisibility(R.id.widget_sub, View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_sub, View.GONE)
+        }
+
+        val intent = HomeWidgetLaunchIntent.getActivity(
+            context,
+            MainActivity::class.java,
+            Uri.parse("vmeste://open?tab=$tabIndex")
+        )
+        views.setOnClickPendingIntent(R.id.widget_root, intent)
+
+        appWidgetManager.updateAppWidget(widgetId, views)
+    }
+}
+
+class VmesteShiftsWidget : BaseVmesteWidget() {
+    override val layoutId = R.layout.widget_shifts
+    override val prefTitle = "shifts_title"
+    override val prefLines = "shifts_lines"
+    override val prefSub = "shifts_sub"
+    override val tabIndex = 2
+}
+
+class VmestePurchasesWidget : BaseVmesteWidget() {
+    override val layoutId = R.layout.widget_purchases
+    override val prefTitle = "purchases_title"
+    override val prefLines = "purchases_lines"
+    override val prefSub = "purchases_sub"
+    override val tabIndex = 0
+}
+
+class VmesteTasksWidget : BaseVmesteWidget() {
+    override val layoutId = R.layout.widget_tasks
+    override val prefTitle = "tasks_title"
+    override val prefLines = "tasks_lines"
+    override val prefSub = "tasks_sub"
+    override val tabIndex = 1
+}
