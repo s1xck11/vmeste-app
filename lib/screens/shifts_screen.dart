@@ -56,6 +56,11 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
     });
   }
 
+  Future<void> _refresh() async {
+    await widget.sync.forcePullNow();
+    _load();
+  }
+
   void _changeMonth(int delta) {
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
@@ -160,29 +165,35 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
             avatarEmoji: widget.storage.myAvatar,
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-              children: [
-                _buildSalaryCard(total, cs),
-                const SizedBox(height: 12),
-                if (partner1 != null || partner2 != null)
-                  Row(
-                    children: [
-                      if (partner1 != null)
-                        Expanded(child: _buildPartnerCard(
-                          partner1, _partnerTotal(partner1.id), _partnerShiftCount(partner1.id), cs,
-                        )),
-                      if (partner1 != null && partner2 != null) const SizedBox(width: 12),
-                      if (partner2 != null)
-                        Expanded(child: _buildPartnerCard(
-                          partner2, _partnerTotal(partner2.id), _partnerShiftCount(partner2.id), cs,
-                        )),
-                    ],
-                  ),
-                const SizedBox(height: 20),
-                _buildCalendar(cs),
-                const SizedBox(height: 20),
-              ],
+            child: RefreshIndicator(
+              color: cs.primary,
+              backgroundColor: cs.surface,
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+                children: [
+                  _buildSalaryCard(total, cs),
+                  const SizedBox(height: 12),
+                  if (partner1 != null || partner2 != null)
+                    Row(
+                      children: [
+                        if (partner1 != null)
+                          Expanded(child: _buildPartnerCard(
+                            partner1, _partnerTotal(partner1.id), _partnerShiftCount(partner1.id), cs,
+                          )),
+                        if (partner1 != null && partner2 != null) const SizedBox(width: 12),
+                        if (partner2 != null)
+                          Expanded(child: _buildPartnerCard(
+                            partner2, _partnerTotal(partner2.id), _partnerShiftCount(partner2.id), cs,
+                          )),
+                      ],
+                    ),
+                  const SizedBox(height: 20),
+                  _buildCalendar(cs),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ],
