@@ -18,11 +18,13 @@ import '../models/purchase_template.dart';
 import '../models/purchase_history_entry.dart';
 import 'storage_service.dart';
 import 'debug_log_service.dart';
+import 'widget_service.dart';
 
 typedef VoidCallback = void Function();
 
 class SyncService {
   final StorageService storage;
+  WidgetService? widgetService;
   final SupabaseClient _supabase = Supabase.instance.client;
   final _log = DebugLogService();
   final _connectivity = Connectivity();
@@ -59,6 +61,8 @@ class SyncService {
     for (final l in List<VoidCallback>.from(_listeners)) {
       try { l(); } catch (e, st) { _log.error('Sync', 'listener error', e, st); }
     }
+    // Обновляем виджеты — они должны отражать актуальные данные
+    widgetService?.updateAll();
   }
 
   // ============================================================
@@ -66,12 +70,11 @@ class SyncService {
   // ============================================================
 
   void _startWatchingNetwork() {
-    if (_netSub != null) return; // уже слушаем
+    if (_netSub != null) return;
     _netSub = _connectivity.onConnectivityChanged.listen((results) {
       final online = results.any((r) => r != ConnectivityResult.none);
       _onNetworkChanged(online);
     });
-    // Первичная проверка
     _connectivity.checkConnectivity().then((results) {
       final online = results.any((r) => r != ConnectivityResult.none);
       _onNetworkChanged(online);
@@ -85,12 +88,9 @@ class SyncService {
 
     if (online) {
       _setStatus('syncing');
-      // 1. Переподписаться на realtime
       _subscribe();
       _startPullTimer();
-      // 2. Подтянуть данные с сервера (вдруг партнёр что-то добавил)
       pullNow().then((_) {
-        // 3. Если были отложенные изменения — отправить
         if (_pendingPush) {
           _pendingPush = false;
           _log.info('Network', 'отправляю отложенные изменения');
@@ -304,7 +304,6 @@ class SyncService {
         if (attempt == 3) {
           _setStatus('offline');
           _isFirstLoad = false;
-          // Запускаем слушателя сети, чтобы поймать, когда интернет появится
           _startWatchingNetwork();
           return false;
         }
@@ -563,7 +562,6 @@ class SyncService {
     if (_isRemoteUpdate) return;
     if (_isFirstLoad) return;
 
-    // Если офлайн — ставим флаг, отправим при появлении сети
     if (!_isOnline) {
       _pendingPush = true;
       _log.info('Sync', 'офлайн — изменения ждут отправки');
@@ -613,9 +611,10 @@ class SyncService {
       }).eq('code', storage.coupleCode!).timeout(const Duration(seconds: 30));
       storage.serverVersion = newVersion;
       _setStatus('online');
+      // После пуша данные локально точно свежие — обновим виджеты
+      widgetService?.updateAll();
     } catch (e, st) {
       _log.error('Push', 'FAILED', e, st);
-      // Если упало по сети — ставим флаг, чтобы отправить при появлении интернета
       _pendingPush = true;
       _setStatus('error');
     } finally { _isPushInProgress = false; }
