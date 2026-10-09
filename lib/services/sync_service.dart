@@ -314,6 +314,7 @@ class SyncService {
     _pullTimer = Timer.periodic(const Duration(seconds: 30), (_) => pullNow());
   }
 
+  /// Обычный pull — применяет только если версия сервера выше.
   Future<void> pullNow() async {
     if (_isPulling) return;
     if (storage.coupleCode == null) return;
@@ -339,6 +340,37 @@ class SyncService {
       _notifyAll();
     } catch (e, st) {
       _log.error('Pull', 'FAILED', e, st);
+    } finally {
+      _isPulling = false;
+    }
+  }
+
+  /// Принудительное обновление — вызывается из pull-to-refresh.
+  /// Всегда перечитывает данные с сервера, даже если версия не изменилась.
+  Future<void> forcePullNow() async {
+    if (_isPulling) return;
+    if (storage.coupleCode == null) return;
+    _isPulling = true;
+    try {
+      _log.info('Pull', 'force refresh...');
+      final remote = await _supabase
+          .from('couples')
+          .select('data, version')
+          .eq('code', storage.coupleCode!)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 20));
+      if (remote == null) return;
+      final remoteVersion = (remote['version'] as int?) ?? 0;
+      final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
+      _isRemoteUpdate = true;
+      _applyData(remoteData);
+      storage.serverVersion = remoteVersion;
+      _isRemoteUpdate = false;
+      _setStatus('online');
+      _notifyAll();
+      _log.info('Pull', 'force refresh до v$remoteVersion');
+    } catch (e, st) {
+      _log.error('Pull', 'forcePullNow FAILED', e, st);
     } finally {
       _isPulling = false;
     }
