@@ -1,134 +1,48 @@
-name: Build APK
+- name: Install widget Kotlin provider
+  run: |
+    mkdir -p android/app/src/main/kotlin/com/vmeste/vmeste_app
+    cp .github/vmeste_widget_provider.kt.template \
+       android/app/src/main/kotlin/com/vmeste/vmeste_app/VmesteWidgetProvider.kt
 
-on:
-  workflow_dispatch:
+- name: Install widget layouts
+  run: |
+    mkdir -p android/app/src/main/res/layout
+    mkdir -p android/app/src/main/res/drawable
+    cp .github/widget_shifts.xml.template    android/app/src/main/res/layout/widget_shifts.xml
+    cp .github/widget_purchases.xml.template android/app/src/main/res/layout/widget_purchases.xml
+    cp .github/widget_tasks.xml.template     android/app/src/main/res/layout/widget_tasks.xml
+    cp .github/widget_bg.xml.template        android/app/src/main/res/drawable/widget_bg.xml
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22.0'
-          channel: 'stable'
-          cache: true
-      
-      - name: Set version from run number
-        run: |
-          # version: 1.1.{run_number}+{run_number}
-          NEW_VERSION="1.1.${{ github.run_number }}"
-          sed -i "s|^version: .*|version: $NEW_VERSION+${{ github.run_number }}|" pubspec.yaml
-          echo "=== pubspec version ==="
-          grep "^version:" pubspec.yaml
-      
-      - name: Create Android project files
-        run: flutter create --org com.vmeste --project-name vmeste_app .
-      
-      - name: Copy root build.gradle template
-        run: |
-          cp .github/build.gradle.root.template android/build.gradle
-      
-      - name: Copy settings.gradle template
-        run: |
-          cp .github/settings.gradle.template android/settings.gradle
-      
-      - name: Copy app build.gradle template
-        run: |
-          cp .github/build.gradle.template android/app/build.gradle
-      
-      - name: Copy gradle-wrapper.properties template
-        run: |
-          cp .github/gradle-wrapper.properties.template android/gradle/wrapper/gradle-wrapper.properties
-      
-      - name: Add permissions to AndroidManifest
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          
-          if ! grep -q 'android.permission.INTERNET' "$MANIFEST"; then
-            sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>|' "$MANIFEST"
-          fi
-          
-          if ! grep -q 'android.permission.POST_NOTIFICATIONS' "$MANIFEST"; then
-            sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>|' "$MANIFEST"
-          fi
-          
-          if ! grep -q 'android.permission.SCHEDULE_EXACT_ALARM' "$MANIFEST"; then
-            sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>|' "$MANIFEST"
-          fi
-          
-          if ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$MANIFEST"; then
-            sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>|' "$MANIFEST"
-          fi
-      
-      - name: Set app name to Вместе
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's|android:label="vmeste_app"|android:label="Вместе"|' "$MANIFEST"
-      
-      - name: Restore keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
-      
-      - name: Create key.properties
-        run: |
-          cat > android/key.properties <<EOF
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=release.keystore
-          EOF
-      
-      - name: Get dependencies
-        run: flutter pub get
-      
-      - name: Generate launcher icons
-        run: |
-          if [ -f "assets/icon/app_icon.png" ]; then
-            flutter pub run flutter_launcher_icons
-          else
-            echo "⚠️ Нет assets/icon/app_icon.png — пропускаю"
-          fi
-      
-      - name: Build APK
-        run: flutter build apk --release --split-per-abi
-      
-      - name: Rename APKs
-        run: |
-          mkdir -p release
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk release/vmeste-armeabi-v7a.apk 2>/dev/null || true
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release/vmeste-arm64-v8a.apk 2>/dev/null || true
-          cp build/app/outputs/flutter-apk/app-x86_64-release.apk release/vmeste-x86_64.apk 2>/dev/null || true
-          ls -la release/
-      
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: vmeste-apk
-          path: release/*.apk
-          retention-days: 30
-      
-      - name: Get short sha
-        id: short_sha
-        run: echo "SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      
-      - name: Create Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.1.${{ github.run_number }}
-          name: Вместе 1.1.${{ github.run_number }} (${{ steps.short_sha.outputs.SHA }})
-          files: release/*.apk
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+- name: Install widget xml metadata
+  run: |
+    mkdir -p android/app/src/main/res/xml
+    cp .github/widget_shifts_info.xml.template    android/app/src/main/res/xml/widget_shifts_info.xml
+    cp .github/widget_purchases_info.xml.template android/app/src/main/res/xml/widget_purchases_info.xml
+    cp .github/widget_tasks_info.xml.template     android/app/src/main/res/xml/widget_tasks_info.xml
+
+- name: Inject widget receivers into AndroidManifest
+  run: |
+    python3 - <<'PY'
+    import pathlib
+    p = pathlib.Path('android/app/src/main/AndroidManifest.xml')
+    s = p.read_text()
+    block = """
+        <!-- ============ ВИДЖЕТЫ ============ -->
+        <receiver android:name=".VmesteShiftsWidget" android:exported="true" android:label="Вместе · Смены">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_shifts_info" />
+        </receiver>
+        <receiver android:name=".VmestePurchasesWidget" android:exported="true" android:label="Вместе · Покупки">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_purchases_info" />
+        </receiver>
+        <receiver android:name=".VmesteTasksWidget" android:exported="true" android:label="Вместе · Задачи">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_tasks_info" />
+        </receiver>
+    """
+    s = s.replace('</application>', block + '    </application>')
+    p.write_text(s)
+    PY
+    echo "=== манифест после инъекции ==="
+    grep -A2 "VmesteShiftsWidget" android/app/src/main/AndroidManifest.xml || true
