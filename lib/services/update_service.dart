@@ -32,31 +32,37 @@ class UpdateService {
 
   static const String _repo = 's1xck11/vmeste-app';
 
-  /// Кэш текущей версии, чтобы не запрашивать каждый раз.
-  static String? _cachedVersion;
-  static int? _cachedBuild;
+  static String _currentVersion = '1.0.0';
+  static int _currentBuild = 0;
+  static bool _loaded = false;
 
-  /// Возвращает реальную версию из pubspec (например, "1.1.0").
-  static String get currentVersion => _cachedVersion ?? '...';
+  /// Версия приложения из APK, например "1.1.0".
+  static String get currentVersion => _currentVersion;
 
-  /// Возвращает номер сборки (например, 100).
-  static int get currentBuild => _cachedBuild ?? 0;
+  /// Номер сборки из APK, например 201.
+  static int get currentBuild => _currentBuild;
 
-  /// Загружает версию из package_info_plus. Вызывается при старте приложения.
+  /// Полная строка для UI: "1.1.0+201".
+  static String get currentFull => '$_currentVersion+$_currentBuild';
+
+  /// Загружает версию и build number из package_info. Вызывается один раз при старте.
   static Future<void> loadVersion() async {
+    if (_loaded) return;
     try {
       final info = await PackageInfo.fromPlatform();
-      _cachedVersion = info.version;
-      _cachedBuild = int.tryParse(info.buildNumber) ?? 0;
+      _currentVersion = info.version;
+      _currentBuild = int.tryParse(info.buildNumber) ?? 0;
+      _loaded = true;
     } catch (_) {
-      _cachedVersion = '1.0.0';
-      _cachedBuild = 0;
+      _currentVersion = '1.0.0';
+      _currentBuild = 0;
+      _loaded = true;
     }
   }
 
   Future<UpdateInfo?> checkForUpdate() async {
     try {
-      _log.info('Update', 'проверка обновлений... (текущая $currentVersion+$currentBuild)');
+      _log.info('Update', 'проверка обновлений... (текущая ${currentFull})');
       final uri = Uri.parse('https://api.github.com/repos/$_repo/releases/latest');
       final resp = await http.get(
         uri,
@@ -97,14 +103,23 @@ class UpdateService {
         }
       }
 
-      // Сравниваем по 4 частям: major.minor.build_number
-      final ver = _parseVersion(tag) ?? [0, 0, 0];
-      final currentVer = _parseVersion('v$currentVersion') ?? [0, 0, 0];
+      // Тег: "v1.1.199" → [1, 1, 199]
+      final ver = _parseVersion(tag);
+      final currentVer = _parseVersion(currentVersion) ?? [0, 0, 0];
 
-      // Сравниваем по major.minor (первые 2), а не по всему тегу
+      if (ver == null) {
+        _log.warn('Update', 'не распарсил тег $tag');
+        return null;
+      }
+
+      // Сравнение:
+      //   major.minor из тега vs major.minor из APK
+      //   patch из тега vs build number из APK
       final hasNewer = ver[0] > currentVer[0] ||
           (ver[0] == currentVer[0] && ver[1] > currentVer[1]) ||
-          (ver[0] == currentVer[0] && ver[1] == currentVer[1] && ver[2] > currentBuild);
+          (ver[0] == currentVer[0] &&
+              ver[1] == currentVer[1] &&
+              ver[2] > currentBuild);
 
       if (hasNewer) {
         _log.info('Update', 'найдено обновление: $tag');
@@ -118,7 +133,7 @@ class UpdateService {
         );
       }
 
-      _log.info('Update', 'обновлений нет (текущая $currentVersion+$currentBuild, последняя $tag)');
+      _log.info('Update', 'обновлений нет (текущая ${currentFull}, последняя $tag)');
       return null;
     } catch (e, st) {
       _log.error('Update', 'checkForUpdate FAILED', e, st);
@@ -126,7 +141,6 @@ class UpdateService {
     }
   }
 
-  /// Скачивает APK с поддержкой докачки.
   Future<File?> downloadApk(
     UpdateInfo info, {
     void Function(int received, int total)? onProgress,
@@ -232,11 +246,10 @@ class UpdateService {
       }
     }
 
-    _log.warn('Update', 'не удалось скачать за $maxAttempts попыток, файл .part сохранён');
+    _log.warn('Update', 'не удалось скачать за $maxAttempts попыток');
     return null;
   }
 
-  /// Открывает системный установщик через open_filex (правильно на Android).
   Future<bool> installApk(File file) async {
     try {
       _log.info('Update', 'открываю установщик: ${file.path}');
