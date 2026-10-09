@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
+import 'package:home_widget/home_widget.dart';
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
@@ -9,6 +10,7 @@ import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
 import 'services/background_service.dart';
 import 'services/update_service.dart';
+import 'services/widget_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/glass_container.dart';
@@ -67,8 +69,39 @@ void main() async {
   await themeService.init();
   final bgService = BackgroundService.init(storage);
   final sync = SyncService(storage: storage);
+  final widgetService = WidgetService(storage);
+  sync.widgetService = widgetService;
 
-  runApp(VmesteApp(storage: storage, sync: sync, themeService: themeService, bgService: bgService));
+  // Пробуем прочитать "куда открыться" — если запущено из виджета
+  int? initialTab;
+  try {
+    final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+    initialTab = _tabFromUri(uri);
+    if (initialTab != null) {
+      logger.info('Widget', 'запущено из виджета, tab=$initialTab');
+    }
+  } catch (e, st) {
+    logger.error('Widget', 'initiallyLaunchedFromHomeWidget FAILED', e, st);
+  }
+
+  runApp(VmesteApp(
+    storage: storage,
+    sync: sync,
+    themeService: themeService,
+    bgService: bgService,
+    widgetService: widgetService,
+    initialTab: initialTab,
+  ));
+}
+
+/// Разбирает URI из виджета: "vmeste://open?tab=2" → 2
+int? _tabFromUri(Uri? uri) {
+  if (uri == null) return null;
+  final t = uri.queryParameters['tab'];
+  if (t == null) return null;
+  final v = int.tryParse(t);
+  if (v == null || v < 0 || v > 3) return null;
+  return v;
 }
 
 class VmesteApp extends StatelessWidget {
@@ -76,12 +109,17 @@ class VmesteApp extends StatelessWidget {
   final SyncService sync;
   final ThemeService themeService;
   final BackgroundService bgService;
+  final WidgetService widgetService;
+  final int? initialTab;
+
   const VmesteApp({
     super.key,
     required this.storage,
     required this.sync,
     required this.themeService,
     required this.bgService,
+    required this.widgetService,
+    this.initialTab,
   });
 
   @override
@@ -93,7 +131,14 @@ class VmesteApp extends StatelessWidget {
           title: 'Вместе',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.build(config),
-          home: SplashScreen(storage: storage, sync: sync, themeService: themeService, bgService: bgService),
+          home: SplashScreen(
+            storage: storage,
+            sync: sync,
+            themeService: themeService,
+            bgService: bgService,
+            widgetService: widgetService,
+            initialTab: initialTab,
+          ),
         );
       },
     );
@@ -105,12 +150,16 @@ class SplashScreen extends StatefulWidget {
   final SyncService sync;
   final ThemeService themeService;
   final BackgroundService bgService;
+  final WidgetService widgetService;
+  final int? initialTab;
   const SplashScreen({
     super.key,
     required this.storage,
     required this.sync,
     required this.themeService,
     required this.bgService,
+    required this.widgetService,
+    this.initialTab,
   });
 
   @override
@@ -133,6 +182,8 @@ class _SplashScreenState extends State<SplashScreen> {
             sync: widget.sync,
             themeService: widget.themeService,
             bgService: widget.bgService,
+            widgetService: widget.widgetService,
+            initialTab: widget.initialTab,
           ),
         ));
         return;
@@ -173,12 +224,16 @@ class MainScreen extends StatefulWidget {
   final SyncService sync;
   final ThemeService themeService;
   final BackgroundService bgService;
+  final WidgetService widgetService;
+  final int? initialTab;
   const MainScreen({
     super.key,
     required this.storage,
     required this.sync,
     required this.themeService,
     required this.bgService,
+    required this.widgetService,
+    this.initialTab,
   });
 
   @override
@@ -193,14 +248,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    if (widget.initialTab != null) {
+      _currentIndex = widget.initialTab!;
+    }
+
     _screens = [
       PurchasesScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
       TasksScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
       ShiftsScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
       BudgetScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
     ];
+
     widget.sync.onStatusChanged = () { if (mounted) setState(() {}); };
-    Future.delayed(const Duration(milliseconds: 500), () { widget.sync.pullNow(); });
+    Future.delayed(const Duration(milliseconds: 500), () {
+      widget.sync.pullNow();
+      // После подключения обновим виджеты — данные точно свежие
+      widget.widgetService.updateAll();
+    });
+
+    // Слушаем клики по виджету, пока приложение уже открыто
+    try {
+      HomeWidget.widgetClicked.listen((uri) {
+        final tab = _tabFromUri(uri);
+        if (tab != null && mounted) {
+          setState(() => _currentIndex = tab);
+        }
+      });
+    } catch (_) {}
   }
 
   @override
@@ -280,4 +355,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+int? _tabFromUri(Uri? uri) {
+  if (uri == null) return null;
+  final t = uri.queryParameters['tab'];
+  if (t == null) return null;
+  final v = int.tryParse(t);
+  if (v == null || v < 0 || v > 3) return null;
+  return v;
 }
