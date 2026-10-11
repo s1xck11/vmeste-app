@@ -15,6 +15,7 @@ import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/glass_container.dart';
 import 'widgets/app_background.dart';
+import 'widgets/add_fab.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
@@ -53,15 +54,19 @@ void main() async {
   await UpdateService.loadVersion();
 
   final logger = DebugLogService();
-  FlutterError.onError = (d) => logger.error('Flutter', d.exceptionAsString(), d.exception, d.stack);
+  FlutterError.onError = (d) =>
+      logger.error('Flutter', d.exceptionAsString(), d.exception, d.stack);
   HttpOverrides.global = _SupabaseHttpOverrides();
   logger.info('App', 'HttpOverrides установлен');
   logger.info('App', 'Версия приложения: ${UpdateService.currentFull}');
 
   try {
-    await Supabase.initialize(url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
+    await Supabase.initialize(
+        url: SupabaseConfig.url, anonKey: SupabaseConfig.anonKey);
     logger.info('App', 'Supabase инициализирован');
-  } catch (e, st) { logger.error('App', 'Supabase init FAILED', e, st); }
+  } catch (e, st) {
+    logger.error('App', 'Supabase init FAILED', e, st);
+  }
 
   final storage = StorageService();
   await storage.init();
@@ -157,7 +162,10 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
-  void initState() { super.initState(); _check(); }
+  void initState() {
+    super.initState();
+    _check();
+  }
 
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
@@ -195,16 +203,22 @@ class _SplashScreenState extends State<SplashScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: cs.background,
-      body: Center(child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.favorite, size: 80, color: cs.primary),
-          const SizedBox(height: 24),
-          Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
-          const SizedBox(height: 24),
-          CircularProgressIndicator(color: cs.primary),
-        ],
-      )),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.favorite, size: 80, color: cs.primary),
+            const SizedBox(height: 24),
+            Text('Вместе',
+                style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurface)),
+            const SizedBox(height: 24),
+            CircularProgressIndicator(color: cs.primary),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -244,13 +258,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     _screens = [
-      PurchasesScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
-      TasksScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
-      ShiftsScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
-      BudgetScreen(storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+      PurchasesScreen(
+          storage: widget.storage,
+          sync: widget.sync,
+          themeService: widget.themeService,
+          onAvatarTap: _openSettings),
+      TasksScreen(
+          storage: widget.storage,
+          sync: widget.sync,
+          themeService: widget.themeService,
+          onAvatarTap: _openSettings),
+      ShiftsScreen(
+          storage: widget.storage,
+          sync: widget.sync,
+          themeService: widget.themeService,
+          onAvatarTap: _openSettings),
+      BudgetScreen(
+          storage: widget.storage,
+          sync: widget.sync,
+          themeService: widget.themeService,
+          onAvatarTap: _openSettings),
     ];
 
-    widget.sync.onStatusChanged = () { if (mounted) setState(() {}); };
+    widget.sync.onStatusChanged = () {
+      if (mounted) setState(() {});
+    };
     Future.delayed(const Duration(milliseconds: 500), () {
       widget.sync.pullNow();
       widget.widgetService.updateAll();
@@ -316,30 +348,123 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     ));
   }
 
+  /// Тап по центральному "+":
+  ///   0 = покупка, 1 = задача, 2 = смена, 3 = расход
+  /// Открываем нужную вкладку и показываем снакбар-подсказку (модалку
+  /// пользователь откроет сам кнопкой "+" внутри вкладки).
+  /// 
+  /// В будущем можно заменить на прямое открытие соответствующей модалки.
+  void _onFabPick(int kind) {
+    int tab;
+    String label;
+    switch (kind) {
+      case 0:
+        tab = 0;
+        label = 'Открой покупку через "+" сверху';
+        break;
+      case 1:
+        tab = 1;
+        label = 'Открой задачу через "+" сверху';
+        break;
+      case 2:
+        tab = 2;
+        label = 'Открой смену через "+" сверху';
+        break;
+      case 3:
+      default:
+        tab = 3;
+        label = 'Открой расход через "+" снизу';
+        break;
+    }
+    setState(() => _currentIndex = tab);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(label),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: Colors.transparent,
+      extendBody: true,
       body: AppBackground(
         service: widget.bgService,
         child: IndexedStack(index: _currentIndex, children: _screens),
       ),
-      bottomNavigationBar: GlassContainer(
-        child: SafeArea(
-          top: false,
-          child: NavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (i) => setState(() => _currentIndex = i),
-            destinations: const [
-              NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Покупки'),
-              NavigationDestination(icon: Icon(Icons.check_circle_outline), selectedIcon: Icon(Icons.check_circle), label: 'Задачи'),
-              NavigationDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today), label: 'Смены'),
-              NavigationDestination(icon: Icon(Icons.pie_chart_outline), selectedIcon: Icon(Icons.pie_chart), label: 'Бюджет'),
-            ],
-          ),
+      bottomNavigationBar: SizedBox(
+        height: 80 + MediaQuery.of(context).padding.bottom,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          clipBehavior: Clip.none,
+          children: [
+            // Нижний бар
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: GlassContainer(
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    height: 68,
+                    child: Row(
+                      children: [
+                        _navItem(0, Icons.shopping_bag_outlined,
+                            Icons.shopping_bag, 'Покупки', cs),
+                        _navItem(1, Icons.check_circle_outline,
+                            Icons.check_circle, 'Задачи', cs),
+                        const SizedBox(width: 72), // место под FAB
+                        _navItem(2, Icons.calendar_today_outlined,
+                            Icons.calendar_today, 'Смены', cs),
+                        _navItem(3, Icons.pie_chart_outline,
+                            Icons.pie_chart, 'Бюджет', cs),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // FAB поверх
+            Positioned(
+              bottom: 30 + MediaQuery.of(context).padding.bottom,
+              child: AddFab(onPick: _onFabPick),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(int index, IconData icon, IconData activeIcon, String label,
+      ColorScheme cs) {
+    final selected = _currentIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _currentIndex = index),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              selected ? activeIcon : icon,
+              size: 24,
+              color: selected ? cs.primary : cs.onSurfaceVariant,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? cs.primary : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       ),
     );
