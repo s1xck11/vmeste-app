@@ -1,13 +1,21 @@
 // lib/widgets/modern_app_bar.dart
 
 import 'package:flutter/material.dart';
+import 'glass_container.dart';
 
+/// Верхняя шапка в стиле нового Telegram: floating «островок»,
+/// скруглённый, с матовым стеклом, не касается краёв экрана.
+/// 
+/// Внутри: заголовок, actions (иконки), аватар.
 class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final VoidCallback onAvatarTap;
   final String avatarEmoji;
   final List<Widget>? actions;
-  final double height;
+
+  /// Общая высота (включая отступы сверху).
+  /// Реальная панель = 56, отступ сверху = MediaQuery.padding.top + 8.
+  final double panelHeight;
 
   const ModernAppBar({
     super.key,
@@ -15,43 +23,57 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onAvatarTap,
     this.avatarEmoji = '👤',
     this.actions,
-    this.height = 72,
+    this.panelHeight = 56,
   });
 
   @override
-  Size get preferredSize => Size.fromHeight(height);
+  Size get preferredSize => Size.fromHeight(
+        panelHeight + 8, // запас — реальный отступ задаётся через MediaQuery
+      );
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
+    final topInset = MediaQuery.of(context).padding.top;
+
+    return Padding(
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 8,
-        left: 20,
-        right: 12,
-        bottom: 12,
+        top: topInset + 8,
+        left: 16,
+        right: 16,
+        bottom: 8,
       ),
-      color: cs.surface,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-                color: cs.onSurface,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      child: GlassContainer(
+        radius: 28,
+        showAllBorder: true,
+        shadow: true,
+        child: SizedBox(
+          height: panelHeight,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                      color: cs.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (actions != null) ...actions!,
+                const SizedBox(width: 4),
+                _AvatarButton(emoji: avatarEmoji, onTap: onAvatarTap),
+              ],
             ),
           ),
-          if (actions != null) ...actions!,
-          const SizedBox(width: 4),
-          _AvatarButton(emoji: avatarEmoji, onTap: onAvatarTap),
-        ],
+        ),
       ),
     );
   }
@@ -72,8 +94,8 @@ class _AvatarButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(50),
         onTap: onTap,
         child: Container(
-          width: 42,
-          height: 42,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             color: cs.primaryContainer,
             shape: BoxShape.circle,
@@ -81,7 +103,7 @@ class _AvatarButton extends StatelessWidget {
           child: Center(
             child: Text(
               emoji.isEmpty ? '👤' : emoji,
-              style: const TextStyle(fontSize: 22),
+              style: const TextStyle(fontSize: 20),
             ),
           ),
         ),
