@@ -51,8 +51,8 @@ class AppTheme {
       ),
 
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: p.cardElevated,
-        indicatorColor: p.accentSoft,
+        backgroundColor: Colors.transparent,
+        indicatorColor: Colors.transparent,
         elevation: 0,
         height: 68,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -60,7 +60,7 @@ class AppTheme {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: 11,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             color: selected ? p.accent : p.textSecondary,
           );
         }),
@@ -79,7 +79,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: p.border, width: 1),
         ),
       ),
@@ -99,7 +99,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(24),
         ),
         titleTextStyle: TextStyle(
           color: p.text,
@@ -115,22 +115,22 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: p.card,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         hintStyle: TextStyle(color: p.textSecondary, fontSize: 15),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: p.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: p.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: p.accent, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: p.danger),
         ),
       ),
@@ -141,9 +141,9 @@ class AppTheme {
           foregroundColor: isDark ? Colors.black : Colors.white,
           elevation: 0,
           shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(20),
           ),
           textStyle: const TextStyle(
             fontSize: 15,
@@ -157,7 +157,7 @@ class AppTheme {
           foregroundColor: p.accent,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           textStyle: const TextStyle(
             fontSize: 14,
@@ -170,9 +170,9 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: p.accent,
           side: BorderSide(color: p.accent, width: 1.2),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(20),
           ),
           textStyle: const TextStyle(
             fontSize: 15,
@@ -189,8 +189,9 @@ class AppTheme {
           borderRadius: BorderRadius.circular(20),
         ),
         labelStyle: TextStyle(color: p.text, fontSize: 13),
-        secondaryLabelStyle: TextStyle(color: p.accent, fontSize: 13, fontWeight: FontWeight.w600),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        secondaryLabelStyle: TextStyle(
+            color: p.accent, fontSize: 13, fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
 
       snackBarTheme: SnackBarThemeData(
@@ -201,7 +202,7 @@ class AppTheme {
         ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
 
@@ -213,15 +214,25 @@ class AppTheme {
         hoverElevation: 0,
         highlightElevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
         ),
       ),
 
       textTheme: TextTheme(
-        headlineLarge: TextStyle(color: p.text, fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.5),
-        headlineMedium: TextStyle(color: p.text, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.3),
-        titleLarge: TextStyle(color: p.text, fontSize: 20, fontWeight: FontWeight.w700),
-        titleMedium: TextStyle(color: p.text, fontSize: 16, fontWeight: FontWeight.w600),
+        headlineLarge: TextStyle(
+            color: p.text,
+            fontSize: 30,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5),
+        headlineMedium: TextStyle(
+            color: p.text,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3),
+        titleLarge: TextStyle(
+            color: p.text, fontSize: 20, fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(
+            color: p.text, fontSize: 16, fontWeight: FontWeight.w600),
         bodyLarge: TextStyle(color: p.text, fontSize: 15),
         bodyMedium: TextStyle(color: p.text, fontSize: 14),
         bodySmall: TextStyle(color: p.textSecondary, fontSize: 12),
