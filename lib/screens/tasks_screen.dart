@@ -9,6 +9,7 @@ import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/add_task_modal.dart';
+import '../widgets/status_line.dart';
 
 class TasksScreen extends StatefulWidget {
   final StorageService storage;
@@ -64,6 +65,12 @@ class _TasksScreenState extends State<TasksScreen> {
     _load();
   }
 
+  String _myName() {
+    return widget.storage.myName.isEmpty
+        ? (widget.storage.myPartnerId ?? '')
+        : widget.storage.myName;
+  }
+
   void _quickAdd() {
     final text = _quickController.text.trim();
     if (text.isEmpty) return;
@@ -82,6 +89,9 @@ class _TasksScreenState extends State<TasksScreen> {
       archived: false,
       createdAt: now,
       updatedAt: now,
+      createdBy: widget.storage.myPartnerId,
+      createdByName: _myName(),
+      createdByAt: now,
     );
     final list = List<Task>.from(_tasks)..add(t);
     widget.storage.tasks = list;
@@ -91,14 +101,43 @@ class _TasksScreenState extends State<TasksScreen> {
     widget.sync.schedulePush();
   }
 
-  void _toggleDone(Task t) {
+  void _take(Task t) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final updated = t.copyWith(
-      done: !t.done,
-      doneAt: !t.done ? now : null,
+      takenBy: widget.storage.myPartnerId,
+      takenByName: _myName(),
+      takenByAt: now,
       updatedAt: now,
     );
     _replace(updated);
+  }
+
+  void _untake(Task t) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _replace(t.copyWith(clearTakenBy: true, updatedAt: now));
+  }
+
+  void _toggleDone(Task t) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (t.done) {
+      _replace(t.copyWith(
+        done: false,
+        doneAt: null,
+        clearDoneBy: true,
+        updatedAt: now,
+      ));
+    } else {
+      _replace(t.copyWith(
+        done: true,
+        doneAt: now,
+        doneBy: widget.storage.myPartnerId,
+        doneByName: _myName(),
+        takenBy: t.takenBy ?? widget.storage.myPartnerId,
+        takenByName: t.takenByName ?? _myName(),
+        takenByAt: t.takenByAt ?? now,
+        updatedAt: now,
+      ));
+    }
   }
 
   void _archive(Task t) {
@@ -132,7 +171,13 @@ class _TasksScreenState extends State<TasksScreen> {
         categories: _categories,
         partners: _partners,
         onSave: (t) {
-          final list = List<Task>.from(_tasks)..add(t);
+          final now = DateTime.now().millisecondsSinceEpoch;
+          final enriched = t.copyWith(
+            createdBy: widget.storage.myPartnerId,
+            createdByName: _myName(),
+            createdByAt: now,
+          );
+          final list = List<Task>.from(_tasks)..add(enriched);
           widget.storage.tasks = list;
           _load();
           widget.sync.schedulePush();
@@ -189,8 +234,11 @@ class _TasksScreenState extends State<TasksScreen> {
   int get _totalToday {
     final now = DateTime.now();
     final today = '${now.year}-${_two(now.month)}-${_two(now.day)}';
-    return _doneToday + _tasks.where((t) => !t.done && !t.archived && t.deadline == today).length;
+    return _doneToday +
+        _tasks.where((t) => !t.done && !t.archived && t.deadline == today).length;
   }
+
+  bool _isMine(Task t) => t.takenBy == widget.storage.myPartnerId;
 
   @override
   Widget build(BuildContext context) {
@@ -226,22 +274,29 @@ class _TasksScreenState extends State<TasksScreen> {
                     SliverList.builder(
                       itemCount: list.length,
                       itemBuilder: (ctx, i) => Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                         child: _TaskTile(
                           task: list[i],
                           category: _categories.firstWhere(
                             (c) => c.id == list[i].category,
-                            orElse: () => TaskCategory(id: list[i].category, label: 'Прочее', emoji: '📦', order: 999),
+                            orElse: () => TaskCategory(
+                                id: list[i].category,
+                                label: 'Прочее',
+                                emoji: '📦',
+                                order: 999),
                           ),
                           assigneeName: _assigneeName(list[i].assignee),
+                          mine: _isMine(list[i]),
                           onToggleDone: () => _toggleDone(list[i]),
                           onArchive: () => _archive(list[i]),
                           onDelete: () => _delete(list[i]),
                           onTap: () => _openEditModal(list[i]),
+                          onTake: () => _take(list[i]),
+                          onUntake: () => _untake(list[i]),
                         ),
                       ),
                     ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
                 ],
               ),
             ),
@@ -262,24 +317,30 @@ class _TasksScreenState extends State<TasksScreen> {
     if (_totalToday == 0) return const SizedBox.shrink();
     final ratio = _doneToday / _totalToday;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text('Выполнено сегодня', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+              Text('Выполнено сегодня',
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
               const Spacer(),
               Text('$_doneToday из $_totalToday',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.primary)),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: cs.primary)),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
-              value: ratio, minHeight: 6,
-              backgroundColor: cs.surfaceVariant, color: cs.primary,
+              value: ratio,
+              minHeight: 8,
+              backgroundColor: cs.surfaceVariant,
+              color: cs.primary,
             ),
           ),
         ],
@@ -289,13 +350,16 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget _buildFilters(ColorScheme cs) {
     final filters = [
-      ('all', 'Все'), ('active', 'Активные'), ('high', 'Важные'),
-      ('today', 'Сегодня'), ('archive', 'Архив'),
+      ('all', 'Все'),
+      ('active', 'Активные'),
+      ('high', 'Важные'),
+      ('today', 'Сегодня'),
+      ('archive', 'Архив'),
     ];
     return SizedBox(
-      height: 44,
+      height: 48,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
         scrollDirection: Axis.horizontal,
         itemCount: filters.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
@@ -305,17 +369,18 @@ class _TasksScreenState extends State<TasksScreen> {
           return GestureDetector(
             onTap: () => setState(() => _filter = id),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: sel ? cs.primary : cs.surfaceVariant,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
-                child: Text(label, style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                  color: sel ? cs.onPrimary : cs.onSurface,
-                )),
+                child: Text(label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                      color: sel ? cs.onPrimary : cs.onSurface,
+                    )),
               ),
             ),
           );
@@ -338,23 +403,27 @@ class _TasksScreenState extends State<TasksScreen> {
                 hintText: 'Что сделать?',
                 filled: true,
                 fillColor: cs.surfaceVariant,
-                prefixIcon: Icon(Icons.check_circle_outline, color: cs.onSurfaceVariant, size: 20),
+                prefixIcon: Icon(Icons.check_circle_outline,
+                    color: cs.onSurfaceVariant, size: 20),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               ),
             ),
           ),
           const SizedBox(width: 8),
           SizedBox(
-            height: 52, width: 52,
+            height: 56,
+            width: 56,
             child: ElevatedButton(
               onPressed: _quickAdd,
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
               ),
               child: const Icon(Icons.add),
             ),
@@ -369,26 +438,35 @@ class _TaskTile extends StatelessWidget {
   final Task task;
   final TaskCategory category;
   final String? assigneeName;
+  final bool mine;
   final VoidCallback onToggleDone;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
   final VoidCallback onTap;
+  final VoidCallback onTake;
+  final VoidCallback onUntake;
 
   const _TaskTile({
     required this.task,
     required this.category,
     required this.assigneeName,
+    required this.mine,
     required this.onToggleDone,
     required this.onArchive,
     required this.onDelete,
     required this.onTap,
+    required this.onTake,
+    required this.onUntake,
   });
 
   Color _priorityColor(ColorScheme cs) {
     switch (task.priority) {
-      case 'high': return cs.error;
-      case 'low': return cs.tertiary;
-      default: return cs.secondary;
+      case 'high':
+        return cs.error;
+      case 'low':
+        return cs.tertiary;
+      default:
+        return cs.secondary;
     }
   }
 
@@ -397,56 +475,66 @@ class _TaskTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDone = task.done;
     final prioColor = _priorityColor(cs);
+    final isTaken = task.takenBy != null && !isDone;
 
     return Dismissible(
       key: Key('task_${task.id}'),
       background: Container(
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 20),
+        padding: const EdgeInsets.only(left: 24),
         decoration: BoxDecoration(
           color: cs.tertiary.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Icon(Icons.archive_outlined, color: cs.tertiary),
       ),
       secondaryBackground: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        padding: const EdgeInsets.only(right: 24),
         decoration: BoxDecoration(
           color: cs.error.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Icon(Icons.delete_outline, color: cs.error),
       ),
       confirmDismiss: (direction) async {
-        if (direction == DismissDirection.startToEnd) onArchive();
-        else onDelete();
+        if (direction == DismissDirection.startToEnd) {
+          onArchive();
+        } else {
+          onDelete();
+        }
         return false;
       },
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             decoration: BoxDecoration(
               color: cs.surfaceVariant,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(24),
               border: Border(
-                left: BorderSide(color: prioColor, width: 3),
-                top: BorderSide(color: cs.outline),
-                right: BorderSide(color: cs.outline),
-                bottom: BorderSide(color: cs.outline),
+                left: BorderSide(color: prioColor, width: 4),
+                top: BorderSide(
+                    color: isTaken ? cs.primary.withOpacity(0.4) : cs.outline),
+                right: BorderSide(
+                    color: isTaken ? cs.primary.withOpacity(0.4) : cs.outline),
+                bottom: BorderSide(
+                    color: isTaken ? cs.primary.withOpacity(0.4) : cs.outline),
               ),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
                   onTap: onToggleDone,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
-                    width: 24, height: 24,
+                    margin: const EdgeInsets.only(top: 2),
+                    width: 26,
+                    height: 26,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isDone ? cs.tertiary : Colors.transparent,
@@ -455,7 +543,9 @@ class _TaskTile extends StatelessWidget {
                         width: 2,
                       ),
                     ),
-                    child: isDone ? Icon(Icons.check, size: 14, color: cs.onTertiary) : null,
+                    child: isDone
+                        ? Icon(Icons.check, size: 15, color: cs.onTertiary)
+                        : null,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -463,28 +553,58 @@ class _TaskTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(task.text, style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w500,
-                        color: cs.onSurface,
-                        decoration: isDone ? TextDecoration.lineThrough : null,
-                        decorationColor: cs.onSurfaceVariant,
-                      )),
-                      const SizedBox(height: 4),
+                      Text(
+                        task.text,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface,
+                          decoration:
+                              isDone ? TextDecoration.lineThrough : null,
+                          decorationColor: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
                       Wrap(
-                        spacing: 6, runSpacing: 4,
+                        spacing: 6,
+                        runSpacing: 4,
                         children: [
-                          _tag('${category.emoji} ${category.label}', cs.surface, cs.onSurfaceVariant),
+                          _tag('${category.emoji} ${category.label}',
+                              cs.surface, cs.onSurfaceVariant),
                           if (task.priority == 'high')
-                            _tag('🔴 Важно', cs.error.withOpacity(0.15), cs.error),
+                            _tag('🔴 Важно', cs.error.withOpacity(0.15),
+                                cs.error),
                           if (task.deadline.isNotEmpty)
-                            _tag('📅 ${task.deadline}', cs.surface, cs.onSurfaceVariant),
+                            _tag('📅 ${task.deadline}', cs.surface,
+                                cs.onSurfaceVariant),
                           if (assigneeName != null)
-                            _tag('👤 $assigneeName', cs.surface, cs.onSurfaceVariant),
+                            _tag('👤 $assigneeName', cs.surface,
+                                cs.onSurfaceVariant),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      StatusLine(
+                        done: isDone,
+                        doneByName: task.doneByName,
+                        doneAt: task.doneAt,
+                        takenByName: task.takenByName,
+                        takenByAt: task.takenByAt,
+                        createdByName: task.createdByName,
+                        createdByAt: task.createdByAt,
                       ),
                     ],
                   ),
                 ),
+                if (!isDone)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: _TakeButton(
+                      taken: isTaken,
+                      mine: mine,
+                      onTake: onTake,
+                      onUntake: onUntake,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -495,9 +615,77 @@ class _TaskTile extends StatelessWidget {
 
   Widget _tag(String text, Color bg, Color fg) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-      child: Text(text, style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.w500)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+      child: Text(text,
+          style: TextStyle(
+              fontSize: 11, color: fg, fontWeight: FontWeight.w500)),
+    );
+  }
+}
+
+class _TakeButton extends StatelessWidget {
+  final bool taken;
+  final bool mine;
+  final VoidCallback onTake;
+  final VoidCallback onUntake;
+
+  const _TakeButton({
+    required this.taken,
+    required this.mine,
+    required this.onTake,
+    required this.onUntake,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (!taken) {
+      return GestureDetector(
+        onTap: onTake,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: cs.primary.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text('Взять',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: cs.primary)),
+        ),
+      );
+    }
+
+    if (mine) {
+      return GestureDetector(
+        onTap: onUntake,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outline),
+          ),
+          child: Text('Отменить',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant)),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(Icons.lock_outline, size: 14, color: cs.primary),
     );
   }
 }
@@ -514,7 +702,8 @@ class _EmptyTasks extends StatelessWidget {
         children: [
           Icon(Icons.task_alt, size: 64, color: cs.tertiary),
           const SizedBox(height: 16),
-          Text('Задач нет', style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+          Text('Задач нет',
+              style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
         ],
       ),
     );
