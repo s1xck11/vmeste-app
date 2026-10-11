@@ -9,6 +9,7 @@ import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/add_purchase_modal.dart';
+import '../widgets/status_line.dart';
 import 'purchase_templates_screen.dart';
 import 'purchase_history_screen.dart';
 
@@ -69,6 +70,18 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     _load();
   }
 
+  // Собирает "шапку" автора для новой записи
+  Map<String, dynamic> _authorFields() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return {
+      'createdBy': widget.storage.myPartnerId,
+      'createdByName': widget.storage.myName.isEmpty
+          ? (widget.storage.myPartnerId ?? '')
+          : widget.storage.myName,
+      'createdByAt': now,
+    };
+  }
+
   void _openQuickModal() {
     final text = _quickController.text.trim();
     _quickController.clear();
@@ -87,7 +100,14 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         initialListId: _selectedListId,
         initialText: initialText,
         onSave: (p) {
-          final list = List<Purchase>.from(_purchases)..add(p);
+          // Обогащаем данными автора
+          final author = _authorFields();
+          final enriched = p.copyWith(
+            createdBy: author['createdBy'] as String?,
+            createdByName: author['createdByName'] as String?,
+            createdByAt: author['createdByAt'] as int?,
+          );
+          final list = List<Purchase>.from(_purchases)..add(enriched);
           widget.storage.purchases = list;
           _load();
           widget.sync.schedulePush();
@@ -118,15 +138,58 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     );
   }
 
-  void _toggleDone(Purchase p) {
+  void _take(Purchase p) {
     final now = DateTime.now().millisecondsSinceEpoch;
+    final name = widget.storage.myName.isEmpty
+        ? (widget.storage.myPartnerId ?? '')
+        : widget.storage.myName;
     final updated = p.copyWith(
-      done: !p.done,
-      missing: false,
-      boughtAt: !p.done ? now : null,
+      takenBy: widget.storage.myPartnerId,
+      takenByName: name,
+      takenByAt: now,
       updatedAt: now,
     );
     _replace(updated);
+  }
+
+  void _untake(Purchase p) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updated = p.copyWith(
+      clearTakenBy: true,
+      updatedAt: now,
+    );
+    _replace(updated);
+  }
+
+  void _toggleDone(Purchase p) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (p.done) {
+      // Снять галочку — убираем doneBy
+      final updated = p.copyWith(
+        done: false,
+        clearDoneBy: true,
+        updatedAt: now,
+      );
+      _replace(updated);
+    } else {
+      // Куплено — пишем кто купил
+      final name = widget.storage.myName.isEmpty
+          ? (widget.storage.myPartnerId ?? '')
+          : widget.storage.myName;
+      final updated = p.copyWith(
+        done: true,
+        missing: false,
+        boughtAt: now,
+        doneBy: widget.storage.myPartnerId,
+        doneByName: name,
+        // Если никто не брал — ставим себя как взявшего
+        takenBy: p.takenBy ?? widget.storage.myPartnerId,
+        takenByName: p.takenByName ?? name,
+        takenByAt: p.takenByAt ?? now,
+        updatedAt: now,
+      );
+      _replace(updated);
+    }
   }
 
   void _toggleMissing(Purchase p) {
@@ -183,8 +246,13 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   PurchaseCategory _categoryOf(String id) {
     return _categories.firstWhere(
       (c) => c.id == id,
-      orElse: () => PurchaseCategory(id: id, label: 'Прочее', emoji: '📦', order: 999),
+      orElse: () =>
+          PurchaseCategory(id: id, label: 'Прочее', emoji: '📦', order: 999),
     );
+  }
+
+  bool _isMine(Purchase p) {
+    return p.takenBy == widget.storage.myPartnerId;
   }
 
   @override
@@ -246,14 +314,17 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                         child: _CategoryGroup(
                           category: cat,
                           items: entry.value,
+                          isMine: _isMine,
                           onToggleDone: _toggleDone,
                           onToggleMissing: _toggleMissing,
                           onDelete: _delete,
                           onEdit: _openEditModal,
+                          onTake: _take,
+                          onUntake: _untake,
                         ),
                       );
                     }),
-                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
                 ],
               ),
             ),
@@ -271,7 +342,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: cs.surfaceVariant,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: _lists.map((l) {
@@ -281,12 +352,16 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 onTap: () => setState(() => _selectedListId = l.id),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
                     color: selected ? cs.surface : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: selected
-                        ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)]
+                        ? [
+                            BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 6)
+                          ]
                         : null,
                   ),
                   child: Center(
@@ -294,7 +369,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       '${l.emoji} ${l.name}',
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
                         color: selected ? cs.onSurface : cs.onSurfaceVariant,
                       ),
                       maxLines: 1,
@@ -324,24 +400,27 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 hintText: 'Что купить?',
                 filled: true,
                 fillColor: cs.surfaceVariant,
-                prefixIcon: Icon(Icons.add_shopping_cart, color: cs.onSurfaceVariant, size: 20),
+                prefixIcon: Icon(Icons.add_shopping_cart,
+                    color: cs.onSurfaceVariant, size: 20),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 16),
               ),
             ),
           ),
           const SizedBox(width: 8),
           SizedBox(
-            height: 52,
-            width: 52,
+            height: 56,
+            width: 56,
             child: ElevatedButton(
               onPressed: _openQuickModal,
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
               ),
               child: const Icon(Icons.add),
             ),
@@ -355,18 +434,24 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
 class _CategoryGroup extends StatelessWidget {
   final PurchaseCategory category;
   final List<Purchase> items;
+  final bool Function(Purchase) isMine;
   final void Function(Purchase) onToggleDone;
   final void Function(Purchase) onToggleMissing;
   final void Function(Purchase) onDelete;
   final void Function(Purchase) onEdit;
+  final void Function(Purchase) onTake;
+  final void Function(Purchase) onUntake;
 
   const _CategoryGroup({
     required this.category,
     required this.items,
+    required this.isMine,
     required this.onToggleDone,
     required this.onToggleMissing,
     required this.onDelete,
     required this.onEdit,
+    required this.onTake,
+    required this.onUntake,
   });
 
   @override
@@ -378,7 +463,7 @@ class _CategoryGroup extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsets.only(left: 6, bottom: 10),
             child: Row(
               children: [
                 Text('${category.emoji} ', style: const TextStyle(fontSize: 14)),
@@ -401,10 +486,13 @@ class _CategoryGroup extends StatelessWidget {
           ),
           ...items.map((p) => _PurchaseTile(
                 purchase: p,
+                mine: isMine(p),
                 onToggleDone: () => onToggleDone(p),
                 onToggleMissing: () => onToggleMissing(p),
                 onDelete: () => onDelete(p),
                 onTap: () => onEdit(p),
+                onTake: () => onTake(p),
+                onUntake: () => onUntake(p),
               )),
         ],
       ),
@@ -414,17 +502,23 @@ class _CategoryGroup extends StatelessWidget {
 
 class _PurchaseTile extends StatelessWidget {
   final Purchase purchase;
+  final bool mine;
   final VoidCallback onToggleDone;
   final VoidCallback onToggleMissing;
   final VoidCallback onDelete;
   final VoidCallback onTap;
+  final VoidCallback onTake;
+  final VoidCallback onUntake;
 
   const _PurchaseTile({
     required this.purchase,
+    required this.mine,
     required this.onToggleDone,
     required this.onToggleMissing,
     required this.onDelete,
     required this.onTap,
+    required this.onTake,
+    required this.onUntake,
   });
 
   @override
@@ -432,26 +526,27 @@ class _PurchaseTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDone = purchase.done;
     final isMissing = purchase.missing;
+    final isTaken = purchase.takenBy != null && !isDone;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Dismissible(
         key: Key('purchase_${purchase.id}'),
         background: Container(
           alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.only(left: 20),
+          padding: const EdgeInsets.only(left: 24),
           decoration: BoxDecoration(
             color: cs.tertiary.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(24),
           ),
           child: Icon(Icons.flag_outlined, color: cs.tertiary),
         ),
         secondaryBackground: Container(
           alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
+          padding: const EdgeInsets.only(right: 24),
           decoration: BoxDecoration(
             color: cs.error.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(24),
           ),
           child: Icon(Icons.delete_outline, color: cs.error),
         ),
@@ -467,23 +562,28 @@ class _PurchaseTile extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(24),
             onTap: onTap,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
               decoration: BoxDecoration(
                 color: cs.surfaceVariant,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outline, width: 1),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isTaken ? cs.primary.withOpacity(0.4) : cs.outline,
+                  width: isTaken ? 1.5 : 1,
+                ),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   GestureDetector(
                     onTap: onToggleDone,
                     behavior: HitTestBehavior.opaque,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      margin: const EdgeInsets.only(top: 2),
+                      width: 26,
+                      height: 26,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isDone
@@ -497,9 +597,10 @@ class _PurchaseTile extends StatelessWidget {
                         ),
                       ),
                       child: isDone
-                          ? Icon(Icons.check, size: 14, color: cs.onTertiary)
+                          ? Icon(Icons.check, size: 15, color: cs.onTertiary)
                           : (isMissing
-                              ? Icon(Icons.priority_high, size: 12, color: cs.onSecondary)
+                              ? Icon(Icons.priority_high,
+                                  size: 13, color: cs.onSecondary)
                               : null),
                     ),
                   ),
@@ -512,17 +613,19 @@ class _PurchaseTile extends StatelessWidget {
                           purchase.text,
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                             color: cs.onSurface,
-                            decoration: isDone ? TextDecoration.lineThrough : null,
+                            decoration:
+                                isDone ? TextDecoration.lineThrough : null,
                             decorationColor: cs.onSurfaceVariant,
                           ),
                         ),
                         if (purchase.qty > 1 || purchase.price > 0) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text(
                             [
-                              if (purchase.qty > 1) '${purchase.qty} ${purchase.unit}',
+                              if (purchase.qty > 1)
+                                '${purchase.qty} ${purchase.unit}',
                               if (purchase.price > 0)
                                 '${(purchase.price * purchase.qty).toStringAsFixed(0)} ₽',
                             ].join(' · '),
@@ -532,15 +635,108 @@ class _PurchaseTile extends StatelessWidget {
                             ),
                           ),
                         ],
+                        const SizedBox(height: 6),
+                        StatusLine(
+                          done: isDone,
+                          doneByName: purchase.doneByName,
+                          doneAt: purchase.boughtAt,
+                          takenByName: purchase.takenByName,
+                          takenByAt: purchase.takenByAt,
+                          createdByName: purchase.createdByName,
+                          createdByAt: purchase.createdByAt,
+                        ),
                       ],
                     ),
                   ),
+                  // Кнопка "Взять" / "Отменить" — показываем если не done
+                  if (!isDone && !isMissing)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, top: 2),
+                      child: _TakeButton(
+                        taken: isTaken,
+                        mine: mine,
+                        onTake: onTake,
+                        onUntake: onUntake,
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TakeButton extends StatelessWidget {
+  final bool taken;
+  final bool mine;
+  final VoidCallback onTake;
+  final VoidCallback onUntake;
+
+  const _TakeButton({
+    required this.taken,
+    required this.mine,
+    required this.onTake,
+    required this.onUntake,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (!taken) {
+      return GestureDetector(
+        onTap: onTake,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: cs.primary.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            'Взять',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: cs.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (mine) {
+      return GestureDetector(
+        onTap: onUntake,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outline),
+          ),
+          child: Text(
+            'Отменить',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Занято партнёром — просто галочка занятости
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(Icons.lock_outline, size: 14, color: cs.primary),
     );
   }
 }
@@ -575,15 +771,11 @@ class _TotalBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 14,
-        bottom: 14 + MediaQuery.of(context).padding.bottom,
-      ),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: cs.primaryContainer,
-        border: Border(top: BorderSide(color: cs.outline, width: 1)),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
