@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 /// Центральная кнопка "+" над плавающим навбаром.
 /// 
-/// При тапе раскрывает меню вверх: Покупка / Задача / Смена / Расход.
+/// Без обводки, аккуратно вписана — выпирает из навбара вверх.
 /// onPick получает индекс:
 ///   0 = покупка, 1 = задача, 2 = смена, 3 = расход
 class AddFab extends StatefulWidget {
@@ -70,7 +70,7 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
             alignment: Alignment.bottomCenter,
             child: _open
                 ? Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -111,20 +111,19 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
                 : const SizedBox.shrink(),
           ),
         ),
-        // Основная круглая кнопка
+        // Круглая кнопка — без обводки, с мягкой тенью
         GestureDetector(
           onTap: _toggle,
           child: Container(
-            width: 60,
-            height: 60,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
               color: cs.primary,
               shape: BoxShape.circle,
-              border: Border.all(color: cs.surface, width: 4),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.18),
-                  blurRadius: 14,
+                  color: cs.primary.withOpacity(0.35),
+                  blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
               ],
@@ -133,7 +132,7 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
               animation: _rotate,
               builder: (ctx, _) => Transform.rotate(
                 angle: _rotate.value * 3.14159 * 2,
-                child: Icon(Icons.add, color: cs.onPrimary, size: 30),
+                child: Icon(Icons.add, color: cs.onPrimary, size: 26),
               ),
             ),
           ),
@@ -159,9 +158,9 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
           border: Border.all(color: cs.outline),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
