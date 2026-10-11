@@ -35,7 +35,7 @@ class AppTheme {
       dividerColor: p.border,
 
       appBarTheme: AppBarTheme(
-        backgroundColor: p.background,
+        backgroundColor: Colors.transparent,
         foregroundColor: p.text,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -43,7 +43,7 @@ class AppTheme {
         centerTitle: false,
         titleTextStyle: TextStyle(
           color: p.text,
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.3,
         ),
@@ -73,6 +73,7 @@ class AppTheme {
         }),
       ),
 
+      // Карточки — плотнее, с обводкой, без резких теней (тень добавляется точечно)
       cardTheme: CardTheme(
         color: p.cardElevated,
         elevation: 0,
@@ -114,7 +115,7 @@ class AppTheme {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: p.card,
+        fillColor: p.cardElevated,
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         hintStyle: TextStyle(color: p.textSecondary, fontSize: 15),
         border: OutlineInputBorder(
@@ -182,7 +183,7 @@ class AppTheme {
       ),
 
       chipTheme: ChipThemeData(
-        backgroundColor: p.card,
+        backgroundColor: p.cardElevated,
         selectedColor: p.accentSoft,
         side: BorderSide(color: p.border),
         shape: RoundedRectangleBorder(
