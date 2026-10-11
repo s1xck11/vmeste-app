@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 
-/// Центральная кнопка "+" в нижнем навбаре с раскрывающимся меню.
+/// Центральная кнопка "+" над плавающим навбаром.
 /// 
-/// Показывает 4 пункта: покупка, задача, смена, расход.
+/// При тапе раскрывает меню вверх: Покупка / Задача / Смена / Расход.
 /// onPick получает индекс:
 ///   0 = покупка, 1 = задача, 2 = смена, 3 = расход
 class AddFab extends StatefulWidget {
@@ -62,66 +62,70 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Меню раскрывающееся
+        // Меню раскрывается вверх
         FadeTransition(
           opacity: _fade,
           child: ScaleTransition(
             scale: _fade,
+            alignment: Alignment.bottomCenter,
             child: _open
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _menuItem(
-                        icon: Icons.shopping_bag_outlined,
-                        label: 'Покупка',
-                        color: cs.primary,
-                        onTap: () => _pick(0),
-                        cs: cs,
-                      ),
-                      const SizedBox(height: 8),
-                      _menuItem(
-                        icon: Icons.check_circle_outline,
-                        label: 'Задача',
-                        color: cs.tertiary,
-                        onTap: () => _pick(1),
-                        cs: cs,
-                      ),
-                      const SizedBox(height: 8),
-                      _menuItem(
-                        icon: Icons.calendar_today_outlined,
-                        label: 'Смена',
-                        color: cs.secondary,
-                        onTap: () => _pick(2),
-                        cs: cs,
-                      ),
-                      const SizedBox(height: 8),
-                      _menuItem(
-                        icon: Icons.payments_outlined,
-                        label: 'Расход',
-                        color: cs.error,
-                        onTap: () => _pick(3),
-                        cs: cs,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
+                ? Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _menuItem(
+                          icon: Icons.shopping_bag_outlined,
+                          label: 'Покупка',
+                          color: cs.primary,
+                          onTap: () => _pick(0),
+                          cs: cs,
+                        ),
+                        const SizedBox(height: 8),
+                        _menuItem(
+                          icon: Icons.check_circle_outline,
+                          label: 'Задача',
+                          color: cs.tertiary,
+                          onTap: () => _pick(1),
+                          cs: cs,
+                        ),
+                        const SizedBox(height: 8),
+                        _menuItem(
+                          icon: Icons.calendar_today_outlined,
+                          label: 'Смена',
+                          color: cs.secondary,
+                          onTap: () => _pick(2),
+                          cs: cs,
+                        ),
+                        const SizedBox(height: 8),
+                        _menuItem(
+                          icon: Icons.payments_outlined,
+                          label: 'Расход',
+                          color: cs.error,
+                          onTap: () => _pick(3),
+                          cs: cs,
+                        ),
+                      ],
+                    ),
                   )
                 : const SizedBox.shrink(),
           ),
         ),
-        // Основная кнопка
+        // Основная круглая кнопка
         GestureDetector(
           onTap: _toggle,
           child: Container(
-            width: 56,
-            height: 56,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: cs.primary,
               shape: BoxShape.circle,
+              border: Border.all(color: cs.surface, width: 4),
               boxShadow: [
                 BoxShadow(
-                  color: cs.primary.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.18),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
@@ -129,7 +133,7 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
               animation: _rotate,
               builder: (ctx, _) => Transform.rotate(
                 angle: _rotate.value * 3.14159 * 2,
-                child: Icon(Icons.add, color: cs.onPrimary, size: 28),
+                child: Icon(Icons.add, color: cs.onPrimary, size: 30),
               ),
             ),
           ),
@@ -148,16 +152,16 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: cs.surfaceVariant,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(color: cs.outline),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -166,11 +170,14 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
           children: [
             Icon(icon, color: color, size: 20),
             const SizedBox(width: 10),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
+            ),
           ],
         ),
       ),
