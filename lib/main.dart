@@ -348,12 +348,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     ));
   }
 
-  /// Тап по центральному "+":
-  ///   0 = покупка, 1 = задача, 2 = смена, 3 = расход
-  /// Открываем нужную вкладку и показываем снакбар-подсказку (модалку
-  /// пользователь откроет сам кнопкой "+" внутри вкладки).
-  /// 
-  /// В будущем можно заменить на прямое открытие соответствующей модалки.
   void _onFabPick(int kind) {
     int tab;
     String label;
@@ -388,51 +382,60 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
       body: AppBackground(
         service: widget.bgService,
-        child: IndexedStack(index: _currentIndex, children: _screens),
-      ),
-      bottomNavigationBar: SizedBox(
-        height: 80 + MediaQuery.of(context).padding.bottom,
         child: Stack(
-          alignment: Alignment.bottomCenter,
           clipBehavior: Clip.none,
           children: [
-            // Нижний бар
+            IndexedStack(index: _currentIndex, children: _screens),
+
+            // Плавающий навбар
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: GlassContainer(
-                child: SafeArea(
-                  top: false,
-                  child: SizedBox(
-                    height: 68,
-                    child: Row(
-                      children: [
-                        _navItem(0, Icons.shopping_bag_outlined,
-                            Icons.shopping_bag, 'Покупки', cs),
-                        _navItem(1, Icons.check_circle_outline,
-                            Icons.check_circle, 'Задачи', cs),
-                        const SizedBox(width: 72), // место под FAB
-                        _navItem(2, Icons.calendar_today_outlined,
-                            Icons.calendar_today, 'Смены', cs),
-                        _navItem(3, Icons.pie_chart_outline,
-                            Icons.pie_chart, 'Бюджет', cs),
-                      ],
+              left: 16,
+              right: 16,
+              bottom: 14 + bottomInset * 0.5,
+              child: SizedBox(
+                height: 68,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    // Сам островок
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: GlassContainer(
+                        radius: 32,
+                        child: SizedBox(
+                          height: 68,
+                          child: Row(
+                            children: [
+                              _navItem(0, Icons.shopping_bag_outlined,
+                                  Icons.shopping_bag, 'Покупки', cs),
+                              _navItem(1, Icons.check_circle_outline,
+                                  Icons.check_circle, 'Задачи', cs),
+                              const SizedBox(width: 72),
+                              _navItem(2, Icons.calendar_today_outlined,
+                                  Icons.calendar_today, 'Смены', cs),
+                              _navItem(3, Icons.pie_chart_outline,
+                                  Icons.pie_chart, 'Бюджет', cs),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    // FAB выпирает вверх
+                    Positioned(
+                      top: -22,
+                      child: AddFab(onPick: _onFabPick),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            // FAB поверх
-            Positioned(
-              bottom: 30 + MediaQuery.of(context).padding.bottom,
-              child: AddFab(onPick: _onFabPick),
             ),
           ],
         ),
@@ -452,14 +455,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           children: [
             Icon(
               selected ? activeIcon : icon,
-              size: 24,
+              size: 22,
               color: selected ? cs.primary : cs.onSurfaceVariant,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected ? cs.primary : cs.onSurfaceVariant,
               ),
