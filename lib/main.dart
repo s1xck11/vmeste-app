@@ -404,9 +404,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   clipBehavior: Clip.none,
                   alignment: Alignment.bottomCenter,
                   children: [
+                    // Островок навбара
                     GlassContainer(
                       radius: 32,
-                      showTopBorder: false,
+                      showAllBorder: false,
+                      shadow: true,
                       child: SizedBox(
                         height: 68,
                         child: Row(
@@ -424,8 +426,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
+                    // FAB — ниже, аккуратно выпирает
                     Positioned(
-                      top: -28,
+                      top: -10,
                       child: AddFab(onPick: _onFabPick),
                     ),
                   ],
