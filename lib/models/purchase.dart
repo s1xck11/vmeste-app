@@ -2,21 +2,32 @@
 /// 
 /// Один товар в списке покупок. Может быть общим или личным (зависит от listId).
 class Purchase {
-  final int id;                 // уникальный ID (timestamp)
-  String text;                  // название товара
-  bool done;                    // куплено
-  bool missing;                 // нет в наличии
-  String category;              // ID категории (dairy, meat, ...)
-  double qty;                   // количество
-  String unit;                  // единица измерения (шт, кг, л, ...)
-  double price;                 // цена за единицу
-  String listId;                // 'common' | 'partner1' | 'partner2'
-  int order;                    // порядок в списке
-  int createdAt;                // время создания (ms)
-  int? boughtAt;                // время покупки (ms)
-  int updatedAt;                // время последнего изменения (ms)
-  String? updatedBy;            // UID того, кто менял
-  int? deletedAt;               // если удалён (soft-delete)
+  final int id;
+  String text;
+  bool done;
+  bool missing;
+  String category;
+  double qty;
+  String unit;
+  double price;
+  String listId;
+  int order;
+  int createdAt;
+  int? boughtAt;
+  int updatedAt;
+  String? updatedBy;
+  int? deletedAt;
+
+  // НОВОЕ: кто создал / взял / купил
+  String? createdBy;      // 'partner1' | 'partner2'
+  String? createdByName;  // 'Серёжа' | 'Настя'
+  int? createdByAt;       // когда создал (ms)
+  String? takenBy;
+  String? takenByName;
+  int? takenByAt;         // когда взял (ms)
+  String? doneBy;
+  String? doneByName;
+  // doneAt — уже есть (boughtAt), используем как "когда купил"
 
   Purchase({
     required this.id,
@@ -34,9 +45,16 @@ class Purchase {
     int? updatedAt,
     this.updatedBy,
     this.deletedAt,
+    this.createdBy,
+    this.createdByName,
+    this.createdByAt,
+    this.takenBy,
+    this.takenByName,
+    this.takenByAt,
+    this.doneBy,
+    this.doneByName,
   }) : updatedAt = updatedAt ?? createdAt;
 
-  /// Сериализация в JSON для Supabase
   Map<String, dynamic> toJson() => {
         'id': id,
         'text': text,
@@ -53,9 +71,16 @@ class Purchase {
         'updatedAt': updatedAt,
         if (updatedBy != null) 'updatedBy': updatedBy,
         if (deletedAt != null) 'deletedAt': deletedAt,
+        if (createdBy != null) 'createdBy': createdBy,
+        if (createdByName != null) 'createdByName': createdByName,
+        if (createdByAt != null) 'createdByAt': createdByAt,
+        if (takenBy != null) 'takenBy': takenBy,
+        if (takenByName != null) 'takenByName': takenByName,
+        if (takenByAt != null) 'takenByAt': takenByAt,
+        if (doneBy != null) 'doneBy': doneBy,
+        if (doneByName != null) 'doneByName': doneByName,
       };
 
-  /// Десериализация из JSON
   factory Purchase.fromJson(Map<String, dynamic> json) => Purchase(
         id: (json['id'] as num).toInt(),
         text: json['text'] as String? ?? '',
@@ -72,6 +97,14 @@ class Purchase {
         updatedAt: (json['updatedAt'] as num?)?.toInt(),
         updatedBy: json['updatedBy'] as String?,
         deletedAt: (json['deletedAt'] as num?)?.toInt(),
+        createdBy: json['createdBy'] as String?,
+        createdByName: json['createdByName'] as String?,
+        createdByAt: (json['createdByAt'] as num?)?.toInt(),
+        takenBy: json['takenBy'] as String?,
+        takenByName: json['takenByName'] as String?,
+        takenByAt: (json['takenByAt'] as num?)?.toInt(),
+        doneBy: json['doneBy'] as String?,
+        doneByName: json['doneByName'] as String?,
       );
 
   Purchase copyWith({
@@ -88,6 +121,16 @@ class Purchase {
     int? updatedAt,
     String? updatedBy,
     int? deletedAt,
+    String? createdBy,
+    String? createdByName,
+    int? createdByAt,
+    String? takenBy,
+    String? takenByName,
+    int? takenByAt,
+    String? doneBy,
+    String? doneByName,
+    bool clearTakenBy = false,
+    bool clearDoneBy = false,
   }) {
     return Purchase(
       id: id,
@@ -105,9 +148,16 @@ class Purchase {
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
       deletedAt: deletedAt ?? this.deletedAt,
+      createdBy: createdBy ?? this.createdBy,
+      createdByName: createdByName ?? this.createdByName,
+      createdByAt: createdByAt ?? this.createdByAt,
+      takenBy: clearTakenBy ? null : (takenBy ?? this.takenBy),
+      takenByName: clearTakenBy ? null : (takenByName ?? this.takenByName),
+      takenByAt: clearTakenBy ? null : (takenByAt ?? this.takenByAt),
+      doneBy: clearDoneBy ? null : (doneBy ?? this.doneBy),
+      doneByName: clearDoneBy ? null : (doneByName ?? this.doneByName),
     );
   }
 
-  /// Общая сумма (цена × количество)
   double get total => price * qty;
 }
