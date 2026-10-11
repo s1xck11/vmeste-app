@@ -12,6 +12,7 @@ class GlassContainer extends StatelessWidget {
   final double blur;
   final double opacity;
   final Color? tint;
+  final bool showTopBorder;
 
   const GlassContainer({
     super.key,
@@ -21,6 +22,7 @@ class GlassContainer extends StatelessWidget {
     this.blur = 24,
     this.opacity = 0.85,
     this.tint,
+    this.showTopBorder = true,
   });
 
   @override
@@ -37,12 +39,16 @@ class GlassContainer extends StatelessWidget {
           padding: padding,
           decoration: BoxDecoration(
             color: base.withOpacity(opacity),
-            border: Border(
-              top: BorderSide(
-                color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
-                width: 1,
-              ),
-            ),
+            borderRadius: BorderRadius.circular(radius),
+            border: showTopBorder
+                ? Border(
+                    top: BorderSide(
+                      color: (isDark ? Colors.white : Colors.black)
+                          .withOpacity(0.06),
+                      width: 1,
+                    ),
+                  )
+                : null,
           ),
           child: child,
         ),
