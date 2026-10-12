@@ -26,10 +26,10 @@ class TasksScreen extends StatefulWidget {
   });
 
   @override
-  State<TasksScreen> createState() => _TasksScreenState();
+  State<TasksScreen> createState() => TasksScreenState();
 }
 
-class _TasksScreenState extends State<TasksScreen> {
+class TasksScreenState extends State<TasksScreen> {
   final _quickController = TextEditingController();
   String _filter = 'all';
 
@@ -186,6 +186,11 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
+  /// Публичный — для вызова из MainScreen через GlobalKey
+  void openAddModal() {
+    _openAddModal();
+  }
+
   void _openEditModal(Task t) {
     FocusScope.of(context).unfocus();
     showModalBottomSheet(
@@ -235,7 +240,9 @@ class _TasksScreenState extends State<TasksScreen> {
     final now = DateTime.now();
     final today = '${now.year}-${_two(now.month)}-${_two(now.day)}';
     return _doneToday +
-        _tasks.where((t) => !t.done && !t.archived && t.deadline == today).length;
+        _tasks
+            .where((t) => !t.done && !t.archived && t.deadline == today)
+            .length;
   }
 
   bool _isMine(Task t) => t.takenBy == widget.storage.myPartnerId;
@@ -296,7 +303,7 @@ class _TasksScreenState extends State<TasksScreen> {
                         ),
                       ),
                     ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 180)),
                 ],
               ),
             ),
@@ -510,103 +517,125 @@ class _TaskTile extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            decoration: BoxDecoration(
-              color: cs.surfaceVariant,
-              borderRadius: BorderRadius.circular(24),
-              border: Border(
-                left: BorderSide(color: prioColor, width: 4),
-                top: BorderSide(
-                    color: isTaken ? cs.primary.withOpacity(0.4) : cs.outline),
-                right: BorderSide(
-                    color: isTaken ? cs.primary.withOpacity(0.4) : cs.outline),
-                bottom: BorderSide(
-                    color: isTaken ? cs.primary.withOpacity(0.4) : cs.outline),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: onToggleDone,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 2),
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isDone ? cs.tertiary : Colors.transparent,
-                      border: Border.all(
-                        color: isDone ? cs.tertiary : cs.outline,
-                        width: 2,
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 16, 16, 16),
+                decoration: BoxDecoration(
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isTaken
+                        ? cs.primary.withOpacity(0.5)
+                        : cs.outline,
+                    width: isTaken ? 1.5 : 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: onToggleDone,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isDone ? cs.tertiary : Colors.transparent,
+                          border: Border.all(
+                            color: isDone ? cs.tertiary : cs.outline,
+                            width: 2,
+                          ),
+                        ),
+                        child: isDone
+                            ? Icon(Icons.check,
+                                size: 15, color: cs.onTertiary)
+                            : null,
                       ),
                     ),
-                    child: isDone
-                        ? Icon(Icons.check, size: 15, color: cs.onTertiary)
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        task.text,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurface,
-                          decoration:
-                              isDone ? TextDecoration.lineThrough : null,
-                          decorationColor: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _tag('${category.emoji} ${category.label}',
-                              cs.surface, cs.onSurfaceVariant),
-                          if (task.priority == 'high')
-                            _tag('🔴 Важно', cs.error.withOpacity(0.15),
-                                cs.error),
-                          if (task.deadline.isNotEmpty)
-                            _tag('📅 ${task.deadline}', cs.surface,
-                                cs.onSurfaceVariant),
-                          if (assigneeName != null)
-                            _tag('👤 $assigneeName', cs.surface,
-                                cs.onSurfaceVariant),
+                          Text(
+                            task.text,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface,
+                              decoration: isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              decorationColor: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              _tag('${category.emoji} ${category.label}',
+                                  cs.surface, cs.onSurfaceVariant),
+                              if (task.priority == 'high')
+                                _tag('🔴 Важно',
+                                    cs.error.withOpacity(0.15), cs.error),
+                              if (task.deadline.isNotEmpty)
+                                _tag('📅 ${task.deadline}', cs.surface,
+                                    cs.onSurfaceVariant),
+                              if (assigneeName != null)
+                                _tag('👤 $assigneeName', cs.surface,
+                                    cs.onSurfaceVariant),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          StatusLine(
+                            done: isDone,
+                            doneByName: task.doneByName,
+                            doneAt: task.doneAt,
+                            takenByName: task.takenByName,
+                            takenByAt: task.takenByAt,
+                            createdByName: task.createdByName,
+                            createdByAt: task.createdByAt,
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      StatusLine(
-                        done: isDone,
-                        doneByName: task.doneByName,
-                        doneAt: task.doneAt,
-                        takenByName: task.takenByName,
-                        takenByAt: task.takenByAt,
-                        createdByName: task.createdByName,
-                        createdByAt: task.createdByAt,
+                    ),
+                    if (!isDone)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, top: 2),
+                        child: _TakeButton(
+                          taken: isTaken,
+                          mine: mine,
+                          onTake: onTake,
+                          onUntake: onUntake,
+                        ),
                       ),
-                    ],
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 0,
+                top: 10,
+                bottom: 10,
+                child: Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: prioColor,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                if (!isDone)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 2),
-                    child: _TakeButton(
-                      taken: isTaken,
-                      mine: mine,
-                      onTake: onTake,
-                      onUntake: onUntake,
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
