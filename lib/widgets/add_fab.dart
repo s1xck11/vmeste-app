@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 /// Центральная кнопка "+" над плавающим навбаром.
 /// 
-/// Выпирает над навбаром, без обводки. Меню раскрывается ВВЕРХ.
+/// Вписана в навбар: сидит на нём, выпирает вверх на ~24px.
+/// Без агрессивной обводки, с мягкой тенью.
+/// 
 /// onPick получает индекс:
 ///   0 = покупка, 1 = задача, 2 = смена, 3 = расход
 class AddFab extends StatefulWidget {
@@ -58,11 +60,13 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        // Меню — над FAB
         AnimatedSize(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOut,
@@ -109,19 +113,26 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
                 )
               : const SizedBox.shrink(),
         ),
+        // Круглая кнопка — обводка цвета навбара, чтобы «вписалась»
         GestureDetector(
           onTap: _toggle,
           child: Container(
-            width: 54,
-            height: 54,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: cs.primary,
               shape: BoxShape.circle,
+              // Обводка в цвет стекла навбара — визуально «прикрепляет» к навбару
+              border: Border.all(
+                color: (isDark ? const Color(0xFF1C1A1B) : Colors.white)
+                    .withOpacity(0.95),
+                width: 4,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.20),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
+                  color: Colors.black.withOpacity(0.18),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
