@@ -29,10 +29,10 @@ class PurchasesScreen extends StatefulWidget {
   });
 
   @override
-  State<PurchasesScreen> createState() => _PurchasesScreenState();
+  State<PurchasesScreen> createState() => PurchasesScreenState();
 }
 
-class _PurchasesScreenState extends State<PurchasesScreen> {
+class PurchasesScreenState extends State<PurchasesScreen> {
   final _quickController = TextEditingController();
   String _selectedListId = 'common';
 
@@ -108,6 +108,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         },
       ),
     );
+  }
+
+  /// Публичный — для вызова из MainScreen через GlobalKey
+  void openAddModal() {
+    _openAddModal();
   }
 
   void _openEditModal(Purchase p) {
@@ -301,7 +306,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                             ),
                           );
                         }),
-                      // Отступ снизу — чтобы контент не терялся за суммой + навбаром
                       const SliverToBoxAdapter(child: SizedBox(height: 180)),
                     ],
                   ),
@@ -309,20 +313,19 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
               ),
             ],
           ),
-          // Итоговая сумма — над навбаром (навбар в main.dart на bottom: ~14)
           if (total > 0)
             Positioned(
               left: 16,
               right: 16,
-              bottom: 14 + bottomInset * 0.5 + 68 + 10, // над навбаром
+              bottom: 14 + bottomInset * 0.5 + 68 + 10,
               child: GlassContainer(
                 radius: 24,
                 showAllBorder: false,
                 shadow: true,
                 opacity: 0.92,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   child: Row(
                     children: [
                       Icon(Icons.shopping_cart_checkout,
@@ -355,8 +358,6 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     );
   }
 
-  /// Сегмент-контрол списков.
-  /// Если список один — не растягиваем на всю ширину.
   Widget _buildListSegments(ColorScheme cs) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
