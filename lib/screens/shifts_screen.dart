@@ -171,4 +171,316 @@ class ShiftsScreenState extends State<ShiftsScreen> {
     final partner2 = _partners.length > 1 ? _partners[1] : null;
     final total = _monthTotal();
 
-    return Scaffold
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          ModernAppBar(
+            title: 'Смены',
+            onAvatarTap: widget.onAvatarTap,
+            avatarEmoji: widget.storage.myAvatar,
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              color: cs.primary,
+              backgroundColor: cs.surface,
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 180),
+                children: [
+                  _buildSalaryCard(total, cs),
+                  const SizedBox(height: 12),
+                  if (partner1 != null || partner2 != null)
+                    Row(
+                      children: [
+                        if (partner1 != null)
+                          Expanded(
+                            child: _buildPartnerCard(
+                              partner1,
+                              _partnerTotal(partner1.id),
+                              _partnerShiftCount(partner1.id),
+                              cs,
+                            ),
+                          ),
+                        if (partner1 != null && partner2 != null)
+                          const SizedBox(width: 12),
+                        if (partner2 != null)
+                          Expanded(
+                            child: _buildPartnerCard(
+                              partner2,
+                              _partnerTotal(partner2.id),
+                              _partnerShiftCount(partner2.id),
+                              cs,
+                            ),
+                          ),
+                      ],
+                    ),
+                  const SizedBox(height: 20),
+                  _buildCalendar(cs),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSalaryCard(double total, ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primary, cs.secondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Зарплата за ${_monthName(_currentMonth.month).toLowerCase()}',
+            style: TextStyle(
+                fontSize: 14, color: cs.onPrimary.withOpacity(0.85)),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${total.toStringAsFixed(0)} ₽',
+            style: TextStyle(
+              fontSize: 36,
+              fontWeight: FontWeight.w700,
+              color: cs.onPrimary,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPartnerCard(Partner p, double sum, int count, ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            p.name,
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${sum.toStringAsFixed(0)} ₽',
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$count смен',
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendar(ColorScheme cs) {
+    final year = _currentMonth.year;
+    final month = _currentMonth.month;
+    final firstDay = DateTime(year, month, 1);
+    final lastDay = DateTime(year, month + 1, 0);
+    final startWeekday = firstDay.weekday;
+    final daysInMonth = lastDay.day;
+    final today = DateTime.now();
+    final weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cs.outline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => _changeMonth(-1),
+                icon: Icon(Icons.chevron_left, color: cs.onSurface),
+              ),
+              Expanded(
+                child: Text(
+                  '${_monthName(month)} $year',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface),
+                ),
+              ),
+              IconButton(
+                onPressed: () => _changeMonth(1),
+                icon: Icon(Icons.chevron_right, color: cs.onSurface),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: weekdays
+                .map((w) => Expanded(
+                      child: Center(
+                        child: Text(
+                          w,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurfaceVariant,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 6),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: ((startWeekday - 1) + daysInMonth + 6) ~/ 7 * 7,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: 0.80, // ячейка выше
+            ),
+            itemBuilder: (ctx, i) {
+              final dayIndex = i - (startWeekday - 1) + 1;
+              if (dayIndex < 1 || dayIndex > daysInMonth) {
+                return const SizedBox.shrink();
+              }
+              final day = DateTime(year, month, dayIndex);
+              final shifts = _shiftsForDay(day);
+              final isToday = day.year == today.year &&
+                  day.month == today.month &&
+                  day.day == today.day;
+
+              double dayTotal = 0;
+              for (final s in shifts) {
+                dayTotal += _calcSalary(s);
+              }
+
+              return GestureDetector(
+                onTap: () => _openAddForDay(day),
+                child: Container(
+                  margin: const EdgeInsets.all(1),
+                  decoration: BoxDecoration(
+                    color: isToday ? cs.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 6, horizontal: 2),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$dayIndex',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: isToday
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isToday ? cs.onPrimary : cs.onSurface,
+                        ),
+                      ),
+                      if (shifts.isNotEmpty) ...[
+                        const SizedBox(height: 1),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: shifts.take(3).map((s) {
+                            final t = _types.firstWhere(
+                              (x) => x.id == s.type,
+                              orElse: () => ShiftType(
+                                  id: s.type,
+                                  label: '',
+                                  hours: 0,
+                                  color: '#9E9E9E'),
+                            );
+                            return Container(
+                              width: 4,
+                              height: 4,
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 1),
+                              decoration: BoxDecoration(
+                                color: _parseColor(t.color),
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        if (dayTotal > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 1),
+                            child: Text(
+                              dayTotal >= 1000
+                                  ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
+                                  : dayTotal.toStringAsFixed(0),
+                              style: TextStyle(
+                                fontSize: 8,
+                                height: 1.0,
+                                color: isToday
+                                    ? cs.onPrimary
+                                    : cs.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _parseColor(String hex) {
+    try {
+      final h = hex.replaceAll('#', '');
+      return Color(int.parse('FF$h', radix: 16));
+    } catch (_) {
+      return const Color(0xFF9E9E9E);
+    }
+  }
+}
