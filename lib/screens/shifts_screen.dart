@@ -25,10 +25,10 @@ class ShiftsScreen extends StatefulWidget {
   });
 
   @override
-  State<ShiftsScreen> createState() => _ShiftsScreenState();
+  State<ShiftsScreen> createState() => ShiftsScreenState();
 }
 
-class _ShiftsScreenState extends State<ShiftsScreen> {
+class ShiftsScreenState extends State<ShiftsScreen> {
   DateTime _currentMonth = DateTime.now();
   List<Shift> _shifts = [];
   List<ShiftType> _types = [];
@@ -157,6 +157,11 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
         },
       ),
     );
+  }
+
+  /// Публичный — открыть добавление смены на сегодня
+  void openAddForToday() {
+    _openAddForDay(DateTime.now());
   }
 
   @override
@@ -395,14 +400,10 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
               return GestureDetector(
                 onTap: () => _openAddForDay(day),
                 child: Container(
+                  margin: const EdgeInsets.all(1),
                   decoration: BoxDecoration(
-                    color: isToday
-                        ? cs.primaryContainer
-                        : Colors.transparent,
+                    color: isToday ? cs.primary : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
-                    border: isToday
-                        ? Border.all(color: cs.primary, width: 1.5)
-                        : null,
                   ),
                   padding: const EdgeInsets.symmetric(
                       vertical: 4, horizontal: 2),
@@ -417,7 +418,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                               ? FontWeight.w700
                               : FontWeight.w500,
                           color: isToday
-                              ? cs.onPrimaryContainer
+                              ? cs.onPrimary
                               : cs.onSurface,
                         ),
                       ),
@@ -453,7 +454,9 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
                                 : dayTotal.toStringAsFixed(0),
                             style: TextStyle(
                               fontSize: 9,
-                              color: cs.onSurfaceVariant,
+                              color: isToday
+                                  ? cs.onPrimary.withOpacity(0.9)
+                                  : cs.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
