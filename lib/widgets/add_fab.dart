@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 /// Центральная кнопка "+" над плавающим навбаром.
 /// 
-/// Без обводки, аккуратно вписана — выпирает из навбара вверх.
+/// Выпирает над навбаром, без обводки. Меню раскрывается ВВЕРХ.
 /// onPick получает индекс:
 ///   0 = покупка, 1 = задача, 2 = смена, 3 = расход
 class AddFab extends StatefulWidget {
@@ -20,7 +20,6 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
   bool _open = false;
   late AnimationController _ctrl;
   late Animation<double> _rotate;
-  late Animation<double> _fade;
 
   @override
   void initState() {
@@ -32,7 +31,6 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
     _rotate = Tween<double>(begin: 0, end: 0.125).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
     );
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
   }
 
   @override
@@ -52,7 +50,9 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
 
   void _pick(int kind) {
     _toggle();
-    widget.onPick(kind);
+    Future.delayed(const Duration(milliseconds: 150), () {
+      widget.onPick(kind);
+    });
   }
 
   @override
@@ -61,57 +61,54 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // Меню раскрывается вверх
-        FadeTransition(
-          opacity: _fade,
-          child: ScaleTransition(
-            scale: _fade,
-            alignment: Alignment.bottomCenter,
-            child: _open
-                ? Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _menuItem(
-                          icon: Icons.shopping_bag_outlined,
-                          label: 'Покупка',
-                          color: cs.primary,
-                          onTap: () => _pick(0),
-                          cs: cs,
-                        ),
-                        const SizedBox(height: 8),
-                        _menuItem(
-                          icon: Icons.check_circle_outline,
-                          label: 'Задача',
-                          color: cs.tertiary,
-                          onTap: () => _pick(1),
-                          cs: cs,
-                        ),
-                        const SizedBox(height: 8),
-                        _menuItem(
-                          icon: Icons.calendar_today_outlined,
-                          label: 'Смена',
-                          color: cs.secondary,
-                          onTap: () => _pick(2),
-                          cs: cs,
-                        ),
-                        const SizedBox(height: 8),
-                        _menuItem(
-                          icon: Icons.payments_outlined,
-                          label: 'Расход',
-                          color: cs.error,
-                          onTap: () => _pick(3),
-                          cs: cs,
-                        ),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          alignment: Alignment.bottomCenter,
+          child: _open
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _menuItem(
+                        icon: Icons.shopping_bag_outlined,
+                        label: 'Покупка',
+                        color: cs.primary,
+                        onTap: () => _pick(0),
+                        cs: cs,
+                      ),
+                      const SizedBox(height: 8),
+                      _menuItem(
+                        icon: Icons.check_circle_outline,
+                        label: 'Задача',
+                        color: cs.tertiary,
+                        onTap: () => _pick(1),
+                        cs: cs,
+                      ),
+                      const SizedBox(height: 8),
+                      _menuItem(
+                        icon: Icons.calendar_today_outlined,
+                        label: 'Смена',
+                        color: cs.secondary,
+                        onTap: () => _pick(2),
+                        cs: cs,
+                      ),
+                      const SizedBox(height: 8),
+                      _menuItem(
+                        icon: Icons.payments_outlined,
+                        label: 'Расход',
+                        color: cs.error,
+                        onTap: () => _pick(3),
+                        cs: cs,
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
-        // Круглая кнопка — без обводки, с мягкой тенью
         GestureDetector(
           onTap: _toggle,
           child: Container(
@@ -122,9 +119,9 @@ class _AddFabState extends State<AddFab> with SingleTickerProviderStateMixin {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: cs.primary.withOpacity(0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+                  color: Colors.black.withOpacity(0.20),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
