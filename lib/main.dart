@@ -411,6 +411,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    // Позиция навбара от низа
+    final navBottom = 14 + bottomInset * 0.5;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -422,43 +424,42 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           children: [
             IndexedStack(index: _currentIndex, children: _screens),
 
+            // Навбар
             Positioned(
               left: 16,
               right: 16,
-              bottom: 14 + bottomInset * 0.5,
-              child: SizedBox(
-                height: 68,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    GlassContainer(
-                      radius: 32,
-                      showAllBorder: false,
-                      shadow: true,
-                      child: SizedBox(
-                        height: 68,
-                        child: Row(
-                          children: [
-                            _navItem(0, Icons.shopping_bag_outlined,
-                                Icons.shopping_bag, 'Покупки', cs),
-                            _navItem(1, Icons.check_circle_outline,
-                                Icons.check_circle, 'Задачи', cs),
-                            const SizedBox(width: 72),
-                            _navItem(2, Icons.calendar_today_outlined,
-                                Icons.calendar_today, 'Смены', cs),
-                            _navItem(3, Icons.pie_chart_outline,
-                                Icons.pie_chart, 'Бюджет', cs),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 61,
-                      child: AddFab(onPick: _onFabPick),
-                    ),
-                  ],
+              bottom: navBottom,
+              child: GlassContainer(
+                radius: 32,
+                showAllBorder: false,
+                shadow: true,
+                child: SizedBox(
+                  height: 68,
+                  child: Row(
+                    children: [
+                      _navItem(0, Icons.shopping_bag_outlined,
+                          Icons.shopping_bag, 'Покупки', cs),
+                      _navItem(1, Icons.check_circle_outline,
+                          Icons.check_circle, 'Задачи', cs),
+                      const SizedBox(width: 72),
+                      _navItem(2, Icons.calendar_today_outlined,
+                          Icons.calendar_today, 'Смены', cs),
+                      _navItem(3, Icons.pie_chart_outline,
+                          Icons.pie_chart, 'Бюджет', cs),
+                    ],
+                  ),
                 ),
+              ),
+            ),
+
+            // FAB — отдельным Positioned в главном Stack (полный hitbox)
+            // Низ FAB = верх навбара + 24 (FAB сидит на навбаре, слегка выпирая)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: navBottom + 68 - 24, // чуть-чуть нависает на навбар
+              child: Center(
+                child: AddFab(onPick: _onFabPick),
               ),
             ),
           ],
