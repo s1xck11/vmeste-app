@@ -246,6 +246,12 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
+
+  final _purchasesKey = GlobalKey<PurchasesScreenState>();
+  final _tasksKey = GlobalKey<TasksScreenState>();
+  final _shiftsKey = GlobalKey<ShiftsScreenState>();
+  final _budgetKey = GlobalKey<BudgetScreenState>();
+
   late final List<Widget> _screens;
 
   @override
@@ -259,25 +265,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     _screens = [
       PurchasesScreen(
-          storage: widget.storage,
-          sync: widget.sync,
-          themeService: widget.themeService,
-          onAvatarTap: _openSettings),
+        key: _purchasesKey,
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        onAvatarTap: _openSettings,
+      ),
       TasksScreen(
-          storage: widget.storage,
-          sync: widget.sync,
-          themeService: widget.themeService,
-          onAvatarTap: _openSettings),
+        key: _tasksKey,
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        onAvatarTap: _openSettings,
+      ),
       ShiftsScreen(
-          storage: widget.storage,
-          sync: widget.sync,
-          themeService: widget.themeService,
-          onAvatarTap: _openSettings),
+        key: _shiftsKey,
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        onAvatarTap: _openSettings,
+      ),
       BudgetScreen(
-          storage: widget.storage,
-          sync: widget.sync,
-          themeService: widget.themeService,
-          onAvatarTap: _openSettings),
+        key: _budgetKey,
+        storage: widget.storage,
+        sync: widget.sync,
+        themeService: widget.themeService,
+        onAvatarTap: _openSettings,
+      ),
     ];
 
     widget.sync.onStatusChanged = () {
@@ -349,34 +363,48 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _onFabPick(int kind) {
-    int tab;
-    String label;
+    int targetTab;
     switch (kind) {
       case 0:
-        tab = 0;
-        label = 'Открой покупку через "+" сверху';
+        targetTab = 0;
         break;
       case 1:
-        tab = 1;
-        label = 'Открой задачу через "+" сверху';
+        targetTab = 1;
         break;
       case 2:
-        tab = 2;
-        label = 'Открой смену через "+" сверху';
+        targetTab = 2;
         break;
       case 3:
       default:
-        tab = 3;
-        label = 'Открой расход через "+" снизу';
+        targetTab = 3;
         break;
     }
-    setState(() => _currentIndex = tab);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(label),
-        duration: const Duration(seconds: 2),
-      ));
+
+    final needSwitch = _currentIndex != targetTab;
+    if (needSwitch) {
+      setState(() => _currentIndex = targetTab);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (!mounted) return;
+        switch (kind) {
+          case 0:
+            _purchasesKey.currentState?.openAddModal();
+            break;
+          case 1:
+            _tasksKey.currentState?.openAddModal();
+            break;
+          case 2:
+            _shiftsKey.currentState?.openAddForToday();
+            break;
+          case 3:
+          default:
+            _budgetKey.currentState?.openAddModal();
+            break;
+        }
+      });
+    });
   }
 
   @override
@@ -404,7 +432,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   clipBehavior: Clip.none,
                   alignment: Alignment.bottomCenter,
                   children: [
-                    // Островок навбара
                     GlassContainer(
                       radius: 32,
                       showAllBorder: false,
@@ -426,9 +453,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
-                    // FAB — ниже, аккуратно выпирает
                     Positioned(
-                      top: -10,
+                      bottom: 61,
                       child: AddFab(onPick: _onFabPick),
                     ),
                   ],
