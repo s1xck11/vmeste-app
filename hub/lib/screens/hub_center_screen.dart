@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/weather_service.dart';
+import '../services/launcher_service.dart';
 import '../widgets/glass_container.dart';
 import '../models/task.dart';
 import '../models/purchase.dart';
 import 'hub_tasks_screen.dart';
 import 'hub_purchases_screen.dart';
+import 'hub_pin_setup_modal.dart';
 
 class HubCenterScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final WeatherService weatherService;
+  final LauncherService launcherService;
   final VoidCallback onOpenApps;
   final VoidCallback onOpenShifts;
   final VoidCallback onOpenBudget;
@@ -23,6 +26,7 @@ class HubCenterScreen extends StatefulWidget {
     required this.storage,
     required this.sync,
     required this.weatherService,
+    required this.launcherService,
     required this.onOpenApps,
     required this.onOpenShifts,
     required this.onOpenBudget,
@@ -139,6 +143,89 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     );
   }
 
+  Future<void> _showLauncherDialog() async {
+    final cs = Theme.of(context).colorScheme;
+    final ls = widget.launcherService;
+
+    if (!ls.isEnabled) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Включить режим хаба?'),
+          content: const Text(
+            'Приложение станет домашним экраном планшета. Кнопка «Домой» будет возвращать в хаб. Чтобы выйти, потребуется PIN-код.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Включить')),
+          ],
+        ),
+      );
+
+      if (ok == true) {
+        if (ls.pin.isEmpty) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => HubPinSetupModal(
+              launcherService: ls,
+              forceSet: true,
+            ),
+          );
+        }
+        final success = await ls.enableKiosk();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success
+                ? 'Режим хаба включён. Нажми «Домой» на планшете.'
+                : 'Не удалось включить режим'),
+          ),
+        );
+      }
+    } else {
+      final pinCtrl = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Ввести PIN'),
+          content: TextField(
+            controller: pinCtrl,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 20, letterSpacing: 6),
+            decoration: const InputDecoration(hintText: '••••'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+            ElevatedButton(
+              onPressed: () {
+                if (ls.checkPin(pinCtrl.text.trim())) {
+                  Navigator.pop(ctx, true);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Неверный PIN', style: TextStyle(color: cs.error))),
+                  );
+                }
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+      if (ok == true) {
+        await ls.disableKiosk();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Режим хаба выключен')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -192,11 +279,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
         const Spacer(),
         IconButton(
           icon: Icon(Icons.settings_outlined, color: cs.onSurfaceVariant),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Настройки появятся позже')),
-            );
-          },
+          onPressed: _showLauncherDialog,
         ),
       ],
     );
