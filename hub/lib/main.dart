@@ -73,13 +73,13 @@ Future<void> _loadApps(AppsService appsService, DebugLogService logger) async {
     final devicesApps = await apps_plugin.FlutterDeviceApps.listApps(
       includeSystem: false,
       onlyLaunchable: true,
-      includeIcons: true,
+      includeIcons: false, // Иконки пока не берём, их нет в этой версии плагина
     );
     final apps = devicesApps.map((a) {
       return AppInfo(
         packageName: a.packageName ?? '',
         appName: a.appName ?? (a.packageName ?? 'Приложение'),
-        icon: a.icon,
+        icon: null, // Иконку показываем заглушку
       );
     }).where((a) => a.packageName.isNotEmpty).toList();
 
