@@ -71,9 +71,6 @@ class AppCategory {
 }
 
 /// Сервис управления приложениями и категориями.
-/// 
-/// Категории храним в Hive. Список приложений тянем из системного API
-/// (через `flutter_device_apps`, инициализируется в другом месте).
 class AppsService extends ChangeNotifier {
   static const String _boxName = 'vmeste_hub_data';
   static const String _keyCategories = 'apps_categories';
@@ -152,7 +149,6 @@ class AppsService extends ChangeNotifier {
   Future<void> deleteCategory(String id) async {
     _categories.removeWhere((c) => c.id == id);
     _saveCategories();
-    // Сбрасываем категорию у приложений
     final map = _getMapping();
     map.removeWhere((_, v) => v == id);
     _box.put(_keyMapping, map);
@@ -166,7 +162,6 @@ class AppsService extends ChangeNotifier {
 
   // ============ ПРИЛОЖЕНИЯ ============
 
-  /// Устанавливает список приложений (например, из `flutter_device_apps`).
   Future<void> setApps(List<AppInfo> apps) async {
     final map = _getMapping();
     final favorites = _getFavorites();
@@ -182,15 +177,11 @@ class AppsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Приложения в категории.
   List<AppInfo> appsInCategory(String categoryId) {
     return _apps.where((a) => a.categoryId == categoryId).toList();
   }
 
-  /// Избранные приложения.
   List<AppInfo> get favorites => _apps.where((a) => a.isFavorite).toList();
-
-  /// Приложения без категории.
   List<AppInfo> get uncategorized => _apps.where((a) => a.categoryId == null).toList();
 
   Future<void> setCategoryForApp(String packageName, String? categoryId) async {
