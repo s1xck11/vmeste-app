@@ -34,11 +34,9 @@ jobs:
           echo "=== pubspec version ==="
           grep "^version:" pubspec.yaml
       
-      # НОВОЕ: пересоздаём android/ чтобы появились иконки и ресурсы
       - name: Create Android project files
         run: flutter create --org com.vmeste --project-name vmeste_hub .
       
-      # Восстанавливаем наши кастомные Gradle-файлы
       - name: Restore root build.gradle
         run: cp .github/build.gradle.root.template android/build.gradle
       
@@ -51,7 +49,6 @@ jobs:
       - name: Restore gradle-wrapper.properties
         run: cp .github/gradle-wrapper.properties.template android/gradle/wrapper/gradle-wrapper.properties
       
-      # НОВОЕ: сохраняем наш MainActivity.kt (flutter create его перезапишет)
       - name: Restore MainActivity
         run: |
           mkdir -p android/app/src/main/kotlin/com/vmeste/vmeste_hub
@@ -64,7 +61,6 @@ jobs:
           }
           EOF
       
-      # НОВОЕ: сохраняем наш AndroidManifest.xml (label, permissions)
       - name: Restore AndroidManifest
         run: |
           cat > android/app/src/main/AndroidManifest.xml <<'EOF'
@@ -72,6 +68,11 @@ jobs:
               <uses-permission android:name="android.permission.INTERNET"/>
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+              <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+              <uses-permission android:name="android.permission.WAKE_LOCK"/>
+              <uses-permission android:name="android.permission.REORDER_TASKS"/>
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
           
               <application
                   android:label="Вместе Хаб"
@@ -102,7 +103,6 @@ jobs:
           </manifest>
           EOF
       
-      # НОВОЕ: наши стили
       - name: Restore styles.xml
         run: |
           mkdir -p android/app/src/main/res/values
