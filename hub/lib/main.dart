@@ -6,6 +6,7 @@ import 'services/storage_service.dart';
 import 'services/sync_service.dart';
 import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
+import 'services/weather_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/app_background.dart';
@@ -45,11 +46,14 @@ void main() async {
   final themeService = ThemeService();
   await themeService.init();
   final sync = SyncService(storage: storage);
+  final weatherService = WeatherService();
+  await weatherService.init();
 
   runApp(HubApp(
     storage: storage,
     sync: sync,
     themeService: themeService,
+    weatherService: weatherService,
   ));
 }
 
@@ -57,12 +61,14 @@ class HubApp extends StatelessWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
+  final WeatherService weatherService;
 
   const HubApp({
     super.key,
     required this.storage,
     required this.sync,
     required this.themeService,
+    required this.weatherService,
   });
 
   @override
@@ -81,6 +87,7 @@ class HubApp extends StatelessWidget {
             storage: storage,
             sync: sync,
             themeService: themeService,
+            weatherService: weatherService,
           ),
         );
       },
@@ -92,11 +99,14 @@ class SplashScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
+  final WeatherService weatherService;
+
   const SplashScreen({
     super.key,
     required this.storage,
     required this.sync,
     required this.themeService,
+    required this.weatherService,
   });
 
   @override
@@ -113,7 +123,6 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 400));
 
-    // Пытаемся автоподключиться, если уже есть сохранённые данные
     bool connected = false;
     if (widget.storage.isConfigured) {
       connected = await widget.sync.autoConnect();
@@ -128,6 +137,7 @@ class _SplashScreenState extends State<SplashScreen> {
             storage: widget.storage,
             sync: widget.sync,
             themeService: widget.themeService,
+            weatherService: widget.weatherService,
           ),
         ),
       );
@@ -138,6 +148,7 @@ class _SplashScreenState extends State<SplashScreen> {
             storage: widget.storage,
             sync: widget.sync,
             themeService: widget.themeService,
+            weatherService: widget.weatherService,
           ),
         ),
       );
