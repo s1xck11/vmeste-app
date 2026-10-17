@@ -1,11 +1,6 @@
-// hub/lib/widgets/glass_container.dart
-// lib/widgets/glass_container.dart
-
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-/// Матовое стекло с размытием фона.
-/// Используется для карточек, навбара, шапки.
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -21,13 +16,13 @@ class GlassContainer extends StatelessWidget {
     super.key,
     required this.child,
     this.padding,
-    this.radius = 24,
-    this.blur = 24,
-    this.opacity = 0.90,
+    this.radius = 32,
+    this.blur = 30,
+    this.opacity = 0.82, // Чуть прозрачнее, чтобы стекло дышало
     this.tint,
     this.showTopBorder = false,
     this.showAllBorder = false,
-    this.shadow = false,
+    this.shadow = true,
   });
 
   @override
@@ -42,9 +37,10 @@ class GlassContainer extends StatelessWidget {
         boxShadow: shadow
             ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+                  blurRadius: 32,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 12), // Тень глубже
                 ),
               ]
             : null,
@@ -68,13 +64,20 @@ class GlassContainer extends StatelessWidget {
   }
 
   BoxBorder? _buildBorder(bool isDark) {
-    final lineColor = (isDark ? Colors.white : Colors.black).withOpacity(0.08);
+    // Светлый блик сверху и едва заметная тень снизу — как у Apple
+    final topColor = (isDark ? Colors.white : Colors.white).withOpacity(isDark ? 0.15 : 0.8);
+    final bottomColor = (isDark ? Colors.black : Colors.black).withOpacity(isDark ? 0.3 : 0.05);
+
     if (showAllBorder) {
-      return Border.all(color: lineColor, width: 1);
+      return Border.all(
+        color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+        width: 1,
+      );
     }
-    if (showTopBorder) {
-      return Border(top: BorderSide(color: lineColor, width: 1));
-    }
-    return null;
+    
+    return Border(
+      top: BorderSide(color: topColor, width: 1.5),
+      bottom: BorderSide(color: bottomColor, width: 1),
+    );
   }
 }
