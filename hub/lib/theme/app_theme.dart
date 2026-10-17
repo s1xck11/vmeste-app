@@ -1,7 +1,5 @@
-// hub/lib/theme/app_theme.dart
-// lib/theme/app_theme.dart
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'app_theme_config.dart';
 
@@ -9,6 +7,7 @@ class AppTheme {
   static ThemeData build(AppThemeConfig config) {
     final p = config.palette;
     final isDark = config.brightness == Brightness.dark;
+    final baseTextTheme = GoogleFonts.manropeTextTheme();
 
     final colorScheme = ColorScheme(
       brightness: config.brightness,
@@ -34,6 +33,7 @@ class AppTheme {
       scaffoldBackgroundColor: p.background,
       canvasColor: p.background,
       dividerColor: p.border,
+      fontFamily: GoogleFonts.manrope().fontFamily,
 
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -44,7 +44,7 @@ class AppTheme {
         centerTitle: false,
         titleTextStyle: TextStyle(
           color: p.text, fontSize: 22,
-          fontWeight: FontWeight.w700, letterSpacing: -0.3,
+          fontWeight: FontWeight.w700, letterSpacing: -0.5,
         ),
         iconTheme: IconThemeData(color: p.text),
       ),
@@ -55,7 +55,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(32), // Увеличили радиус
           side: BorderSide(color: p.border, width: 1),
         ),
       ),
@@ -66,7 +66,7 @@ class AppTheme {
         elevation: 0,
         modalBackgroundColor: p.cardElevated,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
         ),
       ),
 
@@ -75,30 +75,30 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(32),
         ),
         titleTextStyle: TextStyle(
-          color: p.text, fontSize: 20, fontWeight: FontWeight.w700,
+          color: p.text, fontSize: 22, fontWeight: FontWeight.w700,
         ),
-        contentTextStyle: TextStyle(color: p.textSecondary, fontSize: 15),
+        contentTextStyle: TextStyle(color: p.textSecondary, fontSize: 16),
       ),
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: p.card,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
         hintStyle: TextStyle(color: p.textSecondary, fontSize: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           borderSide: BorderSide(color: p.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           borderSide: BorderSide(color: p.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: p.accent, width: 1.5),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide(color: p.accent, width: 2),
         ),
       ),
 
@@ -108,60 +108,29 @@ class AppTheme {
           foregroundColor: isDark ? Colors.black : Colors.white,
           elevation: 0,
           shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(24),
           ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
 
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: p.accent,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-      ),
-
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: p.accent,
-          side: BorderSide(color: p.accent, width: 1.2),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ),
-
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: isDark ? p.cardElevated : p.text,
-        contentTextStyle: TextStyle(
-          color: isDark ? p.text : Colors.white, fontSize: 15,
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
-      ),
-
-      textTheme: TextTheme(
-        headlineLarge: TextStyle(color: p.text, fontSize: 36,
-            fontWeight: FontWeight.w700, letterSpacing: -0.6),
-        headlineMedium: TextStyle(color: p.text, fontSize: 28,
-            fontWeight: FontWeight.w700, letterSpacing: -0.4),
-        titleLarge: TextStyle(color: p.text, fontSize: 22,
-            fontWeight: FontWeight.w700),
-        titleMedium: TextStyle(color: p.text, fontSize: 18,
-            fontWeight: FontWeight.w600),
-        bodyLarge: TextStyle(color: p.text, fontSize: 16),
-        bodyMedium: TextStyle(color: p.text, fontSize: 15),
-        bodySmall: TextStyle(color: p.textSecondary, fontSize: 13),
+      textTheme: baseTextTheme.copyWith(
+        headlineLarge: baseTextTheme.headlineLarge?.copyWith(
+            color: p.text, fontSize: 36, fontWeight: FontWeight.w800, letterSpacing: -1),
+        headlineMedium: baseTextTheme.headlineMedium?.copyWith(
+            color: p.text, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.8),
+        titleLarge: baseTextTheme.titleLarge?.copyWith(
+            color: p.text, fontSize: 22, fontWeight: FontWeight.w700),
+        titleMedium: baseTextTheme.titleMedium?.copyWith(
+            color: p.text, fontSize: 18, fontWeight: FontWeight.w600),
+        bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+            color: p.text, fontSize: 16, fontWeight: FontWeight.w500),
+        bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+            color: p.text, fontSize: 15, fontWeight: FontWeight.w500),
+        bodySmall: baseTextTheme.bodySmall?.copyWith(
+            color: p.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
       ),
 
       iconTheme: IconThemeData(color: p.text),
