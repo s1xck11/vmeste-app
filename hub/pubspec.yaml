@@ -21,10 +21,10 @@ dependencies:
   timezone: ^0.9.4
   uuid: ^4.4.0
 
-  # Приложения
-  flutter_device_apps: ^1.0.4
+  # Приложения (реальная последняя версия)
+  flutter_device_apps: ^0.8.1
 
-  # Лаунчер (реальная версия!)
+  # Лаунчер (реальная последняя версия)
   device_policy_controller: ^0.0.3+1
   permission_handler: ^11.3.0
 
