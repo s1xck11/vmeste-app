@@ -14,7 +14,6 @@ import 'hub_lights_screen.dart';
 import 'hub_tuya_setup_modal.dart';
 
 class HubCenterScreen extends StatefulWidget {
-  // ... (поля без изменений)
   final StorageService storage;
   final SyncService sync;
   final WeatherService weatherService;
@@ -41,7 +40,6 @@ class HubCenterScreen extends StatefulWidget {
 }
 
 class _HubCenterScreenState extends State<HubCenterScreen> {
-  // ... (всё до методов _build* без изменений)
   Timer? _clockTimer;
   DateTime _now = DateTime.now();
   WeatherCache? _weather;
@@ -89,7 +87,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   Future<void> _toggleLight(TuyaDevice device) async {
-    HapticFeedback.lightImpact(); // Вибро
+    HapticFeedback.lightImpact();
     final newState = !device.isOn;
     setState(() {
       final i = _lights.indexWhere((d) => d.id == device.id);
@@ -139,7 +137,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
           return FadeTransition(
             opacity: anim,
             child: ScaleTransition(
-              scale: Tween<double>(begin: 0.92, end: 1.0).animate(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(
                 CurvedAnimation(parent: anim, curve: Curves.easeOutQuart),
               ),
               child: child,
@@ -164,7 +162,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
           return FadeTransition(
             opacity: anim,
             child: ScaleTransition(
-              scale: Tween<double>(begin: 0.92, end: 1.0).animate(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(
                 CurvedAnimation(parent: anim, curve: Curves.easeOutQuart),
               ),
               child: child,
@@ -191,7 +189,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
           return FadeTransition(
             opacity: anim,
             child: ScaleTransition(
-              scale: Tween<double>(begin: 0.92, end: 1.0).animate(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(
                 CurvedAnimation(parent: anim, curve: Curves.easeOutQuart),
               ),
               child: child,
@@ -212,6 +210,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   void _showLauncherHint() {
+    HapticFeedback.lightImpact();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -232,11 +231,11 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24), // Чуть больше воздуха
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
       child: Column(
         children: [
           _buildTopBar(),
-          const SizedBox(height: 24), // Больше отступ
+          const SizedBox(height: 24),
           Expanded(
             child: Row(
               children: [
@@ -244,17 +243,17 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
                   child: Column(
                     children: [
                       Expanded(child: _buildTasksBlock()),
-                      const SizedBox(height: 16), // Больше отступ
+                      const SizedBox(height: 16),
                       Expanded(child: _buildPurchasesBlock()),
                     ],
                   ),
                 ),
-                const SizedBox(width: 16), // Больше отступ
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     children: [
                       Expanded(child: _buildLightsBlock()),
-                      const SizedBox(height: 16), // Больше отступ
+                      const SizedBox(height: 16),
                       Expanded(child: _buildClockWeatherBlock()),
                     ],
                   ),
@@ -274,10 +273,10 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
         Text(
           'Вместе Хаб',
           style: TextStyle(
-            fontSize: 28, // Крупнее
-            fontWeight: FontWeight.w800, // Жирнее
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
             color: cs.onSurface,
-            letterSpacing: -1, // Плотнее
+            letterSpacing: -1,
           ),
         ),
         const Spacer(),
@@ -296,19 +295,19 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     return GestureDetector(
       onTap: _openTasks,
       child: GlassContainer(
-        radius: 32, // Больше скругление
-        padding: const EdgeInsets.all(24), // Больше внутренний отступ
+        radius: 32,
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.check_circle_outline, color: cs.tertiary, size: 28), // Крупнее
+                Icon(Icons.check_circle_outline, color: cs.tertiary, size: 28),
                 const SizedBox(width: 12),
                 Text(
                   'Задачи',
                   style: TextStyle(
-                    fontSize: 20, // Крупнее
+                    fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: cs.onSurface,
                   ),
@@ -490,5 +489,224 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     );
   }
 
-  // ... (_buildLightsBlock и _buildClockWeatherBlock тоже обнови стили: radius: 32, padding 24, крупнее шрифты, но я их пропущу для краткости, так как изменения идентичны)
+  Widget _buildLightsBlock() {
+    final cs = Theme.of(context).colorScheme;
+
+    if (!widget.tuyaService.isConfigured) {
+      return GestureDetector(
+        onTap: _showTuyaSetup,
+        child: GlassContainer(
+          radius: 32,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: cs.secondary, size: 28),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Свет',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.settings_outlined, size: 48, color: cs.onSurfaceVariant),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Настроить Tuya',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: _openLights,
+      child: GlassContainer(
+        radius: 32,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lightbulb_outline, color: cs.secondary, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  'Свет',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const Spacer(),
+                Icon(Icons.open_in_full, color: cs.onSurfaceVariant, size: 20),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _loadingLights
+                  ? const Center(child: CircularProgressIndicator())
+                  : _lights.isEmpty
+                      ? Center(
+                          child: Text('Лампы не найдены',
+                              style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant)),
+                        )
+                      : ListView.separated(
+                          padding: EdgeInsets.zero,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _lights.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (ctx, i) {
+                            final d = _lights[i];
+                            return GestureDetector(
+                              onTap: () => _toggleLight(d),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: d.isOn ? cs.secondary.withOpacity(0.15) : cs.surface.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: d.isOn ? cs.secondary.withOpacity(0.5) : cs.outline.withOpacity(0.5),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      d.isOn ? Icons.lightbulb : Icons.lightbulb_outline,
+                                      size: 20,
+                                      color: d.isOn ? cs.secondary : cs.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        d.name,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: cs.onSurface,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClockWeatherBlock() {
+    final cs = Theme.of(context).colorScheme;
+    final now = _now;
+    final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final date = '${now.day}.${now.month}.${now.year}';
+
+    final w = _weather;
+    final hasWeather = w?.now != null;
+
+    return GestureDetector(
+      onTap: widget.onOpenWeather,
+      child: GlassContainer(
+        radius: 32,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              time,
+              style: TextStyle(
+                fontSize: 64,
+                fontWeight: FontWeight.w800,
+                color: cs.onSurface,
+                letterSpacing: -2.5,
+                height: 0.95,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              date,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            if (hasWeather)
+              Row(
+                children: [
+                  Text(w!.now!.emoji, style: const TextStyle(fontSize: 28)),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${w.now!.temperature.round()}°',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      w.now!.description,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Icon(Icons.cloud_outlined, color: cs.secondary, size: 24),
+                  const SizedBox(width: 12),
+                  Text(
+                    widget.weatherService.hasCity
+                        ? 'Загрузка...'
+                        : 'Выбери город',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
