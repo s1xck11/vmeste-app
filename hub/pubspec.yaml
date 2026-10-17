@@ -21,13 +21,15 @@ dependencies:
   timezone: ^0.9.4
   uuid: ^4.4.0
 
-  # Список приложений
+  # Приложения
   flutter_device_apps: ^1.0.4
 
-  # Лаунчер и киоск
+  # Лаунчер
   device_policy_controller: ^2.0.0
-  # Управление разрешениями
   permission_handler: ^11.3.0
+
+  # Криптография (для Tuya API)
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:
