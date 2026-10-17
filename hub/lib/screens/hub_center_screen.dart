@@ -84,39 +84,27 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
         children: [
-          // Верхняя панель — маленькая шапка
           _buildTopBar(),
           const SizedBox(height: 16),
-          // Основная сетка 2×2
           Expanded(
             child: Row(
               children: [
-                // Левая половина
                 Expanded(
                   child: Column(
                     children: [
-                      Expanded(
-                        child: _buildTasksBlock(),
-                      ),
+                      Expanded(child: _buildTasksBlock()),
                       const SizedBox(height: 12),
-                      Expanded(
-                        child: _buildPurchasesBlock(),
-                      ),
+                      Expanded(child: _buildPurchasesBlock()),
                     ],
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Правая половина
                 Expanded(
                   child: Column(
                     children: [
-                      Expanded(
-                        child: _buildLightsBlock(),
-                      ),
+                      Expanded(child: _buildLightsBlock()),
                       const SizedBox(height: 12),
-                      Expanded(
-                        child: _buildClockWeatherBlock(),
-                      ),
+                      Expanded(child: _buildClockWeatherBlock()),
                     ],
                   ),
                 ),
@@ -141,7 +129,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
           ),
         ),
         const Spacer(),
-        // Кнопка настроек — позже подключим
         IconButton(
           icon: Icon(Icons.settings_outlined, color: cs.onSurfaceVariant),
           onPressed: () {
@@ -154,7 +141,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     );
   }
 
-  /// Блок «Задачи» — 4-6 активных
   Widget _buildTasksBlock() {
     final cs = Theme.of(context).colorScheme;
     final tasks = _activeTasks.take(5).toList();
@@ -243,7 +229,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     );
   }
 
-  /// Блок «Покупки» — активные
   Widget _buildPurchasesBlock() {
     final cs = Theme.of(context).colorScheme;
     final items = _activePurchases.take(5).toList();
@@ -333,7 +318,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     );
   }
 
-  /// Блок «Свет» — пока заглушка
   Widget _buildLightsBlock() {
     final cs = Theme.of(context).colorScheme;
 
@@ -383,7 +367,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     );
   }
 
-  /// Блок «Время + Погода» — компакт
   Widget _buildClockWeatherBlock() {
     final cs = Theme.of(context).colorScheme;
     final now = DateTime.now();
@@ -419,7 +402,8 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Icon(Icons.cloud_outlined, color: cs.info, size: 22),
+              // БЫЛО: Icon(Icons.cloud_outlined, color: cs.info, size: 22),
+              Icon(Icons.cloud_outlined, color: cs.secondary, size: 22),
               const SizedBox(width: 8),
               Text(
                 'Погода — этап 4',
