@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/shift.dart';
 import '../models/shift_type.dart';
 import '../models/partner.dart';
@@ -6,7 +7,6 @@ import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/glass_container.dart';
 
-/// Полноэкранный экран «Смены» (сверху от центра).
 class HubShiftsScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
@@ -50,6 +50,7 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
   }
 
   void _changeMonth(int delta) {
+    HapticFeedback.lightImpact();
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
     });
@@ -113,42 +114,38 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          // Шапка
           Row(
             children: [
-              Icon(Icons.calendar_today, color: cs.secondary, size: 28),
-              const SizedBox(width: 10),
+              Icon(Icons.calendar_today, color: cs.secondary, size: 32),
+              const SizedBox(width: 14),
               Text(
                 'Смены',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
-                  letterSpacing: -0.5,
+                  letterSpacing: -1,
                 ),
               ),
               const Spacer(),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Expanded(
             child: Row(
               children: [
-                // Левая часть: календарь
                 Expanded(
                   flex: 2,
                   child: GlassContainer(
-                    radius: 28,
-                    showAllBorder: true,
-                    padding: const EdgeInsets.all(20),
+                    radius: 32,
+                    padding: const EdgeInsets.all(24),
                     child: _buildCalendar(cs),
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Правая часть: сводка
                 Expanded(
                   flex: 1,
                   child: Column(
@@ -190,57 +187,55 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
 
     return Column(
       children: [
-        // Навигация по месяцам
         Row(
           children: [
             IconButton(
               onPressed: () => _changeMonth(-1),
-              icon: Icon(Icons.chevron_left, color: cs.onSurface, size: 28),
+              icon: Icon(Icons.chevron_left, color: cs.onSurface, size: 32),
             ),
             Expanded(
               child: Text(
                 '${_monthName(month)} $year',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
+                  letterSpacing: -0.5,
                 ),
               ),
             ),
             IconButton(
               onPressed: () => _changeMonth(1),
-              icon: Icon(Icons.chevron_right, color: cs.onSurface, size: 28),
+              icon: Icon(Icons.chevron_right, color: cs.onSurface, size: 32),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        // Дни недели
+        const SizedBox(height: 16),
         Row(
           children: weekdays.map((w) => Expanded(
             child: Center(
               child: Text(
                 w,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: cs.onSurfaceVariant,
-                  letterSpacing: 0.5,
+                  letterSpacing: 1,
                 ),
               ),
             ),
           )).toList(),
         ),
-        const SizedBox(height: 8),
-        // Сетка дней
+        const SizedBox(height: 12),
         Expanded(
           child: GridView.builder(
             physics: const NeverScrollableScrollPhysics(),
             itemCount: ((startWeekday - 1) + daysInMonth + 6) ~/ 7 * 7,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisSpacing: 6,
-              crossAxisSpacing: 6,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
               childAspectRatio: 1.0,
             ),
             itemBuilder: (ctx, i) {
@@ -261,21 +256,22 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
 
               return Container(
                 decoration: BoxDecoration(
-                  color: isToday ? cs.primary : cs.surface,
-                  borderRadius: BorderRadius.circular(14),
+                  color: isToday ? cs.primary : cs.surface.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isToday ? cs.primary : cs.outline.withOpacity(0.5),
+                    color: isToday ? cs.primary : cs.outline.withOpacity(0.3),
+                    width: 1.5,
                   ),
                 ),
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       '$dayIndex',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+                        fontSize: 18,
+                        fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
                         color: isToday ? cs.onPrimary : cs.onSurface,
                       ),
                     ),
@@ -288,9 +284,9 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
                             orElse: () => ShiftType(id: s.type, label: '', hours: 0, color: '#9E9E9E'),
                           );
                           return Container(
-                            width: 6,
-                            height: 6,
-                            margin: const EdgeInsets.only(right: 2),
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 4),
                             decoration: BoxDecoration(
                               color: _parseColor(t.color),
                               shape: BoxShape.circle,
@@ -298,15 +294,15 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       if (dayTotal > 0)
                         Text(
                           dayTotal >= 1000
                               ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
                               : dayTotal.toStringAsFixed(0),
                           style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
                             color: isToday ? cs.onPrimary.withOpacity(0.9) : cs.onSurfaceVariant,
                           ),
                         ),
@@ -323,30 +319,41 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
 
   Widget _buildTotalCard(ColorScheme cs) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [cs.primary, cs.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Зарплата за ${_monthName(_currentMonth.month).toLowerCase()}',
-            style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85)),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: cs.onPrimary.withOpacity(0.85),
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             '${_monthTotal().toStringAsFixed(0)} ₽',
             style: TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.w700,
+              fontSize: 40,
+              fontWeight: FontWeight.w800,
               color: cs.onPrimary,
-              letterSpacing: -0.5,
+              letterSpacing: -1,
             ),
           ),
         ],
@@ -356,11 +363,18 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
 
   Widget _buildPartnerCard(Partner p, ColorScheme cs) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(20),
+        color: cs.surface.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: cs.outline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,24 +382,28 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
           Text(
             p.name,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
               color: cs.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             '${_partnerTotal(p.id).toStringAsFixed(0)} ₽',
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
               color: cs.onSurface,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             '${_partnerCount(p.id)} смен',
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ],
       ),
