@@ -3,6 +3,7 @@ import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../services/weather_service.dart';
+import '../services/apps_service.dart';
 import '../widgets/glass_container.dart';
 import 'hub_main_screen.dart';
 
@@ -11,6 +12,7 @@ class HubSetupScreen extends StatefulWidget {
   final SyncService sync;
   final ThemeService themeService;
   final WeatherService weatherService;
+  final AppsService appsService;
 
   const HubSetupScreen({
     super.key,
@@ -18,6 +20,7 @@ class HubSetupScreen extends StatefulWidget {
     required this.sync,
     required this.themeService,
     required this.weatherService,
+    required this.appsService,
   });
 
   @override
@@ -40,9 +43,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
 
   String _humanizeError(Object e) {
     final s = e.toString().toLowerCase();
-    if (s.contains('socketexception') ||
-        s.contains('connection') ||
-        s.contains('network')) {
+    if (s.contains('socketexception') || s.contains('connection') || s.contains('network')) {
       return 'Нет соединения с сервером.\nПроверь интернет.';
     }
     if (s.contains('timeout') || s.contains('timed out')) {
@@ -62,11 +63,11 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
     final key = _keyController.text.trim().toUpperCase();
 
     if (code.length < 5) {
-      setState(() => _error = 'Введи код группы (например, ABC-123-XYZ)');
+      setState(() => _error = 'Введи код группы');
       return;
     }
     if (key.length < 5) {
-      setState(() => _error = 'Введи свой ключ (например, A-XXXX-XXXX)');
+      setState(() => _error = 'Введи свой ключ');
       return;
     }
 
@@ -86,6 +87,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
             sync: widget.sync,
             themeService: widget.themeService,
             weatherService: widget.weatherService,
+            appsService: widget.appsService,
           ),
         ),
       );
@@ -125,11 +127,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                         color: cs.primary.withOpacity(0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        Icons.home_outlined,
-                        size: 48,
-                        color: cs.primary,
-                      ),
+                      child: Icon(Icons.home_outlined, size: 48, color: cs.primary),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -147,56 +145,38 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                   Text(
                     'Подключение к вашей группе',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: cs.onSurfaceVariant,
-                    ),
+                    style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 32),
-
                   TextField(
                     controller: _codeController,
                     textAlign: TextAlign.center,
                     textCapitalization: TextCapitalization.characters,
                     maxLength: 15,
                     enabled: !_loading,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2,
-                    ),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: 2),
                     decoration: InputDecoration(
                       labelText: 'Код группы',
                       hintText: 'ABC-123-XYZ',
                       counterText: '',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   TextField(
                     controller: _keyController,
                     textAlign: TextAlign.center,
                     textCapitalization: TextCapitalization.characters,
                     maxLength: 15,
                     enabled: !_loading,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2,
-                    ),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: 2),
                     decoration: InputDecoration(
                       labelText: 'Мой ключ',
                       hintText: 'A-XXXX-XXXX',
                       counterText: '',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),
-
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     Container(
@@ -212,23 +192,16 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                           Icon(Icons.error_outline, color: cs.error, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              _error!,
-                              style: TextStyle(color: cs.error, fontSize: 13),
-                            ),
+                            child: Text(_error!, style: TextStyle(color: cs.error, fontSize: 13)),
                           ),
                         ],
                       ),
                     ),
                   ],
-
                   const SizedBox(height: 24),
-
                   ElevatedButton(
                     onPressed: _loading ? null : _connect,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                    ),
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
                     child: _loading
                         ? SizedBox(
                             width: 22,
@@ -240,7 +213,6 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                           )
                         : const Text('Подключиться'),
                   ),
-
                   const SizedBox(height: 16),
                   Text(
                     'Код и ключ можно найти\nв настройках мобильного «Вместе»',
