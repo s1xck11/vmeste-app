@@ -4,7 +4,6 @@ import '../services/weather_service.dart';
 import '../widgets/glass_container.dart';
 import 'hub_city_picker.dart';
 
-/// Полноэкранный экран погоды (снизу от центра).
 class HubWeatherScreen extends StatefulWidget {
   final StorageService storage;
   final WeatherService weatherService;
@@ -156,7 +155,6 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
 
     return Column(
       children: [
-        // Текущая погода
         GlassContainer(
           radius: 28,
           showAllBorder: true,
@@ -208,7 +206,6 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        // Прогноз на 7 дней
         Expanded(
           child: GlassContainer(
             radius: 28,
@@ -254,7 +251,8 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: Text(
-                                WeatherNow._describeWmo(d.weatherCode),
+                                // БЫЛО: WeatherNow._describeWmo(d.weatherCode)
+                                WeatherNow.describeWmo(d.weatherCode),
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: cs.onSurfaceVariant,
