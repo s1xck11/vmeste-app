@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/glass_container.dart';
+import 'hub_main_screen.dart';
 
 /// Экран первичного подключения хаба к группе.
 /// 
@@ -85,7 +85,11 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => _buildMainScreen(),
+          builder: (_) => HubMainScreen(
+            storage: widget.storage,
+            sync: widget.sync,
+            themeService: widget.themeService,
+          ),
         ),
       );
     } catch (e) {
@@ -95,17 +99,6 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
         _loading = false;
       });
     }
-  }
-
-  /// Импортируем HubMainScreen отсюда, чтобы избежать циклической зависимости
-  Widget _buildMainScreen() {
-    // Тут намеренно импорт внутри функции — избегаем цикла
-    // (main.dart -> HubSetupScreen, HubSetupScreen -> HubMainScreen)
-    return HubMainScreenBuilder.build(
-      storage: widget.storage,
-      sync: widget.sync,
-      themeService: widget.themeService,
-    );
   }
 
   @override
@@ -127,7 +120,6 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Иконка
                   Center(
                     child: Container(
                       width: 88,
@@ -165,7 +157,6 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                   ),
                   const SizedBox(height: 32),
 
-                  // Код группы
                   TextField(
                     controller: _codeController,
                     textAlign: TextAlign.center,
@@ -188,7 +179,6 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Ключ
                   TextField(
                     controller: _keyController,
                     textAlign: TextAlign.center,
@@ -210,7 +200,6 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                     ),
                   ),
 
-                  // Ошибка
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     Container(
@@ -242,7 +231,6 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Кнопка
                   ElevatedButton(
                     onPressed: _loading ? null : _connect,
                     style: ElevatedButton.styleFrom(
@@ -278,38 +266,5 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
         ),
       ),
     );
-  }
-}
-
-/// Хак для избежания циклического импорта.
-/// 
-/// `HubSetupScreen` находится в том же дереве, что и `HubMainScreen`.
-/// Чтобы не было цикла main.dart → setup → main, используем
-/// маленький билдер-класс, который регистрируется в main.dart.
-class HubMainScreenBuilder {
-  static Widget Function({
-    required StorageService storage,
-    required SyncService sync,
-    required ThemeService themeService,
-  })? _builder;
-
-  static void register(Widget Function({
-    required StorageService storage,
-    required SyncService sync,
-    required ThemeService themeService,
-  }) builder) {
-    _builder = builder;
-  }
-
-  static Widget build({
-    required StorageService storage,
-    required SyncService sync,
-    required ThemeService themeService,
-  }) {
-    final b = _builder;
-    if (b == null) {
-      throw StateError('HubMainScreenBuilder не зарегистрирован');
-    }
-    return b(storage: storage, sync: sync, themeService: themeService);
   }
 }
