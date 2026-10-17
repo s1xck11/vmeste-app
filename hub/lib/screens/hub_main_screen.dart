@@ -5,6 +5,7 @@ import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../services/weather_service.dart';
 import '../services/apps_service.dart';
+import '../services/launcher_service.dart';
 import 'hub_center_screen.dart';
 import 'hub_apps_screen.dart';
 import 'hub_shifts_screen.dart';
@@ -17,6 +18,7 @@ class HubMainScreen extends StatefulWidget {
   final ThemeService themeService;
   final WeatherService weatherService;
   final AppsService appsService;
+  final LauncherService launcherService;
 
   const HubMainScreen({
     super.key,
@@ -25,6 +27,7 @@ class HubMainScreen extends StatefulWidget {
     required this.themeService,
     required this.weatherService,
     required this.appsService,
+    required this.launcherService,
   });
 
   @override
@@ -132,6 +135,7 @@ class _HubMainScreenState extends State<HubMainScreen> {
           storage: widget.storage,
           sync: widget.sync,
           weatherService: widget.weatherService,
+          launcherService: widget.launcherService,
           onOpenApps: () => _goTo(-1),
           onOpenShifts: () => _goTo(2),
           onOpenBudget: () => _goTo(1),
