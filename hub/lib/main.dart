@@ -70,7 +70,11 @@ void main() async {
 
 Future<void> _loadApps(AppsService appsService, DebugLogService logger) async {
   try {
-    final devicesApps = await apps_plugin.FlutterDeviceApps.getInstalledApps();
+    final devicesApps = await apps_plugin.FlutterDeviceApps.listApps(
+      includeSystem: false,
+      onlyLaunchable: true,
+      includeIcons: true,
+    );
     final apps = devicesApps.map((a) => AppInfo(
       packageName: a.packageName,
       appName: a.appName,
