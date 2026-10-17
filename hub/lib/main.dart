@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_device_apps/flutter_device_apps.dart';
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
 import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
 import 'services/weather_service.dart';
+import 'services/apps_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/app_background.dart';
@@ -48,13 +50,34 @@ void main() async {
   final sync = SyncService(storage: storage);
   final weatherService = WeatherService();
   await weatherService.init();
+  final appsService = AppsService();
+  await appsService.init();
+
+  // Загружаем список приложений асинхронно
+  _loadApps(appsService, logger);
 
   runApp(HubApp(
     storage: storage,
     sync: sync,
     themeService: themeService,
     weatherService: weatherService,
+    appsService: appsService,
   ));
+}
+
+Future<void> _loadApps(AppsService appsService, DebugLogService logger) async {
+  try {
+    final devicesApps = await FlutterDeviceApps.getInstalledApps();
+    final apps = devicesApps.map((a) => AppInfo(
+      packageName: a.packageName,
+      appName: a.appName,
+      icon: a.icon,
+    )).toList();
+    await appsService.setApps(apps);
+    logger.info('Apps', 'загружено приложений: ${apps.length}');
+  } catch (e, st) {
+    logger.error('Apps', 'load FAILED', e, st);
+  }
 }
 
 class HubApp extends StatelessWidget {
@@ -62,6 +85,7 @@ class HubApp extends StatelessWidget {
   final SyncService sync;
   final ThemeService themeService;
   final WeatherService weatherService;
+  final AppsService appsService;
 
   const HubApp({
     super.key,
@@ -69,6 +93,7 @@ class HubApp extends StatelessWidget {
     required this.sync,
     required this.themeService,
     required this.weatherService,
+    required this.appsService,
   });
 
   @override
@@ -88,6 +113,7 @@ class HubApp extends StatelessWidget {
             sync: sync,
             themeService: themeService,
             weatherService: weatherService,
+            appsService: appsService,
           ),
         );
       },
@@ -100,6 +126,7 @@ class SplashScreen extends StatefulWidget {
   final SyncService sync;
   final ThemeService themeService;
   final WeatherService weatherService;
+  final AppsService appsService;
 
   const SplashScreen({
     super.key,
@@ -107,6 +134,7 @@ class SplashScreen extends StatefulWidget {
     required this.sync,
     required this.themeService,
     required this.weatherService,
+    required this.appsService,
   });
 
   @override
@@ -130,16 +158,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
+    final mainScreen = HubMainScreen(
+      storage: widget.storage,
+      sync: widget.sync,
+      themeService: widget.themeService,
+      weatherService: widget.weatherService,
+      appsService: widget.appsService,
+    );
+
     if (connected) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => HubMainScreen(
-            storage: widget.storage,
-            sync: widget.sync,
-            themeService: widget.themeService,
-            weatherService: widget.weatherService,
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => mainScreen),
       );
     } else {
       Navigator.of(context).pushReplacement(
@@ -149,6 +178,7 @@ class _SplashScreenState extends State<SplashScreen> {
             sync: widget.sync,
             themeService: widget.themeService,
             weatherService: widget.weatherService,
+            appsService: widget.appsService,
           ),
         ),
       );
