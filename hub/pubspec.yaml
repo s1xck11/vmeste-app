@@ -10,35 +10,19 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Supabase (синхронизация с мобильным «Вместе»)
   supabase_flutter: ^2.5.0
-
-  # Локальное хранилище
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   shared_preferences: ^2.2.2
-
-  # Работа с файлами
   path_provider: ^2.1.2
-
-  # Сеть
   http: ^1.2.1
   connectivity_plus: ^6.0.0
-
-  # Время и локализация
   intl: ^0.19.0
   timezone: ^0.9.4
-
-  # Утилиты
   uuid: ^4.4.0
 
-  # Лаунчер и киоск (Этап 8)
-  # device_policy_controller: ^x.x.x  — добавим позже
-
-  # Список приложений (Этап 7)
-  # flutter_device_apps: ^x.x.x  — добавим позже
-
-  # Погода (Этап 4) — используем http напрямую, без пакета
+  # Список установленных приложений
+  flutter_device_apps: ^1.0.4
 
 dev_dependencies:
   flutter_test:
