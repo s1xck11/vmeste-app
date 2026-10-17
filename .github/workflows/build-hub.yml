@@ -1,0 +1,92 @@
+name: Build Hub APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hub
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+      
+      - name: Set version from run number
+        run: |
+          NEW_VERSION="1.0.${{ github.run_number }}"
+          sed -i "s|^version: .*|version: $NEW_VERSION+${{ github.run_number }}|" pubspec.yaml
+          echo "=== pubspec version ==="
+          grep "^version:" pubspec.yaml
+      
+      - name: Restore keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+      
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=release.keystore
+          EOF
+      
+      - name: Get dependencies
+        run: flutter pub get
+      
+      - name: Generate launcher icons
+        run: |
+          if [ -f "assets/icon/app_icon.png" ]; then
+            flutter pub run flutter_launcher_icons
+          else
+            echo "⚠️ Нет assets/icon/app_icon.png — пропускаю"
+          fi
+      
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+      
+      - name: Rename APKs
+        run: |
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk release/vmeste-hub-armeabi-v7a.apk 2>/dev/null || true
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release/vmeste-hub-arm64-v8a.apk 2>/dev/null || true
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk release/vmeste-hub-x86_64.apk 2>/dev/null || true
+          ls -la release/
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmeste-hub-apk
+          path: hub/release/*.apk
+          retention-days: 30
+      
+      - name: Get short sha
+        id: short_sha
+        run: echo "SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        if: github.ref == 'refs/heads/hub'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: hub-v1.0.${{ github.run_number }}
+          name: Вместе Хаб 1.0.${{ github.run_number }} (${{ steps.short_sha.outputs.SHA }})
+          files: hub/release/*.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
