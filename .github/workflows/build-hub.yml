@@ -35,7 +35,7 @@ jobs:
           grep "^version:" pubspec.yaml
       
       - name: Create Android project files
-        run: flutter create --org com.vmeste --project-name vmeste_hub .
+        run: flutter create --org com.vmeste --project-name vmeste_hub --platforms android --no-pub .
       
       - name: Restore root build.gradle
         run: cp .github/build.gradle.root.template android/build.gradle
@@ -69,10 +69,8 @@ jobs:
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
-              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.REORDER_TASKS"/>
-              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
           
               <application
                   android:label="Вместе Хаб"
@@ -94,6 +92,12 @@ jobs:
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                      <!-- ЭТО ДЕЛАЕТ ХАБ КАНДИДАТОМ НА ДОМАШНИЙ ЭКРАН -->
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.HOME"/>
+                          <category android:name="android.intent.category.DEFAULT"/>
                       </intent-filter>
                   </activity>
                   <meta-data
