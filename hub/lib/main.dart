@@ -75,11 +75,14 @@ Future<void> _loadApps(AppsService appsService, DebugLogService logger) async {
       onlyLaunchable: true,
       includeIcons: true,
     );
-    final apps = devicesApps.map((a) => AppInfo(
-      packageName: a.packageName,
-      appName: a.appName,
-      icon: a.icon,
-    )).toList();
+    final apps = devicesApps.map((a) {
+      return AppInfo(
+        packageName: a.packageName ?? '',
+        appName: a.appName ?? (a.packageName ?? 'Приложение'),
+        icon: a.icon,
+      );
+    }).where((a) => a.packageName.isNotEmpty).toList();
+
     await appsService.setApps(apps);
     logger.info('Apps', 'загружено приложений: ${apps.length}');
   } catch (e, st) {
