@@ -4,18 +4,22 @@ import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/weather_service.dart';
 import '../services/launcher_service.dart';
+import '../services/tuya_service.dart';
 import '../widgets/glass_container.dart';
 import '../models/task.dart';
 import '../models/purchase.dart';
 import 'hub_tasks_screen.dart';
 import 'hub_purchases_screen.dart';
 import 'hub_pin_setup_modal.dart';
+import 'hub_lights_screen.dart';
+import 'hub_tuya_setup_modal.dart';
 
 class HubCenterScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final WeatherService weatherService;
   final LauncherService launcherService;
+  final TuyaService tuyaService;
   final VoidCallback onOpenApps;
   final VoidCallback onOpenShifts;
   final VoidCallback onOpenBudget;
@@ -27,6 +31,7 @@ class HubCenterScreen extends StatefulWidget {
     required this.sync,
     required this.weatherService,
     required this.launcherService,
+    required this.tuyaService,
     required this.onOpenApps,
     required this.onOpenShifts,
     required this.onOpenBudget,
@@ -41,6 +46,8 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   Timer? _clockTimer;
   DateTime _now = DateTime.now();
   WeatherCache? _weather;
+  List<TuyaDevice> _lights = [];
+  bool _loadingLights = false;
 
   @override
   void initState() {
@@ -51,6 +58,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     });
     _weather = widget.weatherService.lastKnown;
     _loadWeather();
+    _loadLights();
   }
 
   @override
@@ -68,6 +76,28 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     final w = await widget.weatherService.fetch();
     if (!mounted) return;
     setState(() => _weather = w);
+  }
+
+  Future<void> _loadLights() async {
+    if (!widget.tuyaService.isConfigured) return;
+    setState(() => _loadingLights = true);
+    final devices = await widget.tuyaService.getDevices();
+    if (!mounted) return;
+    setState(() {
+      _lights = devices.take(4).toList(); // на главном показываем максимум 4
+      _loadingLights = false;
+    });
+  }
+
+  Future<void> _toggleLight(TuyaDevice device) async {
+    final newState = !device.isOn;
+    setState(() {
+      final i = _lights.indexWhere((d) => d.id == device.id);
+      if (i >= 0) _lights[i] = device.copyWith(isOn: newState);
+    });
+    await widget.tuyaService.sendCommand(device.id, [
+      {'code': 'switch_led', 'value': newState}
+    ]);
   }
 
   List<Task> get _activeTasks {
@@ -141,6 +171,41 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
         },
       ),
     );
+  }
+
+  void _openLights() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (ctx, anim, secAnim) => HubLightsScreen(
+          tuyaService: widget.tuyaService,
+          onOpenTuyaSetup: () {
+            Navigator.pop(ctx);
+            _showTuyaSetup();
+          },
+        ),
+        transitionsBuilder: (ctx, anim, secAnim, child) {
+          return FadeTransition(
+            opacity: anim,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+              ),
+              child: child,
+            ),
+          );
+        },
+      ),
+    ).then((_) => _loadLights());
+  }
+
+  Future<void> _showTuyaSetup() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => HubTuyaSetupModal(tuyaService: widget.tuyaService),
+    );
+    if (ok == true) _loadLights();
   }
 
   Future<void> _showLauncherDialog() async {
@@ -491,48 +556,132 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   Widget _buildLightsBlock() {
     final cs = Theme.of(context).colorScheme;
 
-    return GlassContainer(
-      radius: 28,
-      showAllBorder: true,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    if (!widget.tuyaService.isConfigured) {
+      return GestureDetector(
+        onTap: _showTuyaSetup,
+        child: GlassContainer(
+          radius: 28,
+          showAllBorder: true,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.lightbulb_outline, color: cs.secondary, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Свет',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Row(
                 children: [
-                  Icon(Icons.lightbulb_outline,
-                      size: 48, color: cs.onSurfaceVariant),
-                  const SizedBox(height: 12),
+                  Icon(Icons.lightbulb_outline, color: cs.secondary, size: 22),
+                  const SizedBox(width: 8),
                   Text(
-                    'Подключим на этапе 9',
+                    'Свет',
                     style: TextStyle(
-                      fontSize: 13,
-                      color: cs.onSurfaceVariant,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
                     ),
                   ),
                 ],
               ),
-            ),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.settings_outlined, size: 40, color: cs.onSurfaceVariant),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Настроить Tuya',
+                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: _openLights,
+      child: GlassContainer(
+        radius: 28,
+        showAllBorder: true,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lightbulb_outline, color: cs.secondary, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  'Свет',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const Spacer(),
+                Icon(Icons.open_in_full, color: cs.onSurfaceVariant, size: 16),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _loadingLights
+                  ? const Center(child: CircularProgressIndicator())
+                  : _lights.isEmpty
+                      ? Center(
+                          child: Text('Лампы не найдены',
+                              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                        )
+                      : ListView.separated(
+                          padding: EdgeInsets.zero,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _lights.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 6),
+                          itemBuilder: (ctx, i) {
+                            final d = _lights[i];
+                            return GestureDetector(
+                              onTap: () => _toggleLight(d),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: d.isOn ? cs.secondary.withOpacity(0.12) : cs.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: d.isOn ? cs.secondary.withOpacity(0.4) : cs.outline,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      d.isOn ? Icons.lightbulb : Icons.lightbulb_outline,
+                                      size: 16,
+                                      color: d.isOn ? cs.secondary : cs.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        d.name,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.onSurface,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
       ),
     );
   }
