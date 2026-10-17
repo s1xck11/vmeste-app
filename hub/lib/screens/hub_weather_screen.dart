@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/storage_service.dart';
 import '../services/weather_service.dart';
 import '../widgets/glass_container.dart';
@@ -41,6 +42,7 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
   }
 
   Future<void> _pickCity() async {
+    HapticFeedback.lightImpact();
     final ok = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.4),
@@ -56,7 +58,7 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         children: [
           Row(
@@ -64,42 +66,43 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
               Text(
                 'Погода',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
-                  letterSpacing: -0.5,
+                  letterSpacing: -1,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               if (widget.weatherService.cityName.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: cs.surfaceVariant,
-                    borderRadius: BorderRadius.circular(14),
+                    color: cs.surfaceVariant.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: cs.outline.withOpacity(0.5)),
                   ),
                   child: Text(
                     widget.weatherService.cityName,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                       color: cs.onSurface,
                     ),
                   ),
                 ),
               const Spacer(),
               IconButton(
-                icon: Icon(Icons.location_city, color: cs.primary),
+                icon: Icon(Icons.location_city, color: cs.primary, size: 28),
                 tooltip: 'Сменить город',
                 onPressed: _pickCity,
               ),
               IconButton(
-                icon: Icon(Icons.refresh, color: cs.primary),
+                icon: Icon(Icons.refresh, color: cs.primary, size: 28),
                 onPressed: _loading ? null : _refresh,
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Expanded(
             child: !widget.weatherService.hasCity
                 ? _buildNoCity(cs)
@@ -116,29 +119,28 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
 
   Widget _buildNoCity(ColorScheme cs) {
     return GlassContainer(
-      radius: 28,
-      showAllBorder: true,
+      radius: 32,
       padding: const EdgeInsets.all(32),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.location_off_outlined, size: 64, color: cs.onSurfaceVariant),
-            const SizedBox(height: 16),
+            Icon(Icons.location_off_outlined, size: 80, color: cs.onSurfaceVariant),
+            const SizedBox(height: 24),
             Text(
               'Город не выбран',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
                 color: cs.onSurface,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               'Выбери город, чтобы видеть погоду',
-              style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _pickCity,
               icon: const Icon(Icons.search),
@@ -156,16 +158,15 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
     return Column(
       children: [
         GlassContainer(
-          radius: 28,
-          showAllBorder: true,
-          padding: const EdgeInsets.all(28),
+          radius: 32,
+          padding: const EdgeInsets.all(32),
           child: Row(
             children: [
               Text(
                 now?.emoji ?? '🌡',
-                style: const TextStyle(fontSize: 80),
+                style: const TextStyle(fontSize: 96),
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: 32),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,19 +174,19 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
                     Text(
                       '${now?.temperature.round() ?? '—'}°',
                       style: TextStyle(
-                        fontSize: 64,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 80,
+                        fontWeight: FontWeight.w800,
                         color: cs.onSurface,
-                        letterSpacing: -2,
-                        height: 1.0,
+                        letterSpacing: -3,
+                        height: 0.9,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
                       now?.description ?? '—',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
                         color: cs.onSurface,
                       ),
                     ),
@@ -196,65 +197,64 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   _stat(Icons.thermostat, '${now?.feelsLike.round() ?? '—'}°', 'Ощущается', cs),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   _stat(Icons.water_drop_outlined, '${now?.humidity ?? '—'}%', 'Влажность', cs),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   _stat(Icons.air, '${now?.windSpeed.round() ?? '—'} м/с', 'Ветер', cs),
                 ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Expanded(
           child: GlassContainer(
-            radius: 28,
-            showAllBorder: true,
-            padding: const EdgeInsets.all(20),
+            radius: 32,
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Прогноз на 7 дней',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
                     color: cs.onSurface,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Expanded(
                   child: ListView.separated(
                     itemCount: c.days.length,
                     separatorBuilder: (_, __) => Divider(
                       height: 1,
-                      color: cs.outline.withOpacity(0.5),
+                      color: cs.outline.withOpacity(0.4),
                     ),
                     itemBuilder: (ctx, i) {
                       final d = c.days[i];
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Row(
                           children: [
                             SizedBox(
-                              width: 100,
+                              width: 110,
                               child: Text(
                                 d.dayLabel,
                                 style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
                                   color: cs.onSurface,
                                 ),
                               ),
                             ),
-                            Text(d.emoji, style: const TextStyle(fontSize: 24)),
-                            const SizedBox(width: 16),
+                            Text(d.emoji, style: const TextStyle(fontSize: 28)),
+                            const SizedBox(width: 20),
                             Expanded(
                               child: Text(
-                                // БЫЛО: WeatherNow._describeWmo(d.weatherCode)
                                 WeatherNow.describeWmo(d.weatherCode),
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
                                   color: cs.onSurfaceVariant,
                                 ),
                               ),
@@ -262,16 +262,17 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
                             Text(
                               '${d.tempMin.round()}°',
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 20),
                             Text(
                               '${d.tempMax.round()}°',
                               style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
                                 color: cs.onSurface,
                               ),
                             ),
@@ -292,22 +293,22 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
   Widget _stat(IconData icon, String value, String label, ColorScheme cs) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: cs.onSurfaceVariant),
-        const SizedBox(width: 6),
+        Icon(icon, size: 22, color: cs.onSurfaceVariant),
+        const SizedBox(width: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               value,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
                 color: cs.onSurface,
               ),
             ),
             Text(
               label,
-              style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
             ),
           ],
         ),
