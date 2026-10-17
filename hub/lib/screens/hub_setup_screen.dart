@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
+import '../services/weather_service.dart';
 import '../widgets/glass_container.dart';
 import 'hub_main_screen.dart';
 
-/// Экран первичного подключения хаба к группе.
-/// 
-/// Вводим код группы и свой ключ. После успеха — попадаем в HubMainScreen.
 class HubSetupScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
   final ThemeService themeService;
+  final WeatherService weatherService;
 
   const HubSetupScreen({
     super.key,
     required this.storage,
     required this.sync,
     required this.themeService,
+    required this.weatherService,
   });
 
   @override
@@ -62,15 +62,11 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
     final key = _keyController.text.trim().toUpperCase();
 
     if (code.length < 5) {
-      setState(() {
-        _error = 'Введи код группы (например, ABC-123-XYZ)';
-      });
+      setState(() => _error = 'Введи код группы (например, ABC-123-XYZ)');
       return;
     }
     if (key.length < 5) {
-      setState(() {
-        _error = 'Введи свой ключ (например, A-XXXX-XXXX)';
-      });
+      setState(() => _error = 'Введи свой ключ (например, A-XXXX-XXXX)');
       return;
     }
 
@@ -89,6 +85,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
             storage: widget.storage,
             sync: widget.sync,
             themeService: widget.themeService,
+            weatherService: widget.weatherService,
           ),
         ),
       );
@@ -212,16 +209,12 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.error_outline,
-                              color: cs.error, size: 20),
+                          Icon(Icons.error_outline, color: cs.error, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _error!,
-                              style: TextStyle(
-                                color: cs.error,
-                                fontSize: 13,
-                              ),
+                              style: TextStyle(color: cs.error, fontSize: 13),
                             ),
                           ),
                         ],
@@ -242,9 +235,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                cs.onPrimary,
-                              ),
+                              valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary),
                             ),
                           )
                         : const Text('Подключиться'),
@@ -254,10 +245,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                   Text(
                     'Код и ключ можно найти\nв настройках мобильного «Вместе»',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurfaceVariant,
-                    ),
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
