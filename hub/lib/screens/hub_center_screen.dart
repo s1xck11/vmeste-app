@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Для HapticFeedback
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/weather_service.dart';
 import '../services/tuya_service.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/pressable.dart';
 import '../models/task.dart';
 import '../models/purchase.dart';
 import 'hub_tasks_screen.dart';
@@ -87,7 +87,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   Future<void> _toggleLight(TuyaDevice device) async {
-    HapticFeedback.lightImpact();
+    // Haptic теперь в Pressable
     final newState = !device.isOn;
     setState(() {
       final i = _lights.indexWhere((d) => d.id == device.id);
@@ -124,7 +124,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   void _openTasks() {
-    HapticFeedback.mediumImpact();
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
@@ -149,7 +148,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   void _openPurchases() {
-    HapticFeedback.mediumImpact();
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
@@ -174,7 +172,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   void _openLights() {
-    HapticFeedback.mediumImpact();
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
@@ -210,7 +207,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   void _showLauncherHint() {
-    HapticFeedback.lightImpact();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -292,7 +288,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     final cs = Theme.of(context).colorScheme;
     final tasks = _activeTasks.take(5).toList();
 
-    return GestureDetector(
+    return Pressable(
       onTap: _openTasks,
       child: GlassContainer(
         radius: 32,
@@ -392,7 +388,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     final cs = Theme.of(context).colorScheme;
     final items = _activePurchases.take(5).toList();
 
-    return GestureDetector(
+    return Pressable(
       onTap: _openPurchases,
       child: GlassContainer(
         radius: 32,
@@ -493,7 +489,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     final cs = Theme.of(context).colorScheme;
 
     if (!widget.tuyaService.isConfigured) {
-      return GestureDetector(
+      return Pressable(
         onTap: _showTuyaSetup,
         child: GlassContainer(
           radius: 32,
@@ -536,7 +532,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
       );
     }
 
-    return GestureDetector(
+    return Pressable(
       onTap: _openLights,
       child: GlassContainer(
         radius: 32,
@@ -576,6 +572,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
                           separatorBuilder: (_, __) => const SizedBox(height: 10),
                           itemBuilder: (ctx, i) {
                             final d = _lights[i];
+                            // Для ламп используем AnimatedContainer без Pressable, чтобы не было двойного скейла
                             return GestureDetector(
                               onTap: () => _toggleLight(d),
                               child: AnimatedContainer(
@@ -631,7 +628,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
     final w = _weather;
     final hasWeather = w?.now != null;
 
-    return GestureDetector(
+    return Pressable(
       onTap: widget.onOpenWeather,
       child: GlassContainer(
         radius: 32,
