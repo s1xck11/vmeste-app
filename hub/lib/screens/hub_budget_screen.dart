@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
 import '../models/partner.dart';
@@ -6,7 +7,6 @@ import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/glass_container.dart';
 
-/// Полноэкранный экран «Бюджет» (справа от центра).
 class HubBudgetScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
@@ -49,9 +49,15 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
   }
 
   void _changeMonth(int delta) {
+    HapticFeedback.lightImpact();
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
     });
+  }
+
+  void _changeTab(String tab) {
+    HapticFeedback.lightImpact();
+    setState(() => _tab = tab);
   }
 
   String _monthName(int m) {
@@ -130,56 +136,53 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          // Шапка
           Row(
             children: [
-              Icon(Icons.pie_chart, color: cs.primary, size: 28),
-              const SizedBox(width: 10),
+              Icon(Icons.pie_chart, color: cs.primary, size: 32),
+              const SizedBox(width: 14),
               Text(
                 'Бюджет',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
-                  letterSpacing: -0.5,
+                  letterSpacing: -1,
                 ),
               ),
               const Spacer(),
-              // Переключение месяца
               IconButton(
                 onPressed: () => _changeMonth(-1),
-                icon: Icon(Icons.chevron_left, color: cs.onSurface),
+                icon: Icon(Icons.chevron_left, color: cs.onSurface, size: 32),
               ),
               Text(
                 '${_monthName(_currentMonth.month)} ${_currentMonth.year}',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
                 ),
               ),
               IconButton(
                 onPressed: () => _changeMonth(1),
-                icon: Icon(Icons.chevron_right, color: cs.onSurface),
+                icon: Icon(Icons.chevron_right, color: cs.onSurface, size: 32),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Expanded(
             child: Row(
               children: [
-                // Левая часть: баланс + вкладки + контент
                 Expanded(
                   flex: 2,
                   child: Column(
                     children: [
                       _buildBalanceCard(cs),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _buildTabs(cs),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       Expanded(
                         child: SingleChildScrollView(
                           child: _tab == 'overview'
@@ -192,8 +195,7 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Правая часть: сводка по доходам/расходам
+                const SizedBox(width: 20),
                 Expanded(
                   flex: 1,
                   child: _buildSummarySide(cs),
@@ -208,43 +210,50 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
 
   Widget _buildBalanceCard(ColorScheme cs) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [cs.primary, cs.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Баланс за месяц',
-            style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onPrimary.withOpacity(0.85)),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             '${_balance.toStringAsFixed(0)} ₽',
             style: TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.w700,
+              fontSize: 44,
+              fontWeight: FontWeight.w800,
               color: cs.onPrimary,
-              letterSpacing: -1,
+              letterSpacing: -1.5,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Доходы: ${_incomes.toStringAsFixed(0)} ₽',
-                style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85)),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onPrimary.withOpacity(0.85)),
               ),
               Text(
                 'Расходы: ${_expenses.toStringAsFixed(0)} ₽',
-                style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85)),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onPrimary.withOpacity(0.85)),
               ),
             ],
           ),
@@ -260,30 +269,38 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
       ('categories', 'Категории'),
     ];
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: cs.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surfaceVariant.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withOpacity(0.5)),
       ),
       child: Row(
         children: tabs.map((t) {
           final sel = t.$1 == _tab;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _tab = t.$1),
+              onTap: () => _changeTab(t.$1),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: sel ? cs.surface : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: sel ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ] : null,
                 ),
                 child: Center(
                   child: Text(
                     t.$2,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 16,
+                      fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
                       color: sel ? cs.onSurface : cs.onSurfaceVariant,
                     ),
                   ),
@@ -304,29 +321,29 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
       children: [
         if (salaryFromShifts > 0) ...[
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: cs.primary),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: cs.primary.withOpacity(0.5), width: 1.5),
             ),
             child: Row(
               children: [
-                Icon(Icons.work_outline, color: cs.onPrimaryContainer, size: 24),
-                const SizedBox(width: 12),
+                Icon(Icons.work_outline, color: cs.onPrimaryContainer, size: 28),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Зарплата из смен за месяц',
-                        style: TextStyle(fontSize: 13, color: cs.onPrimaryContainer.withOpacity(0.8)),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onPrimaryContainer.withOpacity(0.8)),
                       ),
                       Text(
                         '${salaryFromShifts.toStringAsFixed(0)} ₽',
                         style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
                           color: cs.onPrimaryContainer,
                         ),
                       ),
@@ -336,41 +353,41 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
         ],
         Text(
           'Финансовое здоровье',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -0.5),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(20),
+            color: cs.surface.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(color: cs.outline),
           ),
           child: Column(
             children: [
               _healthBar('Обязательные', health['obligatory'] ?? 0, cs.error, cs),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _healthBar('Осознанные', health['conscious'] ?? 0, cs.secondary, cs),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _healthBar('Импульсивные', health['impulsive'] ?? 0, cs.tertiary, cs),
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         Text(
           'Расходы по категориям',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -0.5),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (_breakdown().isEmpty)
           Padding(
             padding: const EdgeInsets.all(32),
             child: Center(
-              child: Text('Нет расходов за этот месяц', style: TextStyle(color: cs.onSurfaceVariant)),
+              child: Text('Нет расходов за этот месяц', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
             ),
           )
         else
@@ -381,37 +398,37 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
             );
             final percent = _expenses > 0 ? e.value / _expenses * 100 : 0;
             return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: cs.surface,
-                borderRadius: BorderRadius.circular(18),
+                color: cs.surface.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: cs.outline),
               ),
               child: Row(
                 children: [
-                  Text(cat.emoji, style: const TextStyle(fontSize: 22)),
-                  const SizedBox(width: 12),
+                  Text(cat.emoji, style: const TextStyle(fontSize: 28)),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Text(cat.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                            Text(cat.name, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: cs.onSurface)),
                             const Spacer(),
                             Text(
                               '${e.value.toStringAsFixed(0)} ₽',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface),
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: cs.onSurface),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
+                          borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: percent / 100,
-                            minHeight: 6,
+                            minHeight: 8,
                             backgroundColor: cs.surfaceVariant,
                             color: cs.primary,
                           ),
@@ -431,27 +448,27 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
     return Row(
       children: [
         SizedBox(
-          width: 130,
-          child: Text(label, style: TextStyle(fontSize: 14, color: cs.onSurface)),
+          width: 140,
+          child: Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurface)),
         ),
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: percent / 100,
-              minHeight: 10,
+              minHeight: 12,
               backgroundColor: cs.surfaceVariant,
               color: color,
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         SizedBox(
-          width: 50,
+          width: 55,
           child: Text(
             '${percent.toStringAsFixed(0)}%',
             textAlign: TextAlign.right,
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant),
           ),
         ),
       ],
@@ -464,7 +481,7 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
       return Padding(
         padding: const EdgeInsets.all(32),
         child: Center(
-          child: Text('Нет транзакций за этот месяц', style: TextStyle(color: cs.onSurfaceVariant)),
+          child: Text('Нет транзакций за этот месяц', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
         ),
       );
     }
@@ -476,29 +493,29 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
         );
         final isExpense = t.type == 'expense';
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(18),
+            color: cs.surface.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(color: cs.outline),
           ),
           child: Row(
             children: [
-              Text(cat.emoji, style: const TextStyle(fontSize: 24)),
-              const SizedBox(width: 14),
+              Text(cat.emoji, style: const TextStyle(fontSize: 28)),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       t.comment.isEmpty ? cat.name : t.comment,
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface),
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: cs.onSurface),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       '${t.date.day}.${t.date.month}.${t.date.year} · ${cat.name}',
-                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -506,8 +523,8 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
               Text(
                 '${isExpense ? '−' : '+'}${t.amount.toStringAsFixed(0)} ₽',
                 style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                   color: isExpense ? cs.error : cs.tertiary,
                 ),
               ),
@@ -524,12 +541,12 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Расходы', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-        const SizedBox(height: 8),
+        Text('Расходы', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+        const SizedBox(height: 12),
         ...expenses.map((c) => _categoryTile(c, cs)),
-        const SizedBox(height: 20),
-        Text('Доходы', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-        const SizedBox(height: 8),
+        const SizedBox(height: 24),
+        Text('Доходы', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+        const SizedBox(height: 12),
         ...incomes.map((c) => _categoryTile(c, cs)),
       ],
     );
@@ -537,19 +554,19 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
 
   Widget _categoryTile(BudgetCategory c, ColorScheme cs) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surface.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cs.outline),
       ),
       child: Row(
         children: [
-          Text(c.emoji, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
+          Text(c.emoji, style: const TextStyle(fontSize: 24)),
+          const SizedBox(width: 16),
           Expanded(
-            child: Text(c.name, style: TextStyle(fontSize: 15, color: cs.onSurface)),
+            child: Text(c.name, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: cs.onSurface)),
           ),
         ],
       ),
@@ -558,27 +575,27 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
 
   Widget _buildSummarySide(ColorScheme cs) {
     return GlassContainer(
-      radius: 28,
-      showAllBorder: true,
-      padding: const EdgeInsets.all(20),
+      radius: 32,
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Сводка',
             style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
               color: cs.onSurface,
+              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _summaryRow('Доходы', _incomes, cs.tertiary, cs),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           _summaryRow('Расходы', _expenses, cs.error, cs),
-          const SizedBox(height: 12),
-          Divider(color: cs.outline),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          Divider(color: cs.outline, thickness: 1.5),
+          const SizedBox(height: 16),
           _summaryRow('Баланс', _balance, _balance >= 0 ? cs.tertiary : cs.error, cs),
         ],
       ),
@@ -589,14 +606,15 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-        const SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+        const SizedBox(height: 6),
         Text(
           '${value >= 0 ? '' : '−'}${value.abs().toStringAsFixed(0)} ₽',
           style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
             color: color,
+            letterSpacing: -0.5,
           ),
         ),
       ],
