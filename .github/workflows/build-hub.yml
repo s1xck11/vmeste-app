@@ -34,6 +34,90 @@ jobs:
           echo "=== pubspec version ==="
           grep "^version:" pubspec.yaml
       
+      # НОВОЕ: пересоздаём android/ чтобы появились иконки и ресурсы
+      - name: Create Android project files
+        run: flutter create --org com.vmeste --project-name vmeste_hub .
+      
+      # Восстанавливаем наши кастомные Gradle-файлы
+      - name: Restore root build.gradle
+        run: cp .github/build.gradle.root.template android/build.gradle
+      
+      - name: Restore settings.gradle
+        run: cp .github/settings.gradle.template android/settings.gradle
+      
+      - name: Restore app build.gradle
+        run: cp .github/build.gradle.template android/app/build.gradle
+      
+      - name: Restore gradle-wrapper.properties
+        run: cp .github/gradle-wrapper.properties.template android/gradle/wrapper/gradle-wrapper.properties
+      
+      # НОВОЕ: сохраняем наш MainActivity.kt (flutter create его перезапишет)
+      - name: Restore MainActivity
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/vmeste/vmeste_hub
+          cat > android/app/src/main/kotlin/com/vmeste/vmeste_hub/MainActivity.kt <<'EOF'
+          package com.vmeste.vmeste_hub
+          
+          import io.flutter.embedding.android.FlutterActivity
+          
+          class MainActivity: FlutterActivity() {
+          }
+          EOF
+      
+      # НОВОЕ: сохраняем наш AndroidManifest.xml (label, permissions)
+      - name: Restore AndroidManifest
+        run: |
+          cat > android/app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+          
+              <application
+                  android:label="Вместе Хаб"
+                  android:name="${applicationName}"
+                  android:icon="@mipmap/ic_launcher"
+                  android:usesCleartextTraffic="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data
+                        android:name="io.flutter.embedding.android.NormalTheme"
+                        android:resource="@style/NormalTheme"
+                        />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
+          EOF
+      
+      # НОВОЕ: наши стили
+      - name: Restore styles.xml
+        run: |
+          mkdir -p android/app/src/main/res/values
+          cat > android/app/src/main/res/values/styles.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+                  <item name="android:windowBackground">@android:color/white</item>
+              </style>
+              <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+                  <item name="android:windowBackground">?android:colorBackground</item>
+              </style>
+          </resources>
+          EOF
+      
       - name: Restore keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
