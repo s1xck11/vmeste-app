@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'debug_log_service.dart';
 
-/// Модель текущей погоды.
 class WeatherNow {
   final double temperature;
   final double feelsLike;
@@ -39,13 +38,10 @@ class WeatherNow {
         updatedAt: DateTime.tryParse(j['updatedAt'] ?? '') ?? DateTime.now(),
       );
 
-  /// Описание по коду WMO.
-  String get description => _describeWmo(weatherCode);
+  String get description => describeWmo(weatherCode);
+  String get emoji => emojiWmo(weatherCode);
 
-  /// Иконка (эмодзи) по коду.
-  String get emoji => _emojiWmo(weatherCode);
-
-  static String _describeWmo(int code) {
+  static String describeWmo(int code) {
     if (code == 0) return 'Ясно';
     if (code <= 3) return 'Малооблачно';
     if (code <= 48) return 'Туман';
@@ -58,7 +54,7 @@ class WeatherNow {
     return '—';
   }
 
-  static String _emojiWmo(int code) {
+  static String emojiWmo(int code) {
     if (code == 0) return '☀️';
     if (code <= 2) return '🌤';
     if (code <= 3) return '☁️';
@@ -73,7 +69,6 @@ class WeatherNow {
   }
 }
 
-/// Модель прогноза на один день.
 class WeatherDay {
   final DateTime date;
   final double tempMax;
@@ -101,7 +96,7 @@ class WeatherDay {
         weatherCode: (j['weatherCode'] as num?)?.toInt() ?? 0,
       );
 
-  String get emoji => WeatherNow._emojiWmo(weatherCode);
+  String get emoji => WeatherNow.emojiWmo(weatherCode);
   String get weekdayName {
     const names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     return names[date.weekday - 1];
@@ -148,10 +143,6 @@ class WeatherCache {
       );
 }
 
-/// Сервис погоды через Open-Meteo.
-/// 
-/// Кэш на 30 минут. Если кэш свежий — сеть не дёргаем.
-/// Координаты города берём из настроек (сохраняются в Hive).
 class WeatherService {
   static const String _boxName = 'vmeste_hub_data';
   static const String _keyCityLat = 'weather_city_lat';
@@ -171,23 +162,16 @@ class WeatherService {
     }
   }
 
-  // ============ НАСТРОЙКИ ГОРОДА ============
-
   String get cityName => _box.get(_keyCityName) as String? ?? '';
   double? get cityLat => (_box.get(_keyCityLat) as num?)?.toDouble();
   double? get cityLon => (_box.get(_keyCityLon) as num?)?.toDouble();
 
   bool get hasCity => cityLat != null && cityLon != null && cityName.isNotEmpty;
 
-  Future<void> setCity({
-    required String name,
-    required double lat,
-    required double lon,
-  }) async {
+  Future<void> setCity({required String name, required double lat, required double lon}) async {
     await _box.put(_keyCityName, name);
     await _box.put(_keyCityLat, lat);
     await _box.put(_keyCityLon, lon);
-    // Сброс кэша — чтобы сразу перезапросили
     await _box.delete(_keyCache);
   }
 
@@ -197,8 +181,6 @@ class WeatherService {
     await _box.delete(_keyCityLon);
     await _box.delete(_keyCache);
   }
-
-  // ============ КЭШ ============
 
   WeatherCache? get _cached {
     final raw = _box.get(_keyCache);
@@ -216,22 +198,11 @@ class WeatherService {
     return DateTime.now().difference(c.fetchedAt) < _cacheTtl;
   }
 
-  /// Возвращает последний известный кэш (даже просроченный) — для мгновенного показа.
   WeatherCache? get lastKnown => _cached;
 
-  // ============ ЗАГРУЗКА ============
-
-  /// Обновляет погоду. Если кэш свежий и [force] == false, не дёргает сеть.
   Future<WeatherCache?> fetch({bool force = false}) async {
-    if (!hasCity) {
-      _log.warn('Weather', 'нет настроенного города');
-      return null;
-    }
-
-    if (!force && _cacheFresh) {
-      _log.info('Weather', 'использую свежий кэш');
-      return _cached;
-    }
+    if (!hasCity) return null;
+    if (!force && _cacheFresh) return _cached;
 
     try {
       final lat = cityLat!;
@@ -247,12 +218,8 @@ class WeatherService {
         '&forecast_days=7',
       );
 
-      _log.info('Weather', 'запрос: $lat,$lon');
       final resp = await http.get(url).timeout(const Duration(seconds: 15));
-      if (resp.statusCode != 200) {
-        _log.warn('Weather', 'HTTP ${resp.statusCode}');
-        return _cached;
-      }
+      if (resp.statusCode != 200) return _cached;
 
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final current = data['current'] as Map<String, dynamic>? ?? {};
@@ -293,7 +260,6 @@ class WeatherService {
       );
 
       await _box.put(_keyCache, cache.toJson());
-      _log.info('Weather', 'погода обновлена: ${now.temperature}°');
       return cache;
     } catch (e, st) {
       _log.error('Weather', 'fetch FAILED', e, st);
