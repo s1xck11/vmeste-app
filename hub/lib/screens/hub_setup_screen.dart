@@ -4,7 +4,6 @@ import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../services/weather_service.dart';
 import '../services/apps_service.dart';
-import '../services/launcher_service.dart';
 import '../services/tuya_service.dart';
 import '../widgets/glass_container.dart';
 import 'hub_main_screen.dart';
@@ -15,7 +14,6 @@ class HubSetupScreen extends StatefulWidget {
   final ThemeService themeService;
   final WeatherService weatherService;
   final AppsService appsService;
-  final LauncherService launcherService;
   final TuyaService tuyaService;
 
   const HubSetupScreen({
@@ -25,7 +23,6 @@ class HubSetupScreen extends StatefulWidget {
     required this.themeService,
     required this.weatherService,
     required this.appsService,
-    required this.launcherService,
     required this.tuyaService,
   });
 
@@ -90,7 +87,6 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
             themeService: widget.themeService,
             weatherService: widget.weatherService,
             appsService: widget.appsService,
-            launcherService: widget.launcherService,
             tuyaService: widget.tuyaService,
           ),
         ),
