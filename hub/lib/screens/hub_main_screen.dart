@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_device_apps/flutter_device_apps.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../services/weather_service.dart';
+import '../services/apps_service.dart';
 import 'hub_center_screen.dart';
 import 'hub_apps_screen.dart';
 import 'hub_shifts_screen.dart';
@@ -14,6 +16,7 @@ class HubMainScreen extends StatefulWidget {
   final SyncService sync;
   final ThemeService themeService;
   final WeatherService weatherService;
+  final AppsService appsService;
 
   const HubMainScreen({
     super.key,
@@ -21,6 +24,7 @@ class HubMainScreen extends StatefulWidget {
     required this.sync,
     required this.themeService,
     required this.weatherService,
+    required this.appsService,
   });
 
   @override
@@ -93,10 +97,20 @@ class _HubMainScreenState extends State<HubMainScreen> {
     }
   }
 
+  Future<void> _launchApp(String packageName) async {
+    try {
+      await FlutterDeviceApps.launchApp(packageName);
+    } catch (_) {}
+  }
+
   Widget _buildScreen(int position) {
     switch (position) {
       case -1:
-        return HubAppsScreen(storage: widget.storage);
+        return HubAppsScreen(
+          storage: widget.storage,
+          appsService: widget.appsService,
+          onLaunchApp: _launchApp,
+        );
       case 1:
         return HubBudgetScreen(
           storage: widget.storage,
