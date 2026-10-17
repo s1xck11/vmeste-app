@@ -8,6 +8,8 @@ import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
+import 'widgets/app_background.dart';
+import 'screens/hub_setup_screen.dart';
 import 'screens/hub_main_screen.dart';
 
 class _HubHttpOverrides extends HttpOverrides {
@@ -72,6 +74,9 @@ class HubApp extends StatelessWidget {
           title: 'Вместе Хаб',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.build(config),
+          builder: (context, child) {
+            return AppBackground(child: child ?? const SizedBox.shrink());
+          },
           home: SplashScreen(
             storage: storage,
             sync: sync,
@@ -106,25 +111,44 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _check() async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    // Пытаемся автоподключиться, если уже есть сохранённые данные
+    bool connected = false;
     if (widget.storage.isConfigured) {
-      await widget.sync.autoConnect();
+      connected = await widget.sync.autoConnect();
     }
+
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => HubMainScreen(
-        storage: widget.storage,
-        sync: widget.sync,
-        themeService: widget.themeService,
-      ),
-    ));
+
+    if (connected) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => HubMainScreen(
+            storage: widget.storage,
+            sync: widget.sync,
+            themeService: widget.themeService,
+          ),
+        ),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => HubSetupScreen(
+            storage: widget.storage,
+            sync: widget.sync,
+            themeService: widget.themeService,
+          ),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: cs.background,
+      backgroundColor: Colors.transparent,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
