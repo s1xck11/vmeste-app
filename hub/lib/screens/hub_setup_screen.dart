@@ -4,6 +4,8 @@ import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../services/weather_service.dart';
 import '../services/apps_service.dart';
+import '../services/launcher_service.dart';
+import '../services/tuya_service.dart';
 import '../widgets/glass_container.dart';
 import 'hub_main_screen.dart';
 
@@ -13,6 +15,8 @@ class HubSetupScreen extends StatefulWidget {
   final ThemeService themeService;
   final WeatherService weatherService;
   final AppsService appsService;
+  final LauncherService launcherService;
+  final TuyaService tuyaService;
 
   const HubSetupScreen({
     super.key,
@@ -21,6 +25,8 @@ class HubSetupScreen extends StatefulWidget {
     required this.themeService,
     required this.weatherService,
     required this.appsService,
+    required this.launcherService,
+    required this.tuyaService,
   });
 
   @override
@@ -30,7 +36,6 @@ class HubSetupScreen extends StatefulWidget {
 class _HubSetupScreenState extends State<HubSetupScreen> {
   final _codeController = TextEditingController();
   final _keyController = TextEditingController();
-
   bool _loading = false;
   String? _error;
 
@@ -71,10 +76,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
 
     try {
       widget.storage.coupleCode = code;
@@ -88,15 +90,14 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
             themeService: widget.themeService,
             weatherService: widget.weatherService,
             appsService: widget.appsService,
+            launcherService: widget.launcherService,
+            tuyaService: widget.tuyaService,
           ),
         ),
       );
     } catch (e) {
       widget.storage.coupleCode = null;
-      setState(() {
-        _error = _humanizeError(e);
-        _loading = false;
-      });
+      setState(() { _error = _humanizeError(e); _loading = false; });
     }
   }
 
@@ -121,8 +122,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                 children: [
                   Center(
                     child: Container(
-                      width: 88,
-                      height: 88,
+                      width: 88, height: 88,
                       decoration: BoxDecoration(
                         color: cs.primary.withOpacity(0.12),
                         shape: BoxShape.circle,
@@ -134,12 +134,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                   Text(
                     'Вместе Хаб',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurface,
-                      letterSpacing: -0.5,
-                    ),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: cs.onSurface, letterSpacing: -0.5),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -191,9 +186,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                         children: [
                           Icon(Icons.error_outline, color: cs.error, size: 20),
                           const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(_error!, style: TextStyle(color: cs.error, fontSize: 13)),
-                          ),
+                          Expanded(child: Text(_error!, style: TextStyle(color: cs.error, fontSize: 13))),
                         ],
                       ),
                     ),
@@ -203,14 +196,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
                     onPressed: _loading ? null : _connect,
                     style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
                     child: _loading
-                        ? SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary),
-                            ),
-                          )
+                        ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary)))
                         : const Text('Подключиться'),
                   ),
                   const SizedBox(height: 16),
