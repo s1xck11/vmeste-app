@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_device_apps/flutter_device_apps.dart';
+import 'package:flutter_device_apps/flutter_device_apps.dart' as apps_plugin;
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
@@ -70,7 +70,7 @@ void main() async {
 
 Future<void> _loadApps(AppsService appsService, DebugLogService logger) async {
   try {
-    final devicesApps = await FlutterDeviceApps.getInstalledApps();
+    final devicesApps = await apps_plugin.FlutterDeviceApps.getInstalledApps();
     final apps = devicesApps.map((a) => AppInfo(
       packageName: a.packageName,
       appName: a.appName,
