@@ -4,9 +4,8 @@ import '../models/task_category.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/pressable.dart';
 
-/// Полноэкранный список задач для хаба.
-/// Две колонки: активные слева, выполненные справа.
 class HubTasksScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
@@ -123,67 +122,63 @@ class _HubTasksScreenState extends State<HubTasksScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
       child: Column(
         children: [
-          // Шапка
           Row(
             children: [
-              Icon(Icons.check_circle, color: cs.tertiary, size: 28),
-              const SizedBox(width: 10),
+              Icon(Icons.check_circle, color: cs.tertiary, size: 32),
+              const SizedBox(width: 14),
               Text(
                 'Задачи',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
-                  letterSpacing: -0.5,
+                  letterSpacing: -1,
                 ),
               ),
               const Spacer(),
               IconButton(
-                icon: Icon(Icons.close, color: cs.onSurface, size: 28),
+                icon: Icon(Icons.close, color: cs.onSurface, size: 32),
                 onPressed: widget.onClose,
                 style: IconButton.styleFrom(
                   backgroundColor: cs.surfaceVariant,
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Два столбца
+          const SizedBox(height: 24),
           Expanded(
             child: Row(
               children: [
-                // Активные
                 Expanded(
                   child: GlassContainer(
-                    radius: 28,
-                    showAllBorder: true,
-                    padding: const EdgeInsets.all(16),
+                    radius: 32,
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           child: Text(
                             'АКТИВНЫЕ · ${_active.length}',
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
                               color: cs.onSurfaceVariant,
-                              letterSpacing: 1,
+                              letterSpacing: 1.5,
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Expanded(
                           child: _active.isEmpty
-                              ? Center(child: Text('Все выполнено', style: TextStyle(color: cs.onSurfaceVariant)))
+                              ? Center(child: Text('Все выполнено', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)))
                               : ListView.separated(
                                   itemCount: _active.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                                   itemBuilder: (ctx, i) {
                                     final t = _active[i];
                                     return _TaskRow(
@@ -202,35 +197,33 @@ class _HubTasksScreenState extends State<HubTasksScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Выполненные
+                const SizedBox(width: 20),
                 Expanded(
                   child: GlassContainer(
-                    radius: 28,
-                    showAllBorder: true,
-                    padding: const EdgeInsets.all(16),
+                    radius: 32,
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                           child: Text(
                             'ВЫПОЛНЕНО · ${_done.length}',
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
                               color: cs.onSurfaceVariant,
-                              letterSpacing: 1,
+                              letterSpacing: 1.5,
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Expanded(
                           child: _done.isEmpty
-                              ? Center(child: Text('Пока ничего', style: TextStyle(color: cs.onSurfaceVariant)))
+                              ? Center(child: Text('Пока ничего', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)))
                               : ListView.separated(
                                   itemCount: _done.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                                   itemBuilder: (ctx, i) {
                                     final t = _done[i];
                                     return _TaskRow(
@@ -282,23 +275,24 @@ class _TaskRow extends StatelessWidget {
     final isDone = task.done;
     final isTaken = task.takenBy != null && !isDone;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isTaken ? cs.primary.withOpacity(0.4) : cs.outline,
-          width: isTaken ? 1.5 : 1,
+    return Pressable(
+      onTap: onToggle, // В iOS тап по карточке часто отмечает выполнение
+      enableHaptic: true,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.surface.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isTaken ? cs.primary.withOpacity(0.5) : cs.outline.withOpacity(0.5),
+            width: isTaken ? 1.5 : 1,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: onToggle,
-            child: Container(
-              width: 24,
-              height: 24,
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isDone ? cs.tertiary : Colors.transparent,
@@ -307,43 +301,51 @@ class _TaskRow extends StatelessWidget {
                   width: 2,
                 ),
               ),
-              child: isDone ? Icon(Icons.check, size: 14, color: cs.onTertiary) : null,
+              child: isDone ? Icon(Icons.check, size: 16, color: cs.onTertiary) : null,
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.text,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
-                    decoration: isDone ? TextDecoration.lineThrough : null,
-                    decorationColor: cs.onSurfaceVariant,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.text,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                      decoration: isDone ? TextDecoration.lineThrough : null,
+                      decorationColor: cs.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${category.emoji} ${category.label}',
-                  style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '${category.emoji} ${category.label}',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (!isDone && !isTaken)
-            TextButton(
-              onPressed: onTake,
-              child: const Text('Взять', style: TextStyle(fontSize: 12)),
-            )
-          else if (!isDone && mine)
-            TextButton(
-              onPressed: onUntake,
-              child: Text('Отменить', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-            ),
-        ],
+            if (!isDone && !isTaken)
+              TextButton(
+                onPressed: onTake,
+                style: TextButton.styleFrom(
+                  foregroundColor: cs.primary,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                child: const Text('Взять'),
+              )
+            else if (!isDone && mine)
+              TextButton(
+                onPressed: onUntake,
+                style: TextButton.styleFrom(
+                  foregroundColor: cs.onSurfaceVariant,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                child: const Text('Отменить'),
+              ),
+          ],
+        ),
       ),
     );
   }
