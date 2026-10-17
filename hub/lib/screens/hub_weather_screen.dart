@@ -51,8 +51,8 @@ class HubWeatherScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.wb_sunny_outlined,
-                        size: 64, color: cs.warning),
+                    // БЫЛО: Icon(Icons.wb_sunny_outlined, size: 64, color: cs.warning),
+                    Icon(Icons.wb_sunny_outlined, size: 64, color: cs.secondary),
                     const SizedBox(height: 16),
                     Text(
                       'Погода',
