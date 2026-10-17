@@ -9,6 +9,7 @@ import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
 import 'services/weather_service.dart';
 import 'services/apps_service.dart';
+import 'services/launcher_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/app_background.dart';
@@ -52,6 +53,8 @@ void main() async {
   await weatherService.init();
   final appsService = AppsService();
   await appsService.init();
+  final launcherService = LauncherService();
+  await launcherService.init();
 
   // Загружаем список приложений асинхронно
   _loadApps(appsService, logger);
@@ -62,6 +65,7 @@ void main() async {
     themeService: themeService,
     weatherService: weatherService,
     appsService: appsService,
+    launcherService: launcherService,
   ));
 }
 
@@ -86,6 +90,7 @@ class HubApp extends StatelessWidget {
   final ThemeService themeService;
   final WeatherService weatherService;
   final AppsService appsService;
+  final LauncherService launcherService;
 
   const HubApp({
     super.key,
@@ -94,6 +99,7 @@ class HubApp extends StatelessWidget {
     required this.themeService,
     required this.weatherService,
     required this.appsService,
+    required this.launcherService,
   });
 
   @override
@@ -114,6 +120,7 @@ class HubApp extends StatelessWidget {
             themeService: themeService,
             weatherService: weatherService,
             appsService: appsService,
+            launcherService: launcherService,
           ),
         );
       },
@@ -127,6 +134,7 @@ class SplashScreen extends StatefulWidget {
   final ThemeService themeService;
   final WeatherService weatherService;
   final AppsService appsService;
+  final LauncherService launcherService;
 
   const SplashScreen({
     super.key,
@@ -135,6 +143,7 @@ class SplashScreen extends StatefulWidget {
     required this.themeService,
     required this.weatherService,
     required this.appsService,
+    required this.launcherService,
   });
 
   @override
@@ -164,6 +173,7 @@ class _SplashScreenState extends State<SplashScreen> {
       themeService: widget.themeService,
       weatherService: widget.weatherService,
       appsService: widget.appsService,
+      launcherService: widget.launcherService,
     );
 
     if (connected) {
@@ -179,6 +189,7 @@ class _SplashScreenState extends State<SplashScreen> {
             themeService: widget.themeService,
             weatherService: widget.weatherService,
             appsService: widget.appsService,
+            launcherService: widget.launcherService,
           ),
         ),
       );
