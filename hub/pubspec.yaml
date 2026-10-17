@@ -24,11 +24,11 @@ dependencies:
   # Приложения
   flutter_device_apps: ^1.0.4
 
-  # Лаунчер
-  device_policy_controller: ^2.0.0
+  # Лаунчер (реальная версия!)
+  device_policy_controller: ^0.0.3+1
   permission_handler: ^11.3.0
 
-  # Криптография (для Tuya API)
+  # Криптография (для Tuya)
   crypto: ^3.0.3
 
 dev_dependencies:
