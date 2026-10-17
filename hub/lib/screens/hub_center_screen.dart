@@ -1,16 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
+import '../services/weather_service.dart';
 import '../widgets/glass_container.dart';
 import '../models/task.dart';
 import '../models/purchase.dart';
 import 'hub_tasks_screen.dart';
 import 'hub_purchases_screen.dart';
 
-/// Главный (центральный) экран хаба.
 class HubCenterScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
+  final WeatherService weatherService;
   final VoidCallback onOpenApps;
   final VoidCallback onOpenShifts;
   final VoidCallback onOpenBudget;
@@ -20,6 +22,7 @@ class HubCenterScreen extends StatefulWidget {
     super.key,
     required this.storage,
     required this.sync,
+    required this.weatherService,
     required this.onOpenApps,
     required this.onOpenShifts,
     required this.onOpenBudget,
@@ -31,20 +34,36 @@ class HubCenterScreen extends StatefulWidget {
 }
 
 class _HubCenterScreenState extends State<HubCenterScreen> {
+  Timer? _clockTimer;
+  DateTime _now = DateTime.now();
+  WeatherCache? _weather;
+
   @override
   void initState() {
     super.initState();
     widget.sync.addListener(_reload);
+    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+    _weather = widget.weatherService.lastKnown;
+    _loadWeather();
   }
 
   @override
   void dispose() {
     widget.sync.removeListener(_reload);
+    _clockTimer?.cancel();
     super.dispose();
   }
 
   void _reload() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadWeather() async {
+    final w = await widget.weatherService.fetch();
+    if (!mounted) return;
+    setState(() => _weather = w);
   }
 
   List<Task> get _activeTasks {
@@ -437,51 +456,86 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
 
   Widget _buildClockWeatherBlock() {
     final cs = Theme.of(context).colorScheme;
-    final now = DateTime.now();
+    final now = _now;
     final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     final date = '${now.day}.${now.month}.${now.year}';
 
-    return GlassContainer(
-      radius: 28,
-      showAllBorder: true,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: 56,
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
-              letterSpacing: -1.5,
-              height: 1.0,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            date,
-            style: TextStyle(
-              fontSize: 14,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Icon(Icons.cloud_outlined, color: cs.secondary, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Погода — этап 4',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: cs.onSurfaceVariant,
-                ),
+    final w = _weather;
+    final hasWeather = w?.now != null;
+
+    return GestureDetector(
+      onTap: widget.onOpenWeather,
+      child: GlassContainer(
+        radius: 28,
+        showAllBorder: true,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              time,
+              style: TextStyle(
+                fontSize: 56,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+                letterSpacing: -1.5,
+                height: 1.0,
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              date,
+              style: TextStyle(
+                fontSize: 14,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (hasWeather)
+              Row(
+                children: [
+                  Text(w!.now!.emoji, style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${w.now!.temperature.round()}°',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      w.now!.description,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Icon(Icons.cloud_outlined, color: cs.secondary, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.weatherService.hasCity
+                        ? 'Загрузка...'
+                        : 'Выбери город',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
