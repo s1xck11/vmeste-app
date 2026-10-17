@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_device_apps/flutter_device_apps.dart';
+import 'package:flutter_device_apps/flutter_device_apps.dart' as apps_plugin;
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -102,7 +102,7 @@ class _HubMainScreenState extends State<HubMainScreen> {
 
   Future<void> _launchApp(String packageName) async {
     try {
-      await FlutterDeviceApps.launchApp(packageName);
+      await apps_plugin.FlutterDeviceApps.openApp(packageName);
     } catch (_) {}
   }
 
