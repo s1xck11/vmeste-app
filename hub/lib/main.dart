@@ -9,7 +9,6 @@ import 'services/debug_log_service.dart';
 import 'services/theme_service.dart';
 import 'services/weather_service.dart';
 import 'services/apps_service.dart';
-import 'services/launcher_service.dart';
 import 'services/tuya_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
@@ -54,8 +53,6 @@ void main() async {
   await weatherService.init();
   final appsService = AppsService();
   await appsService.init();
-  final launcherService = LauncherService();
-  await launcherService.init();
   final tuyaService = TuyaService();
   await tuyaService.init();
 
@@ -67,7 +64,6 @@ void main() async {
     themeService: themeService,
     weatherService: weatherService,
     appsService: appsService,
-    launcherService: launcherService,
     tuyaService: tuyaService,
   ));
 }
@@ -93,7 +89,6 @@ class HubApp extends StatelessWidget {
   final ThemeService themeService;
   final WeatherService weatherService;
   final AppsService appsService;
-  final LauncherService launcherService;
   final TuyaService tuyaService;
 
   const HubApp({
@@ -103,7 +98,6 @@ class HubApp extends StatelessWidget {
     required this.themeService,
     required this.weatherService,
     required this.appsService,
-    required this.launcherService,
     required this.tuyaService,
   });
 
@@ -125,7 +119,6 @@ class HubApp extends StatelessWidget {
             themeService: themeService,
             weatherService: weatherService,
             appsService: appsService,
-            launcherService: launcherService,
             tuyaService: tuyaService,
           ),
         );
@@ -140,7 +133,6 @@ class SplashScreen extends StatefulWidget {
   final ThemeService themeService;
   final WeatherService weatherService;
   final AppsService appsService;
-  final LauncherService launcherService;
   final TuyaService tuyaService;
 
   const SplashScreen({
@@ -150,7 +142,6 @@ class SplashScreen extends StatefulWidget {
     required this.themeService,
     required this.weatherService,
     required this.appsService,
-    required this.launcherService,
     required this.tuyaService,
   });
 
@@ -181,7 +172,6 @@ class _SplashScreenState extends State<SplashScreen> {
       themeService: widget.themeService,
       weatherService: widget.weatherService,
       appsService: widget.appsService,
-      launcherService: widget.launcherService,
       tuyaService: widget.tuyaService,
     );
 
@@ -198,7 +188,6 @@ class _SplashScreenState extends State<SplashScreen> {
             themeService: widget.themeService,
             weatherService: widget.weatherService,
             appsService: widget.appsService,
-            launcherService: widget.launcherService,
             tuyaService: widget.tuyaService,
           ),
         ),
