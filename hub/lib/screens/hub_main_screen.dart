@@ -159,23 +159,38 @@ class _HubMainScreenState extends State<HubMainScreen> {
         backgroundColor: Colors.transparent,
         body: Stack(
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(
-                    scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey(_position),
-                child: _buildScreen(_position),
-              ),
+            // IndexedStack вместо AnimatedSwitcher — мгновенно и без лагов
+            IndexedStack(
+              index: _position == -1 ? 1 : (_position == 0 ? 0 : (_position == 1 ? 2 : (_position == 2 ? 3 : 4))),
+              children: [
+                HubCenterScreen(
+                  storage: widget.storage,
+                  sync: widget.sync,
+                  weatherService: widget.weatherService,
+                  tuyaService: widget.tuyaService,
+                  onOpenApps: () => _goTo(-1),
+                  onOpenShifts: () => _goTo(2),
+                  onOpenBudget: () => _goTo(1),
+                  onOpenWeather: () => _goTo(3),
+                ),
+                HubAppsScreen(
+                  storage: widget.storage,
+                  appsService: widget.appsService,
+                  onLaunchApp: _launchApp,
+                ),
+                HubBudgetScreen(
+                  storage: widget.storage,
+                  sync: widget.sync,
+                ),
+                HubShiftsScreen(
+                  storage: widget.storage,
+                  sync: widget.sync,
+                ),
+                HubWeatherScreen(
+                  storage: widget.storage,
+                  weatherService: widget.weatherService,
+                ),
+              ],
             ),
             _buildEdgeIndicators(cs),
           ],
