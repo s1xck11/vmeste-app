@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AddFab extends StatelessWidget {
   final void Function(int kind) onPick;
-  // kind: 0=покупка, 1=задача, 2=смена, 3=расход, 4=доход
+  // kind: 0=покупка, 1=задача, 2=смена, 3=расход, 4=доход, 5=перевод
 
   const AddFab({super.key, required this.onPick});
 
@@ -18,16 +18,9 @@ class AddFab extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.primary,
           shape: BoxShape.circle,
-          border: Border.all(
-            color: cs.surface,
-            width: 3,
-          ),
+          border: Border.all(color: cs.surface, width: 3),
           boxShadow: [
-            BoxShadow(
-              color: cs.primary.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
+            BoxShadow(color: cs.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
           ],
         ),
         child: Icon(Icons.add, color: cs.onPrimary, size: 28),
@@ -52,13 +45,7 @@ class AddFab extends StatelessWidget {
                 color: cs.surface.withOpacity(0.95),
                 borderRadius: BorderRadius.circular(32),
                 border: Border.all(color: cs.outline.withOpacity(0.5)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  )
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -74,11 +61,12 @@ class AddFab extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _menuItem(ctx, Icons.payments_outlined, 'Расход', cs.error, 3, cs),
                       const SizedBox(width: 12),
-                      _menuItem(ctx, Icons.trending_up, 'Доход', cs.tertiary, 4, cs), // Исправлено
+                      _menuItem(ctx, Icons.trending_up, 'Доход', cs.tertiary, 4, cs),
+                      const SizedBox(width: 12),
+                      _menuItem(ctx, Icons.swap_horiz, 'Перевод', cs.secondary, 5, cs),
                     ],
                   ),
                 ],
@@ -99,23 +87,13 @@ class AddFab extends StatelessWidget {
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: cs.surfaceVariant,
-            borderRadius: BorderRadius.circular(20),
-          ),
+          decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(20)),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, color: color, size: 28),
               const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurface,
-                ),
-              ),
+              Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface)),
             ],
           ),
         ),
