@@ -21,14 +21,18 @@ dependencies:
   timezone: ^0.9.4
   uuid: ^4.4.0
 
-  # Плагин для списка приложений (замена)
+  # Приложения
   device_apps_ng: ^3.0.2
   permission_handler: ^11.3.0
   crypto: ^3.0.3
   google_fonts: ^6.2.1
-  
+
+  # Авто-обновление
   open_filex: ^4.4.0
   package_info_plus: ^8.0.0
+
+  # D-pad навигация для ТВ
+  dpad: ^3.1.0
 
 dev_dependencies:
   flutter_test:
