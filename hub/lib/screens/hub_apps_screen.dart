@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:dpad/dpad.dart';
 import 'package:device_apps_ng/device_apps_ng.dart';
 import '../services/apps_service.dart';
 import '../services/storage_service.dart';
@@ -194,58 +195,63 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
   }
 
   Widget _appTile(AppInfo app, ColorScheme cs) {
-    // Размер иконки для запроса (64dp)
     final iconSize = (64 * MediaQuery.devicePixelRatioOf(context)).round();
 
-    return Pressable(
-      onTap: () => widget.onLaunchApp(app.packageName),
-      onLongPress: () => _showAppMenu(app, cs),
-      animate: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: cs.outline),
+    return DpadFocusable(
+      onSelect: () => widget.onLaunchApp(app.packageName),
+      effects: [
+        const DpadScaleEffect(scale: 1.1),
+        DpadBorderEffect(color: cs.primary, width: 3),
+      ],
+      child: Pressable(
+        onTap: () => widget.onLaunchApp(app.packageName),
+        onLongPress: () => _showAppMenu(app, cs),
+        animate: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: cs.outline),
+              ),
+              padding: const EdgeInsets.all(6),
+              child: FutureBuilder<Uint8List?>(
+                future: DeviceApps.getAppIcon(app.packageName, iconSize: iconSize),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    );
+                  }
+                  if (snapshot.hasData && snapshot.data != null) {
+                    return Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.contain,
+                    );
+                  }
+                  return Icon(Icons.apps, color: cs.onSurfaceVariant, size: 32);
+                },
+              ),
             ),
-            padding: const EdgeInsets.all(6),
-            // ИСПРАВЛЕНО: используем getAppIcon вместо getApp
-            child: FutureBuilder<Uint8List?>(
-              future: DeviceApps.getAppIcon(app.packageName, iconSize: iconSize),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  );
-                }
-                if (snapshot.hasData && snapshot.data != null) {
-                  return Image.memory(
-                    snapshot.data!,
-                    fit: BoxFit.contain,
-                  );
-                }
-                return Icon(Icons.apps, color: cs.onSurfaceVariant, size: 32);
-              },
+            const SizedBox(height: 8),
+            Text(
+              app.appName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            app.appName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
