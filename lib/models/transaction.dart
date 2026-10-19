@@ -1,17 +1,19 @@
-// lib/models/transaction.dart
-
 class Transaction {
   final String id;
-  final String type; // 'expense' или 'income'
+  final String type; // 'expense' | 'income' | 'transfer'
   final double amount;
   final String categoryId;
   final String comment;
   final String nature; // 'obligatory', 'conscious', 'impulsive'
   final DateTime date;
   final DateTime createdAt;
-  final int updatedAt; // миллисекунды
+  final int updatedAt;
   final String? updatedBy;
-  final int? deletedAt; // миллисекунды, если удалено
+  final int? deletedAt;
+  
+  // НОВОЕ: банки
+  final String? bankId;    // Откуда (для transfer) или для какого банка (income/expense)
+  final String? toBankId;  // Куда (только для transfer)
 
   Transaction({
     required this.id,
@@ -25,6 +27,8 @@ class Transaction {
     int? updatedAt,
     this.updatedBy,
     this.deletedAt,
+    this.bankId,
+    this.toBankId,
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -40,6 +44,8 @@ class Transaction {
         'updatedAt': updatedAt,
         'updatedBy': updatedBy,
         'deletedAt': deletedAt,
+        'bankId': bankId,
+        'toBankId': toBankId,
       };
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -50,12 +56,8 @@ class Transaction {
       categoryId: json['categoryId'] ?? '',
       comment: json['comment'] ?? '',
       nature: json['nature'] ?? 'conscious',
-      date: json['date'] != null
-          ? DateTime.parse(json['date'])
-          : DateTime.now(),
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
+      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       updatedAt: json['updatedAt'] is int
           ? json['updatedAt']
           : (json['updatedAt'] != null
@@ -67,6 +69,8 @@ class Transaction {
           : (json['deletedAt'] != null
               ? DateTime.parse(json['deletedAt']).millisecondsSinceEpoch
               : null),
+      bankId: json['bankId'] as String?,
+      toBankId: json['toBankId'] as String?,
     );
   }
 
@@ -80,6 +84,10 @@ class Transaction {
     int? updatedAt,
     String? updatedBy,
     int? deletedAt,
+    String? bankId,
+    String? toBankId,
+    bool clearBankId = false,
+    bool clearToBankId = false,
   }) {
     return Transaction(
       id: id,
@@ -93,6 +101,8 @@ class Transaction {
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
       deletedAt: deletedAt ?? this.deletedAt,
+      bankId: clearBankId ? null : (bankId ?? this.bankId),
+      toBankId: clearToBankId ? null : (toBankId ?? this.toBankId),
     );
   }
 }
