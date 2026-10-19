@@ -66,8 +66,6 @@ class BudgetScreenState extends State<BudgetScreen> {
         t.date.isBefore(end.add(const Duration(seconds: 1)))).toList();
   }
 
-  // Убрали _monthSalaryFromShifts() — больше не синхронизируемся со сменами
-  
   double get _incomes => _monthTransactions
       .where((t) => t.type == 'income')
       .fold(0.0, (s, t) => s + t.amount);
@@ -110,6 +108,11 @@ class BudgetScreenState extends State<BudgetScreen> {
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
     });
+  }
+
+  // Публичный метод для FAB
+  void openAddIncomeModal() {
+    _openAddIncomeModal();
   }
 
   void _openAddExpenseModal() {
@@ -238,7 +241,7 @@ class BudgetScreenState extends State<BudgetScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddExpenseModal, // Здесь кнопка для расхода, общая FAB в MainScreen
+        onPressed: _openAddExpenseModal,
         icon: const Icon(Icons.add),
         label: const Text('Расход'),
       ),
@@ -458,7 +461,6 @@ class BudgetScreenState extends State<BudgetScreen> {
   }
 
   Widget _buildCategories(ColorScheme cs) {
-    // Показываем только новые категории (расходы + новые доходы)
     final expenses = _categories.where((c) => c.type == 'expense').toList();
     final incomes = _categories.where((c) => c.type == 'income' && c.id.startsWith('income_')).toList();
     
