@@ -1,17 +1,18 @@
-// lib/widgets/add_transaction_modal.dart
-
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
+import '../models/bank.dart';
 
 class AddTransactionModal extends StatefulWidget {
   final List<BudgetCategory> categories;
+  final List<Bank> banks;
   final Transaction? initialTransaction;
-  final Function(Transaction) onSave;
+  final void Function(Transaction) onSave;
 
   const AddTransactionModal({
     super.key,
     required this.categories,
+    required this.banks,
     this.initialTransaction,
     required this.onSave,
   });
@@ -21,53 +22,59 @@ class AddTransactionModal extends StatefulWidget {
 }
 
 class _AddTransactionModalState extends State<AddTransactionModal> {
-  final _amountCtrl = TextEditingController();
-  final _commentCtrl = TextEditingController();
-  String _type = 'expense';
-  String _nature = 'conscious';
-  String _categoryId = '';
-  DateTime _date = DateTime.now();
+  final _amountController = TextEditingController();
+  final _commentController = TextEditingController();
+  
+  String _selectedCategory = '';
+  String? _selectedBankId;
+  String _selectedNature = 'conscious';
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
+    if (widget.categories.isNotEmpty) {
+      _selectedCategory = widget.categories.first.id;
+    }
     if (widget.initialTransaction != null) {
       final t = widget.initialTransaction!;
-      _amountCtrl.text = t.amount.toStringAsFixed(0);
-      _commentCtrl.text = t.comment;
-      _type = t.type;
-      _nature = t.nature;
-      _categoryId = t.categoryId;
-      _date = t.date;
-    } else {
-      final first = widget.categories.where((c) => c.type == 'expense').toList();
-      if (first.isNotEmpty) _categoryId = first.first.id;
+      _amountController.text = t.amount.toStringAsFixed(0);
+      _commentController.text = t.comment;
+      _selectedCategory = t.categoryId;
+      _selectedBankId = t.bankId;
+      _selectedNature = t.nature;
+      _selectedDate = t.date;
+    } else if (widget.banks.isNotEmpty) {
+      _selectedBankId = widget.banks.first.id;
     }
   }
 
   @override
   void dispose() {
-    _amountCtrl.dispose();
-    _commentCtrl.dispose();
+    _amountController.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
   void _save() {
-    final amount = double.tryParse(_amountCtrl.text.replaceAll(',', '.')) ?? 0;
+    final amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
     if (amount <= 0) return;
-    if (_categoryId.isEmpty) return;
+
     final now = DateTime.now().millisecondsSinceEpoch;
+    
     final t = Transaction(
       id: widget.initialTransaction?.id ?? now.toString(),
-      type: _type,
+      type: 'expense',
       amount: amount,
-      categoryId: _categoryId,
-      comment: _commentCtrl.text.trim(),
-      nature: _nature,
-      date: _date,
+      categoryId: _selectedCategory,
+      comment: _commentController.text.trim(),
+      nature: _selectedNature,
+      date: _selectedDate,
       createdAt: widget.initialTransaction?.createdAt ?? DateTime.now(),
       updatedAt: now,
+      bankId: _selectedBankId,
     );
+
     widget.onSave(t);
     Navigator.pop(context);
   }
@@ -75,193 +82,138 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-    final filtered = widget.categories.where((c) => c.type == _type).toList();
+    final isEdit = widget.initialTransaction != null;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(color: cs.outline, borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                widget.initialTransaction == null ? 'Новая транзакция' : 'Редактировать',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: cs.onSurface),
-              ),
-              const SizedBox(height: 16),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: cs.outline, borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 20),
+            Text(isEdit ? 'Редактировать расход' : 'Новый расход', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -0.5)),
+            const SizedBox(height: 24),
 
-              // Тип
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: cs.surfaceVariant,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(child: _typeChip('expense', 'Расход', cs)),
-                    Expanded(child: _typeChip('income', 'Доход', cs)),
-                  ],
-                ),
+            TextField(
+              controller: _amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              autofocus: !isEdit,
+              style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -1.5),
+              decoration: InputDecoration(
+                hintText: '0',
+                hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.5), fontSize: 40),
+                suffixText: '₽',
+                suffixStyle: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
               ),
-              const SizedBox(height: 16),
+            ),
+            Divider(color: cs.outline, height: 1),
+            const SizedBox(height: 24),
 
-              // Сумма
-              TextField(
-                controller: _amountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                autofocus: widget.initialTransaction == null,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-                decoration: const InputDecoration(
-                  labelText: 'Сумма',
-                  suffixText: '₽',
-                ),
-              ),
-              const SizedBox(height: 12),
+            // Выбор банка
+            Text('Списать с', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.banks.map((b) => _bankChip(b, cs)).toList(),
+            ),
+            const SizedBox(height: 24),
 
-              // Комментарий
-              TextField(
-                controller: _commentCtrl,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Комментарий',
-                  hintText: 'Пятёрочка',
-                ),
-              ),
-              const SizedBox(height: 16),
+            Text('Категория', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.categories.map((c) => _catChip(c, cs)).toList(),
+            ),
+            const SizedBox(height: 24),
 
-              // Категории
-              Text('КАТЕГОРИЯ',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                      color: cs.onSurfaceVariant, letterSpacing: 0.5)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8, runSpacing: 8,
-                children: filtered.map((c) {
-                  final sel = c.id == _categoryId;
-                  return GestureDetector(
-                    onTap: () => setState(() => _categoryId = c.id),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: sel ? cs.primaryContainer : cs.surfaceVariant,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: sel ? cs.primary : cs.outline),
-                      ),
-                      child: Text('${c.emoji} ${c.name}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-                            color: sel ? cs.onPrimaryContainer : cs.onSurface,
-                          )),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-
-              // Метка
-              if (_type == 'expense') ...[
-                Text('ТИП ТРАТЫ',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                        color: cs.onSurfaceVariant, letterSpacing: 0.5)),
-                const SizedBox(height: 8),
-                Wrap(spacing: 8, children: [
-                  _natureChip('obligatory', '🔴 Обязательное', cs),
-                  _natureChip('conscious', '🟡 Осознанное', cs),
-                  _natureChip('impulsive', '🟢 Импульсивное', cs),
-                ]),
-                const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(flex: 2, child: TextField(
+                  controller: _commentController,
+                  style: TextStyle(fontSize: 16, color: cs.onSurface),
+                  decoration: InputDecoration(
+                    hintText: 'Комментарий',
+                    prefixIcon: Icon(Icons.edit_note, color: cs.onSurfaceVariant),
+                    filled: true, fillColor: cs.surfaceVariant,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  ),
+                )),
+                const SizedBox(width: 12),
+                Expanded(flex: 1, child: GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+                    if (picked != null) setState(() => _selectedDate = picked);
+                  },
+                  child: Container(
+                    height: 56,
+                    decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16)),
+                    child: Center(child: Text('${_selectedDate.day}.${_selectedDate.month}.${_selectedDate.year}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface))),
+                  ),
+                )),
               ],
+            ),
+            const SizedBox(height: 32),
 
-              // Кнопки
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Отмена'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: _save,
-                      icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Сохранить'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ElevatedButton(
+              onPressed: _save,
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 20), backgroundColor: cs.error, foregroundColor: cs.onError),
+              child: Text(isEdit ? 'Сохранить' : 'Добавить расход', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _typeChip(String value, String label, ColorScheme cs) {
-    final sel = _type == value;
+  Widget _bankChip(Bank b, ColorScheme cs) {
+    final selected = _selectedBankId == b.id;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _type = value;
-          final filtered = widget.categories.where((c) => c.type == value).toList();
-          _categoryId = filtered.isNotEmpty ? filtered.first.id : '';
-        });
-      },
+      onTap: () => setState(() => _selectedBankId = b.id),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: sel ? cs.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: selected ? cs.primary.withOpacity(0.15) : cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: selected ? cs.primary : Colors.transparent, width: 1.5),
         ),
-        child: Center(
-          child: Text(label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                color: sel ? cs.onSurface : cs.onSurfaceVariant,
-              )),
-        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(b.emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          Text(b.name, style: TextStyle(fontSize: 15, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? cs.primary : cs.onSurface)),
+        ]),
       ),
     );
   }
 
-  Widget _natureChip(String value, String label, ColorScheme cs) {
-    final sel = _nature == value;
+  Widget _catChip(BudgetCategory c, ColorScheme cs) {
+    final selected = _selectedCategory == c.id;
     return GestureDetector(
-      onTap: () => setState(() => _nature = value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      onTap: () => setState(() => _selectedCategory = c.id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: sel ? cs.primaryContainer : cs.surfaceVariant,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: sel ? cs.primary : cs.outline),
+          color: selected ? cs.primary.withOpacity(0.15) : cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: selected ? cs.primary : Colors.transparent, width: 1.5),
         ),
-        child: Text(label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-              color: sel ? cs.onPrimaryContainer : cs.onSurface,
-            )),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(c.emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          Text(c.name, style: TextStyle(fontSize: 15, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? cs.primary : cs.onSurface)),
+        ]),
       ),
     );
   }
