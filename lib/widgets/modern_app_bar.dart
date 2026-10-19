@@ -1,20 +1,11 @@
-// lib/widgets/modern_app_bar.dart
-
 import 'package:flutter/material.dart';
 import 'glass_container.dart';
 
-/// Верхняя шапка в стиле нового Telegram: floating «островок»,
-/// скруглённый, с матовым стеклом, не касается краёв экрана.
-/// 
-/// Внутри: заголовок, actions (иконки), аватар.
 class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final VoidCallback onAvatarTap;
   final String avatarEmoji;
   final List<Widget>? actions;
-
-  /// Общая высота (включая отступы сверху).
-  /// Реальная панель = 56, отступ сверху = MediaQuery.padding.top + 8.
   final double panelHeight;
 
   const ModernAppBar({
@@ -27,9 +18,7 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
-  Size get preferredSize => Size.fromHeight(
-        panelHeight + 8, // запас — реальный отступ задаётся через MediaQuery
-      );
+  Size get preferredSize => Size.fromHeight(panelHeight + 8);
 
   @override
   Widget build(BuildContext context) {
