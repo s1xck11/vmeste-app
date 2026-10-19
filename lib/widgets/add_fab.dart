@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 class AddFab extends StatelessWidget {
   final void Function(int kind) onPick;
-  
   // kind: 0=покупка, 1=задача, 2=смена, 3=расход, 4=доход
 
   const AddFab({super.key, required this.onPick});
@@ -20,7 +19,7 @@ class AddFab extends StatelessWidget {
           color: cs.primary,
           shape: BoxShape.circle,
           border: Border.all(
-            color: cs.surface, // Цвет окантовки под навбар
+            color: cs.surface,
             width: 3,
           ),
           boxShadow: [
@@ -42,7 +41,7 @@ class AddFab extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.18), // Затемнение на 18%
+      barrierColor: Colors.black.withOpacity(0.18),
       builder: (ctx) {
         return SafeArea(
           child: Padding(
@@ -64,7 +63,6 @@ class AddFab extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Ряд 1: Покупка, Задача, Смена
                   Row(
                     children: [
                       _menuItem(ctx, Icons.shopping_bag_outlined, 'Покупка', cs.primary, 0, cs),
@@ -75,13 +73,12 @@ class AddFab extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Ряд 2: Расход, Доход (по центру)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _menuItem(ctx, Icons.payments_outlined, 'Расход', cs.error, 3, cs),
                       const SizedBox(width: 12),
-                      _menuItem(ctx, Icons.trending_up, 'Доход', cs.success, 4, cs),
+                      _menuItem(ctx, Icons.trending_up, 'Доход', cs.tertiary, 4, cs), // Исправлено
                     ],
                   ),
                 ],
