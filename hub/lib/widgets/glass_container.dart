@@ -17,8 +17,8 @@ class GlassContainer extends StatelessWidget {
     required this.child,
     this.padding,
     this.radius = 32,
-    this.blur = 30,
-    this.opacity = 0.82, // Чуть прозрачнее, чтобы стекло дышало
+    this.blur = 20, // Уменьшили с 30 — легче для GPU
+    this.opacity = 0.85,
     this.tint,
     this.showTopBorder = false,
     this.showAllBorder = false,
@@ -37,10 +37,9 @@ class GlassContainer extends StatelessWidget {
         boxShadow: shadow
             ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
-                  blurRadius: 32,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 12), // Тень глубже
+                  color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+                  blurRadius: 16, // Уменьшили с 32 — меньше нагрузки
+                  offset: const Offset(0, 6),
                 ),
               ]
             : null,
@@ -64,7 +63,6 @@ class GlassContainer extends StatelessWidget {
   }
 
   BoxBorder? _buildBorder(bool isDark) {
-    // Светлый блик сверху и едва заметная тень снизу — как у Apple
     final topColor = (isDark ? Colors.white : Colors.white).withOpacity(isDark ? 0.15 : 0.8);
     final bottomColor = (isDark ? Colors.black : Colors.black).withOpacity(isDark ? 0.3 : 0.05);
 
