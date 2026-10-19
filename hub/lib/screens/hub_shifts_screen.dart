@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:dpad/dpad.dart';
 import '../models/shift.dart';
 import '../models/shift_type.dart';
 import '../models/partner.dart';
@@ -50,7 +50,6 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
   }
 
   void _changeMonth(int delta) {
-    HapticFeedback.lightImpact();
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
     });
@@ -189,9 +188,13 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
       children: [
         Row(
           children: [
-            IconButton(
-              onPressed: () => _changeMonth(-1),
-              icon: Icon(Icons.chevron_left, color: cs.onSurface, size: 32),
+            DpadFocusable(
+              onSelect: () => _changeMonth(-1),
+              effects: [DpadBorderEffect(color: cs.primary, width: 2)],
+              child: IconButton(
+                onPressed: () => _changeMonth(-1),
+                icon: Icon(Icons.chevron_left, color: cs.onSurface, size: 32),
+              ),
             ),
             Expanded(
               child: Text(
@@ -205,9 +208,13 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
                 ),
               ),
             ),
-            IconButton(
-              onPressed: () => _changeMonth(1),
-              icon: Icon(Icons.chevron_right, color: cs.onSurface, size: 32),
+            DpadFocusable(
+              onSelect: () => _changeMonth(1),
+              effects: [DpadBorderEffect(color: cs.primary, width: 2)],
+              child: IconButton(
+                onPressed: () => _changeMonth(1),
+                icon: Icon(Icons.chevron_right, color: cs.onSurface, size: 32),
+              ),
             ),
           ],
         ),
@@ -254,60 +261,64 @@ class _HubShiftsScreenState extends State<HubShiftsScreen> {
                 dayTotal += _calcSalary(s);
               }
 
-              return Container(
-                decoration: BoxDecoration(
-                  color: isToday ? cs.primary : cs.surface.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isToday ? cs.primary : cs.outline.withOpacity(0.3),
-                    width: 1.5,
-                  ),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$dayIndex',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
-                        color: isToday ? cs.onPrimary : cs.onSurface,
-                      ),
+              return DpadFocusable(
+                onSelect: () {}, // Можно добавить открытие смены
+                effects: [DpadBorderEffect(color: cs.primary, width: 2)],
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isToday ? cs.primary : cs.surface.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isToday ? cs.primary : cs.outline.withOpacity(0.3),
+                      width: 1.5,
                     ),
-                    const Spacer(),
-                    if (shifts.isNotEmpty) ...[
-                      Row(
-                        children: shifts.take(3).map((s) {
-                          final t = _types.firstWhere(
-                            (x) => x.id == s.type,
-                            orElse: () => ShiftType(id: s.type, label: '', hours: 0, color: '#9E9E9E'),
-                          );
-                          return Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(right: 4),
-                            decoration: BoxDecoration(
-                              color: _parseColor(t.color),
-                              shape: BoxShape.circle,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 4),
-                      if (dayTotal > 0)
-                        Text(
-                          dayTotal >= 1000
-                              ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
-                              : dayTotal.toStringAsFixed(0),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: isToday ? cs.onPrimary.withOpacity(0.9) : cs.onSurfaceVariant,
-                          ),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$dayIndex',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                          color: isToday ? cs.onPrimary : cs.onSurface,
                         ),
+                      ),
+                      const Spacer(),
+                      if (shifts.isNotEmpty) ...[
+                        Row(
+                          children: shifts.take(3).map((s) {
+                            final t = _types.firstWhere(
+                              (x) => x.id == s.type,
+                              orElse: () => ShiftType(id: s.type, label: '', hours: 0, color: '#9E9E9E'),
+                            );
+                            return Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(right: 4),
+                              decoration: BoxDecoration(
+                                color: _parseColor(t.color),
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 4),
+                        if (dayTotal > 0)
+                          Text(
+                            dayTotal >= 1000
+                                ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
+                                : dayTotal.toStringAsFixed(0),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: isToday ? cs.onPrimary.withOpacity(0.9) : cs.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               );
             },
