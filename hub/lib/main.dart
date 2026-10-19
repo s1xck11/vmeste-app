@@ -125,37 +125,67 @@ class HubApp extends StatelessWidget {
           title: 'Вместе Хаб',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.build(config),
-          // ПРАВИЛЬНО: Dpad.wrap() возвращает TransitionBuilder для builder
+          // Dpad.wrap возвращает TransitionBuilder, который оборачивает child
           builder: Dpad.wrap(
             onBack: () {
-              // Возврат в центр хаба
+              // При нажатии "Назад" возвращаемся в центр, если есть куда
               final navigator = Navigator.of(context);
               if (navigator.canPop()) {
                 navigator.pop();
                 return true;
               }
-              return false;
+              return false; // Выход из приложения
             },
           ),
-          home: Builder(
-            builder: (context) {
-              return AppBackground(
-                child: SplashScreen(
-                  storage: storage,
-                  sync: sync,
-                  themeService: themeService,
-                  weatherService: weatherService,
-                  appsService: appsService,
-                  tuyaService: tuyaService,
-                  launcherService: launcherService,
-                ),
-              );
-            },
-          ),
+          home: const SplashScreenWrapper(), 
         );
       },
     );
   }
+}
+
+// Обертка, чтобы не плодить зависимости в HubApp
+class SplashScreenWrapper extends StatelessWidget {
+  const SplashScreenWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SplashScreenProxy();
+  }
+}
+
+class SplashScreenProxy extends StatefulWidget {
+  const SplashScreenProxy({super.key});
+
+  @override
+  State<SplashScreenProxy> createState() => _SplashScreenProxyState();
+}
+
+class _SplashScreenProxyState extends State<SplashScreenProxy> {
+  @override
+  Widget build(BuildContext context) {
+    return AppBackground(
+      child: SplashScreen(
+        storage: HubAppContext.storage,
+        sync: HubAppContext.sync,
+        themeService: HubAppContext.themeService,
+        weatherService: HubAppContext.weatherService,
+        appsService: HubAppContext.appsService,
+        tuyaService: HubAppContext.tuyaService,
+        launcherService: HubAppContext.launcherService,
+      ),
+    );
+  }
+}
+
+class HubAppContext {
+  static late StorageService storage;
+  static late SyncService sync;
+  static late ThemeService themeService;
+  static late WeatherService weatherService;
+  static late AppsService appsService;
+  static late TuyaService tuyaService;
+  static late LauncherService launcherService;
 }
 
 class SplashScreen extends StatefulWidget {
@@ -234,7 +264,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.transparent, // Прозрачный, чтобы видеть AppBackground
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
