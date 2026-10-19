@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:device_apps_ng/device_apps_ng.dart';
 import '../services/apps_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/pressable.dart';
 
-/// Экран «Меню приложений» (слева от центра).
-/// 
-/// Сетка приложений по категориям. Избранные — сверху.
 class HubAppsScreen extends StatefulWidget {
   final StorageService storage;
   final AppsService appsService;
@@ -44,7 +43,6 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
     final cs = Theme.of(context).colorScheme;
     final service = widget.appsService;
 
-    // Если приложения ещё не загрузились — заглушка
     if (service.apps.isEmpty) {
       return _buildEmptyState(cs);
     }
@@ -53,42 +51,40 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
     final categories = service.categories;
 
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(Icons.apps, color: cs.primary, size: 28),
-              const SizedBox(width: 10),
+              Icon(Icons.apps, color: cs.primary, size: 32),
+              const SizedBox(width: 14),
               Text(
                 'Приложения',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
-                  letterSpacing: -0.5,
+                  letterSpacing: -1,
                 ),
               ),
               const Spacer(),
               IconButton(
-                icon: Icon(Icons.add_box_outlined, color: cs.primary, size: 26),
+                icon: Icon(Icons.add_box_outlined, color: cs.primary, size: 28),
                 tooltip: 'Новая категория',
                 onPressed: () => _showAddCategoryDialog(cs),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Expanded(
             child: ListView(
               children: [
-                // Избранные
                 if (favorites.isNotEmpty) ...[
                   _sectionTitle('Избранное', cs),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   _appsGrid(favorites, cs),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                 ],
-                // Категории
                 ...categories.map((cat) {
                   final apps = service.appsInCategory(cat.id);
                   if (apps.isEmpty) return const SizedBox.shrink();
@@ -96,16 +92,15 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _sectionTitle('${cat.emoji} ${cat.name}', cs),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       _appsGrid(apps, cs),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                     ],
                   );
                 }),
-                // Без категории
                 if (service.uncategorized.isNotEmpty) ...[
                   _sectionTitle('📦 Без категории', cs),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   _appsGrid(service.uncategorized, cs),
                 ],
               ],
@@ -118,49 +113,42 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
 
   Widget _buildEmptyState(ColorScheme cs) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(Icons.apps, color: cs.primary, size: 28),
-              const SizedBox(width: 10),
+              Icon(Icons.apps, color: cs.primary, size: 32),
+              const SizedBox(width: 14),
               Text(
                 'Приложения',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
                   color: cs.onSurface,
-                  letterSpacing: -0.5,
+                  letterSpacing: -1,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Expanded(
             child: GlassContainer(
-              radius: 28,
-              showAllBorder: true,
+              radius: 32,
               padding: const EdgeInsets.all(32),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.apps, size: 64, color: cs.onSurfaceVariant),
-                    const SizedBox(height: 16),
+                    Icon(Icons.apps, size: 80, color: cs.onSurfaceVariant),
+                    const SizedBox(height: 24),
                     Text(
-                      'Список приложений пуст',
+                      'Список пуст',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
                         color: cs.onSurface,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Плагин flutter_device_apps будет подключён на следующем шаге',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -178,10 +166,10 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
       child: Text(
         text.toUpperCase(),
         style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
           color: cs.onSurfaceVariant,
-          letterSpacing: 1,
+          letterSpacing: 1.5,
         ),
       ),
     );
@@ -193,9 +181,9 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 6,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.9,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.85,
       ),
       itemCount: apps.length,
       itemBuilder: (ctx, i) {
@@ -205,35 +193,51 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
   }
 
   Widget _appTile(AppInfo app, ColorScheme cs) {
-    return GestureDetector(
+    return Pressable(
       onTap: () => widget.onLaunchApp(app.packageName),
       onLongPress: () => _showAppMenu(app, cs),
+      animate: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 68,
+            height: 68,
             decoration: BoxDecoration(
               color: cs.surface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(color: cs.outline),
             ),
-            padding: const EdgeInsets.all(8),
-            child: app.icon != null
-                ? Image.memory(app.icon!, fit: BoxFit.contain)
-                : Icon(Icons.apps, color: cs.onSurfaceVariant, size: 32),
+            padding: const EdgeInsets.all(6),
+            child: FutureBuilder<Uint8List?>(
+              future: DeviceApps.getAppIcon(app.packageName),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                }
+                if (snapshot.hasData && snapshot.data != null) {
+                  return Image.memory(
+                    snapshot.data!,
+                    fit: BoxFit.contain,
+                  );
+                }
+                return Icon(Icons.apps, color: cs.onSurfaceVariant, size: 32);
+              },
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             app.appName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
               color: cs.onSurface,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -248,13 +252,13 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => GlassContainer(
-        radius: 28,
+        radius: 32,
         showAllBorder: true,
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(app.appName, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface)),
+            Text(app.appName, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cs.onSurface)),
             const SizedBox(height: 16),
             ListTile(
               leading: Icon(
