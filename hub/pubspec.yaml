@@ -21,12 +21,12 @@ dependencies:
   timezone: ^0.9.4
   uuid: ^4.4.0
 
-  flutter_device_apps: ^0.8.1
+  # Плагин для списка приложений (замена)
+  device_apps_ng: ^3.0.2
   permission_handler: ^11.3.0
   crypto: ^3.0.3
   google_fonts: ^6.2.1
   
-  # Для авто-обновления
   open_filex: ^4.4.0
   package_info_plus: ^8.0.0
 
