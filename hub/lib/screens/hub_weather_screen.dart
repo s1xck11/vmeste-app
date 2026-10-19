@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:dpad/dpad.dart';
 import '../services/storage_service.dart';
 import '../services/weather_service.dart';
 import '../widgets/glass_container.dart';
@@ -42,7 +42,6 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
   }
 
   Future<void> _pickCity() async {
-    HapticFeedback.lightImpact();
     final ok = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.4),
@@ -91,14 +90,22 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
                   ),
                 ),
               const Spacer(),
-              IconButton(
-                icon: Icon(Icons.location_city, color: cs.primary, size: 28),
-                tooltip: 'Сменить город',
-                onPressed: _pickCity,
+              DpadFocusable(
+                onSelect: _pickCity,
+                effects: [DpadBorderEffect(color: cs.primary, width: 2)],
+                child: IconButton(
+                  icon: Icon(Icons.location_city, color: cs.primary, size: 28),
+                  tooltip: 'Сменить город',
+                  onPressed: _pickCity,
+                ),
               ),
-              IconButton(
-                icon: Icon(Icons.refresh, color: cs.primary, size: 28),
-                onPressed: _loading ? null : _refresh,
+              DpadFocusable(
+                onSelect: _refresh,
+                effects: [DpadBorderEffect(color: cs.primary, width: 2)],
+                child: IconButton(
+                  icon: Icon(Icons.refresh, color: cs.primary, size: 28),
+                  onPressed: _loading ? null : _refresh,
+                ),
               ),
             ],
           ),
@@ -141,10 +148,15 @@ class _HubWeatherScreenState extends State<HubWeatherScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _pickCity,
-              icon: const Icon(Icons.search),
-              label: const Text('Выбрать город'),
+            DpadFocusable(
+              autofocus: true,
+              onSelect: _pickCity,
+              effects: [DpadBorderEffect(color: cs.primary, width: 3)],
+              child: ElevatedButton.icon(
+                onPressed: _pickCity,
+                icon: const Icon(Icons.search),
+                label: const Text('Выбрать город'),
+              ),
             ),
           ],
         ),
