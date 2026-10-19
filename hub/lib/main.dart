@@ -10,6 +10,7 @@ import 'services/theme_service.dart';
 import 'services/weather_service.dart';
 import 'services/apps_service.dart';
 import 'services/tuya_service.dart';
+import 'services/update_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/app_background.dart';
@@ -35,6 +36,8 @@ void main() async {
       logger.error('Flutter', d.exceptionAsString(), d.exception, d.stack);
   HttpOverrides.global = _HubHttpOverrides();
   logger.info('Hub', 'HttpOverrides установлен');
+
+  await UpdateService.loadVersion();
 
   try {
     await Supabase.initialize(
@@ -73,13 +76,13 @@ Future<void> _loadApps(AppsService appsService, DebugLogService logger) async {
     final devicesApps = await apps_plugin.FlutterDeviceApps.listApps(
       includeSystem: false,
       onlyLaunchable: true,
-      includeIcons: false, // Иконки пока не берём, их нет в этой версии плагина
+      includeIcons: false,
     );
     final apps = devicesApps.map((a) {
       return AppInfo(
         packageName: a.packageName ?? '',
         appName: a.appName ?? (a.packageName ?? 'Приложение'),
-        icon: null, // Иконку показываем заглушку
+        icon: null,
       );
     }).where((a) => a.packageName.isNotEmpty).toList();
 
