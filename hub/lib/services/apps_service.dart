@@ -2,18 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'debug_log_service.dart';
 
-/// Модель приложения.
 class AppInfo {
   final String packageName;
   final String appName;
-  final Uint8List? icon;
   final String? categoryId;
   final bool isFavorite;
 
   AppInfo({
     required this.packageName,
     required this.appName,
-    this.icon,
     this.categoryId,
     this.isFavorite = false,
   });
@@ -26,14 +23,12 @@ class AppInfo {
     return AppInfo(
       packageName: packageName,
       appName: appName,
-      icon: icon,
       categoryId: clearCategory ? null : (categoryId ?? this.categoryId),
       isFavorite: isFavorite ?? this.isFavorite,
     );
   }
 }
 
-/// Модель категории приложений.
 class AppCategory {
   final String id;
   String name;
@@ -70,7 +65,6 @@ class AppCategory {
       ];
 }
 
-/// Сервис управления приложениями и категориями.
 class AppsService extends ChangeNotifier {
   static const String _boxName = 'vmeste_hub_data';
   static const String _keyCategories = 'apps_categories';
@@ -95,8 +89,6 @@ class AppsService extends ChangeNotifier {
     _loadCategories();
     _log.info('Apps', 'сервис инициализирован, категорий: ${_categories.length}');
   }
-
-  // ============ КАТЕГОРИИ ============
 
   void _loadCategories() {
     final raw = _box.get(_keyCategories);
@@ -160,8 +152,6 @@ class AppsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ============ ПРИЛОЖЕНИЯ ============
-
   Future<void> setApps(List<AppInfo> apps) async {
     final map = _getMapping();
     final favorites = _getFavorites();
@@ -217,8 +207,6 @@ class AppsService extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // ============ ВНУТРЕННЕЕ ============
 
   Map<String, String> _getMapping() {
     final raw = _box.get(_keyMapping);
