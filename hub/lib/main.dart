@@ -121,36 +121,46 @@ class HubApp extends StatelessWidget {
     return ValueListenableBuilder<AppThemeConfig>(
       valueListenable: themeService.notifier,
       builder: (context, config, _) {
-        return MaterialApp(
-          title: 'Вместе Хаб',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.build(config),
-          builder: Dpad.wrap(
-            onBack: () {
-              final navigator = Navigator.of(context);
-              if (navigator.canPop()) {
-                navigator.pop();
-                return true;
-              }
-              return false;
-            },
-          ),
-          home: Builder(
-            builder: (context) {
-              // AppBackground оборачивает SplashScreen и все последующие экраны
-              return AppBackground(
-                child: SplashScreen(
-                  storage: storage,
-                  sync: sync,
-                  themeService: themeService,
-                  weatherService: weatherService,
-                  appsService: appsService,
-                  tuyaService: tuyaService,
-                  launcherService: launcherService,
-                ),
-              );
-            },
-          ),
+        // Слушаем launcherService, чтобы перестраивать при переключении ТВ-режима
+        return ListenableBuilder(
+          listenable: launcherService,
+          builder: (context, _) {
+            final isTvMode = launcherService.tvModeEnabled;
+            
+            return MaterialApp(
+              title: 'Вместе Хаб',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.build(config),
+              // Dpad.wrap включаем только в ТВ-режиме
+              builder: isTvMode
+                  ? Dpad.wrap(
+                      onBack: () {
+                        final navigator = Navigator.of(context);
+                        if (navigator.canPop()) {
+                          navigator.pop();
+                          return true;
+                        }
+                        return false;
+                      },
+                    )
+                  : null,
+              home: Builder(
+                builder: (context) {
+                  return AppBackground(
+                    child: SplashScreen(
+                      storage: storage,
+                      sync: sync,
+                      themeService: themeService,
+                      weatherService: weatherService,
+                      appsService: appsService,
+                      tuyaService: tuyaService,
+                      launcherService: launcherService,
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
     );
