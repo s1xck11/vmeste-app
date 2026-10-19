@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_device_apps/flutter_device_apps.dart' as apps_plugin;
+import 'package:device_apps_ng/device_apps_ng.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -102,7 +102,7 @@ class _HubMainScreenState extends State<HubMainScreen> {
 
   Future<void> _launchApp(String packageName) async {
     try {
-      await apps_plugin.FlutterDeviceApps.openApp(packageName);
+      await DeviceApps.openApp(packageName);
     } catch (_) {}
   }
 
@@ -133,7 +133,7 @@ class _HubMainScreenState extends State<HubMainScreen> {
                   sync: widget.sync,
                   weatherService: widget.weatherService,
                   tuyaService: widget.tuyaService,
-                  themeService: widget.themeService, // Передали сюда
+                  themeService: widget.themeService,
                   onOpenApps: () => _goTo(-1),
                   onOpenShifts: () => _goTo(2),
                   onOpenBudget: () => _goTo(1),
