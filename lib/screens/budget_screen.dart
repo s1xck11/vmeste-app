@@ -12,7 +12,7 @@ import '../widgets/add_transaction_modal.dart';
 import '../widgets/add_income_modal.dart';
 import '../widgets/add_transfer_modal.dart';
 import 'banks_editor_screen.dart';
-import 'recurring_payments_screen.dart'; // НОВОЕ
+import 'recurring_payments_screen.dart';
 
 class BudgetScreen extends StatefulWidget {
   final StorageService storage;
@@ -299,7 +299,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                   if (_tab == 'overview') _buildOverview(cs),
                   if (_tab == 'transactions') _buildTransactions(cs),
                   if (_tab == 'categories') _buildCategories(cs),
-                  if (_tab == 'banks_stats') _buildBanksStats(cs), // НОВОЕ
+                  if (_tab == 'banks_stats') _buildBanksStats(cs),
                 ],
               ),
             ),
@@ -402,7 +402,7 @@ class BudgetScreenState extends State<BudgetScreen> {
     final tabs = [
       ('overview', 'Обзор'),
       ('transactions', 'Транзакции'),
-      ('banks_stats', 'Банки'), // НОВОЕ
+      ('banks_stats', 'Банки'),
       ('categories', 'Категории'),
     ];
     return Container(
@@ -495,7 +495,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                     _statChip('Доход', income, cs.tertiary, cs),
                     _statChip('Расход', expense, cs.error, cs),
                     _statChip('Перевод +', inTransfer, cs.secondary, cs),
-                    _statChip('Перевод −', outTransfer, cs.warning, cs),
+                    _statChip('Перевод −', outTransfer, cs.tertiary, cs), // ИСПРАВЛЕНО: было cs.warning
                   ],
                 ),
               ],
