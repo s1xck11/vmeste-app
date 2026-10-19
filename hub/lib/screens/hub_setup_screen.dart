@@ -5,6 +5,7 @@ import '../services/theme_service.dart';
 import '../services/weather_service.dart';
 import '../services/apps_service.dart';
 import '../services/tuya_service.dart';
+import '../services/launcher_service.dart';
 import '../widgets/glass_container.dart';
 import 'hub_main_screen.dart';
 
@@ -15,6 +16,7 @@ class HubSetupScreen extends StatefulWidget {
   final WeatherService weatherService;
   final AppsService appsService;
   final TuyaService tuyaService;
+  final LauncherService launcherService;
 
   const HubSetupScreen({
     super.key,
@@ -24,6 +26,7 @@ class HubSetupScreen extends StatefulWidget {
     required this.weatherService,
     required this.appsService,
     required this.tuyaService,
+    required this.launcherService,
   });
 
   @override
@@ -88,6 +91,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
             weatherService: widget.weatherService,
             appsService: widget.appsService,
             tuyaService: widget.tuyaService,
+            launcherService: widget.launcherService, // Передали
           ),
         ),
       );
@@ -107,124 +111,99 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
+            constraints: const BoxConstraints(maxWidth: 480),
             child: GlassContainer(
               radius: 32,
               showAllBorder: true,
               shadow: true,
-              padding: const EdgeInsets.all(40),
+              padding: const EdgeInsets.all(32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
                     child: Container(
-                      width: 100, height: 100,
+                      width: 88, height: 88,
                       decoration: BoxDecoration(
                         color: cs.primary.withOpacity(0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.home_outlined, size: 56, color: cs.primary),
+                      child: Icon(Icons.home_outlined, size: 48, color: cs.primary),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   Text(
                     'Вместе Хаб',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      color: cs.onSurface,
-                      letterSpacing: -1,
-                    ),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: cs.onSurface, letterSpacing: -0.5),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     'Подключение к вашей группе',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: cs.onSurfaceVariant,
-                    ),
+                    style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
                   TextField(
                     controller: _codeController,
                     textAlign: TextAlign.center,
                     textCapitalization: TextCapitalization.characters,
                     maxLength: 15,
                     enabled: !_loading,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: 3),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: 2),
                     decoration: InputDecoration(
                       labelText: 'Код группы',
                       hintText: 'ABC-123-XYZ',
                       counterText: '',
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: _keyController,
                     textAlign: TextAlign.center,
                     textCapitalization: TextCapitalization.characters,
                     maxLength: 15,
                     enabled: !_loading,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: 3),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: 2),
                     decoration: InputDecoration(
                       labelText: 'Мой ключ',
                       hintText: 'A-XXXX-XXXX',
                       counterText: '',
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                   ),
                   if (_error != null) ...[
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: cs.error.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: cs.error.withOpacity(0.3), width: 1.5),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: cs.error.withOpacity(0.3)),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.error_outline, color: cs.error, size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _error!,
-                              style: TextStyle(color: cs.error, fontSize: 15, fontWeight: FontWeight.w600),
-                            ),
-                          ),
+                          Icon(Icons.error_outline, color: cs.error, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(_error!, style: TextStyle(color: cs.error, fontSize: 13))),
                         ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _loading ? null : _connect,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 22),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                    ),
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
                     child: _loading
-                        ? SizedBox(
-                            width: 24, height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary),
-                            ),
-                          )
-                        : const Text('Подключиться', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                        ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(cs.onPrimary)))
+                        : const Text('Подключиться'),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   Text(
                     'Код и ключ можно найти\nв настройках мобильного «Вместе»',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
