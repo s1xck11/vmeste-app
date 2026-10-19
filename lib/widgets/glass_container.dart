@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Полупрозрачный контейнер (без BackdropFilter для производительности).
-/// Визуально имитирует стекло: плотный полупрозрачный фон, обводка, тень.
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -17,11 +15,11 @@ class GlassContainer extends StatelessWidget {
     required this.child,
     this.padding,
     this.radius = 32,
-    this.opacity = 0.92, // Чуть плотнее, чтобы компенсировать отсутствие блюра
+    this.opacity = 0.92,
     this.tint,
     this.showTopBorder = false,
     this.showAllBorder = false,
-    this.shadow = true,
+    this.shadow = false, // Отключили по умолчанию для производительности
   });
 
   @override
@@ -31,27 +29,13 @@ class GlassContainer extends StatelessWidget {
     final base = tint ?? (isDark ? const Color(0xFF1C1A1B) : Colors.white);
 
     return Container(
+      padding: padding,
       decoration: BoxDecoration(
+        color: base.withOpacity(opacity),
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: shadow
-            ? [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ]
-            : null,
+        border: _buildBorder(isDark),
       ),
-      child: Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: base.withOpacity(opacity),
-          borderRadius: BorderRadius.circular(radius),
-          border: _buildBorder(isDark),
-        ),
-        child: child,
-      ),
+      child: child,
     );
   }
 
