@@ -121,27 +121,36 @@ class HubApp extends StatelessWidget {
     return ValueListenableBuilder<AppThemeConfig>(
       valueListenable: themeService.notifier,
       builder: (context, config, _) {
-        // ВАЖНО: Dpad.wrap() в v3.1.1 не принимает child и onBack.
-        // Оборачиваем MaterialApp целиком.
-        return Dpad.wrap(
-          child: MaterialApp(
-            title: 'Вместе Хаб',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.build(config),
-            builder: (context, child) {
+        return MaterialApp(
+          title: 'Вместе Хаб',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.build(config),
+          // ПРАВИЛЬНО: Dpad.wrap() возвращает TransitionBuilder для builder
+          builder: Dpad.wrap(
+            onBack: () {
+              // Возврат в центр хаба
+              final navigator = Navigator.of(context);
+              if (navigator.canPop()) {
+                navigator.pop();
+                return true;
+              }
+              return false;
+            },
+          ),
+          home: Builder(
+            builder: (context) {
               return AppBackground(
-                child: child ?? const SizedBox.shrink(),
+                child: SplashScreen(
+                  storage: storage,
+                  sync: sync,
+                  themeService: themeService,
+                  weatherService: weatherService,
+                  appsService: appsService,
+                  tuyaService: tuyaService,
+                  launcherService: launcherService,
+                ),
               );
             },
-            home: SplashScreen(
-              storage: storage,
-              sync: sync,
-              themeService: themeService,
-              weatherService: weatherService,
-              appsService: appsService,
-              tuyaService: tuyaService,
-              launcherService: launcherService,
-            ),
           ),
         );
       },
