@@ -162,10 +162,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
-  void initState() {
-    super.initState();
-    _check();
-  }
+  void initState() { super.initState(); _check(); }
 
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
@@ -203,22 +200,16 @@ class _SplashScreenState extends State<SplashScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: cs.background,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.favorite, size: 80, color: cs.primary),
-            const SizedBox(height: 24),
-            Text('Вместе',
-                style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: cs.onSurface)),
-            const SizedBox(height: 24),
-            CircularProgressIndicator(color: cs.primary),
-          ],
-        ),
-      ),
+      body: Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.favorite, size: 80, color: cs.primary),
+          const SizedBox(height: 24),
+          Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
+          const SizedBox(height: 24),
+          CircularProgressIndicator(color: cs.primary),
+        ],
+      )),
     );
   }
 }
@@ -246,13 +237,12 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
+  late final List<Widget> _screens;
 
   final _purchasesKey = GlobalKey<PurchasesScreenState>();
   final _tasksKey = GlobalKey<TasksScreenState>();
   final _shiftsKey = GlobalKey<ShiftsScreenState>();
   final _budgetKey = GlobalKey<BudgetScreenState>();
-
-  late final List<Widget> _screens;
 
   @override
   void initState() {
@@ -294,9 +284,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       ),
     ];
 
-    widget.sync.onStatusChanged = () {
-      if (mounted) setState(() {});
-    };
+    widget.sync.onStatusChanged = () { if (mounted) setState(() {}); };
     Future.delayed(const Duration(milliseconds: 500), () {
       widget.sync.pullNow();
       widget.widgetService.updateAll();
@@ -365,43 +353,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void _onFabPick(int kind) {
     int targetTab;
     switch (kind) {
-      case 0:
-        targetTab = 0;
-        break;
-      case 1:
-        targetTab = 1;
-        break;
-      case 2:
-        targetTab = 2;
-        break;
-      case 3:
-      default:
-        targetTab = 3;
-        break;
+      case 0: targetTab = 0; break;
+      case 1: targetTab = 1; break;
+      case 2: targetTab = 2; break;
+      case 3: targetTab = 3; break;
+      case 4: targetTab = 3; break;
+      default: targetTab = 0;
     }
 
     final needSwitch = _currentIndex != targetTab;
-    if (needSwitch) {
-      setState(() => _currentIndex = targetTab);
-    }
+    if (needSwitch) setState(() => _currentIndex = targetTab);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 100), () {
         if (!mounted) return;
         switch (kind) {
-          case 0:
-            _purchasesKey.currentState?.openAddModal();
-            break;
-          case 1:
-            _tasksKey.currentState?.openAddModal();
-            break;
-          case 2:
-            _shiftsKey.currentState?.openAddForToday();
-            break;
-          case 3:
-          default:
-            _budgetKey.currentState?.openAddModal();
-            break;
+          case 0: _purchasesKey.currentState?.openAddModal(); break;
+          case 1: _tasksKey.currentState?.openAddModal(); break;
+          case 2: _shiftsKey.currentState?.openAddForToday(); break;
+          case 3: _budgetKey.currentState?.openAddModal(); break;
+          case 4: _budgetKey.currentState?.openAddIncomeModal(); break;
         }
       });
     });
@@ -411,7 +382,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    // Позиция навбара от низа
     final navBottom = 14 + bottomInset * 0.5;
 
     return Scaffold(
@@ -423,8 +393,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           clipBehavior: Clip.none,
           children: [
             IndexedStack(index: _currentIndex, children: _screens),
-
-            // Навбар
             Positioned(
               left: 16,
               right: 16,
@@ -437,27 +405,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   height: 68,
                   child: Row(
                     children: [
-                      _navItem(0, Icons.shopping_bag_outlined,
-                          Icons.shopping_bag, 'Покупки', cs),
-                      _navItem(1, Icons.check_circle_outline,
-                          Icons.check_circle, 'Задачи', cs),
+                      _navItem(0, Icons.shopping_bag_outlined, Icons.shopping_bag, 'Покупки', cs),
+                      _navItem(1, Icons.check_circle_outline, Icons.check_circle, 'Задачи', cs),
                       const SizedBox(width: 72),
-                      _navItem(2, Icons.calendar_today_outlined,
-                          Icons.calendar_today, 'Смены', cs),
-                      _navItem(3, Icons.pie_chart_outline,
-                          Icons.pie_chart, 'Бюджет', cs),
+                      _navItem(2, Icons.calendar_today_outlined, Icons.calendar_today, 'Смены', cs),
+                      _navItem(3, Icons.pie_chart_outline, Icons.pie_chart, 'Кошелёк', cs), // Переименовано
                     ],
                   ),
                 ),
               ),
             ),
-
-            // FAB — отдельным Positioned в главном Stack (полный hitbox)
-            // Низ FAB = верх навбара + 24 (FAB сидит на навбаре, слегка выпирая)
             Positioned(
               left: 0,
               right: 0,
-              bottom: navBottom + 68 - 24, // чуть-чуть нависает на навбар
+              bottom: navBottom + 68 - 24,
               child: Center(
                 child: AddFab(onPick: _onFabPick),
               ),
@@ -468,8 +429,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _navItem(int index, IconData icon, IconData activeIcon, String label,
-      ColorScheme cs) {
+  Widget _navItem(int index, IconData icon, IconData activeIcon, String label, ColorScheme cs) {
     final selected = _currentIndex == index;
     return Expanded(
       child: GestureDetector(
@@ -478,20 +438,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              selected ? activeIcon : icon,
-              size: 22,
-              color: selected ? cs.primary : cs.onSurfaceVariant,
-            ),
+            Icon(selected ? activeIcon : icon, size: 22,
+                color: selected ? cs.primary : cs.onSurfaceVariant),
             const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? cs.primary : cs.onSurfaceVariant,
-              ),
-            ),
+            Text(label, style: TextStyle(
+              fontSize: 10,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? cs.primary : cs.onSurfaceVariant,
+            )),
           ],
         ),
       ),
