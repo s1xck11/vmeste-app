@@ -22,6 +22,7 @@ import 'debug_screen.dart';
 import 'courier_import_screen.dart';
 import 'theme_picker_screen.dart';
 import 'purchase_history_screen.dart';
+import 'banks_editor_screen.dart'; // НОВОЕ
 
 class SettingsScreen extends StatefulWidget {
   final StorageService storage;
@@ -450,6 +451,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _expandableTaskCategories(cs),
           _expandableShiftTypes(cs),
           _expandablePartners(cs),
+          // НОВОЕ: Банки
+          _tile(
+            icon: Icons.account_balance_outlined,
+            title: 'Банки',
+            subtitle: 'Управление банками и начальным балансом',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => BanksEditorScreen(storage: widget.storage, sync: widget.sync),
+            )),
+            cs: cs,
+          ),
           Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: Column(
