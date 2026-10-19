@@ -348,4 +348,232 @@ class _HubBudgetScreenState extends State<HubBudgetScreen> {
               (c) => c.id == e.key,
               orElse: () => BudgetCategory(id: e.key, name: 'Другое', emoji: '📦', type: 'expense'),
             );
-            final percent = _expenses > 0 ? e.value / _expenses * 100
+            final percent = _expenses > 0 ? e.value / _expenses * 100 : 0;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cs.surface.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: cs.outline),
+              ),
+              child: Row(
+                children: [
+                  Text(cat.emoji, style: const TextStyle(fontSize: 28)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(cat.name, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                            const Spacer(),
+                            Text(
+                              '${e.value.toStringAsFixed(0)} ₽',
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: cs.onSurface),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: percent / 100,
+                            minHeight: 8,
+                            backgroundColor: cs.surfaceVariant,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          })),
+      ],
+    );
+  }
+
+  Widget _healthBar(String label, double percent, Color color, ColorScheme cs) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 140,
+          child: Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurface)),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: percent / 100,
+              minHeight: 12,
+              backgroundColor: cs.surfaceVariant,
+              color: color,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          width: 55,
+          child: Text(
+            '${percent.toStringAsFixed(0)}%',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactions(ColorScheme cs) {
+    final list = List<Transaction>.from(_monthTransactions)..sort((a, b) => b.date.compareTo(a.date));
+    if (list.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Text('Нет транзакций за этот месяц', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+        ),
+      );
+    }
+    return Column(
+      children: list.map((t) {
+        final cat = _categories.firstWhere(
+          (c) => c.id == t.categoryId,
+          orElse: () => BudgetCategory(id: t.categoryId, name: 'Другое', emoji: '📦', type: t.type),
+        );
+        final isExpense = t.type == 'expense';
+        return DpadFocusable(
+          onSelect: () {},
+          effects: [DpadBorderEffect(color: cs.primary, width: 2)],
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: cs.surface.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: cs.outline),
+            ),
+            child: Row(
+              children: [
+                Text(cat.emoji, style: const TextStyle(fontSize: 28)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t.comment.isEmpty ? cat.name : t.comment,
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: cs.onSurface),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${t.date.day}.${t.date.month}.${t.date.year} · ${cat.name}',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '${isExpense ? '−' : '+'}${t.amount.toStringAsFixed(0)} ₽',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isExpense ? cs.error : cs.tertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildCategories(ColorScheme cs) {
+    final expenses = _categories.where((c) => c.type == 'expense').toList();
+    final incomes = _categories.where((c) => c.type == 'income').toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Расходы', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+        const SizedBox(height: 12),
+        ...expenses.map((c) => _categoryTile(c, cs)),
+        const SizedBox(height: 24),
+        Text('Доходы', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+        const SizedBox(height: 12),
+        ...incomes.map((c) => _categoryTile(c, cs)),
+      ],
+    );
+  }
+
+  Widget _categoryTile(BudgetCategory c, ColorScheme cs) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        color: cs.surface.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline),
+      ),
+      child: Row(
+        children: [
+          Text(c.emoji, style: const TextStyle(fontSize: 24)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(c.name, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: cs.onSurface)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummarySide(ColorScheme cs) {
+    return GlassContainer(
+      radius: 32,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Сводка',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: cs.onSurface,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _summaryRow('Доходы', _incomes, cs.tertiary, cs),
+          const SizedBox(height: 16),
+          _summaryRow('Расходы', _expenses, cs.error, cs),
+          const SizedBox(height: 16),
+          Divider(color: cs.outline, thickness: 1.5),
+          const SizedBox(height: 16),
+          _summaryRow('Баланс', _balance, _balance >= 0 ? cs.tertiary : cs.error, cs),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, double value, Color color, ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+        const SizedBox(height: 6),
+        Text(
+          '${value >= 0 ? '' : '−'}${value.abs().toStringAsFixed(0)} ₽',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: color,
+            letterSpacing: -0.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
