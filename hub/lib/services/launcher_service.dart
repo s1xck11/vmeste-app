@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'debug_log_service.dart';
 
-/// Сервис управления режимом лаунчера/киоска и ТВ-режимом.
 class LauncherService {
   static const String _boxName = 'vmeste_hub_data';
   static const String _keyPin = 'launcher_pin';
@@ -22,48 +21,24 @@ class LauncherService {
     }
   }
 
-  // ============ PIN ============
-
   String get pin => _box.get(_keyPin) as String? ?? '';
-
-  Future<void> setPin(String newPin) async {
-    await _box.put(_keyPin, newPin);
-  }
-
-  bool checkPin(String input) {
-    return input == pin;
-  }
-
-  // ============ КИОСК ============
+  Future<void> setPin(String newPin) async => _box.put(_keyPin, newPin);
+  bool checkPin(String input) => input == pin;
 
   bool get isEnabled => _box.get(_keyEnabled) as bool? ?? false;
-
   Future<bool> enableKiosk() async {
-    try {
-      await _box.put(_keyEnabled, true);
-      return true;
-    } catch (e, st) {
-      _log.error('Launcher', 'enableKiosk FAILED', e, st);
-      return false;
-    }
+    try { await _box.put(_keyEnabled, true); return true; } catch (e) { return false; }
   }
-
   Future<bool> disableKiosk() async {
-    try {
-      await _box.put(_keyEnabled, false);
-      return true;
-    } catch (e, st) {
-      _log.error('Launcher', 'disableKiosk FAILED', e, st);
-      return false;
-    }
+    try { await _box.put(_keyEnabled, false); return true; } catch (e) { return false; }
   }
-
-  // ============ ТВ-РЕЖИМ ============
 
   bool get tvModeEnabled => _box.get(_keyTvMode) as bool? ?? false;
-
   Future<void> setTvMode(bool enabled) async {
     await _box.put(_keyTvMode, enabled);
     _log.info('Launcher', 'ТВ-режим: $enabled');
+  }
+  Future<void> toggleTvMode() async {
+    await setTvMode(!tvModeEnabled);
   }
 }
