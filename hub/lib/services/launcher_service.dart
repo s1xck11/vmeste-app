@@ -1,10 +1,8 @@
-// lib/services/launcher_service.dart
-
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'debug_log_service.dart';
 
-class LauncherService {
+class LauncherService extends ChangeNotifier {
   static const String _boxName = 'vmeste_hub_data';
   static const String _keyPin = 'launcher_pin';
   static const String _keyEnabled = 'launcher_enabled';
@@ -27,15 +25,16 @@ class LauncherService {
 
   bool get isEnabled => _box.get(_keyEnabled) as bool? ?? false;
   Future<bool> enableKiosk() async {
-    try { await _box.put(_keyEnabled, true); return true; } catch (e) { return false; }
+    try { await _box.put(_keyEnabled, true); notifyListeners(); return true; } catch (e) { return false; }
   }
   Future<bool> disableKiosk() async {
-    try { await _box.put(_keyEnabled, false); return true; } catch (e) { return false; }
+    try { await _box.put(_keyEnabled, false); notifyListeners(); return true; } catch (e) { return false; }
   }
 
   bool get tvModeEnabled => _box.get(_keyTvMode) as bool? ?? false;
   Future<void> setTvMode(bool enabled) async {
     await _box.put(_keyTvMode, enabled);
+    notifyListeners();
     _log.info('Launcher', 'ТВ-режим: $enabled');
   }
   Future<void> toggleTvMode() async {
