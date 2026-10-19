@@ -110,7 +110,12 @@ class BudgetScreenState extends State<BudgetScreen> {
     });
   }
 
-  // Публичный метод для FAB
+  // Публичный метод для расхода
+  void openAddModal() {
+    _openAddExpenseModal();
+  }
+
+  // Публичный метод для дохода
   void openAddIncomeModal() {
     _openAddIncomeModal();
   }
