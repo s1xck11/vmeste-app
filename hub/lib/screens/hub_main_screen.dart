@@ -106,44 +106,6 @@ class _HubMainScreenState extends State<HubMainScreen> {
     } catch (_) {}
   }
 
-  Widget _buildScreen(int position) {
-    switch (position) {
-      case -1:
-        return HubAppsScreen(
-          storage: widget.storage,
-          appsService: widget.appsService,
-          onLaunchApp: _launchApp,
-        );
-      case 1:
-        return HubBudgetScreen(
-          storage: widget.storage,
-          sync: widget.sync,
-        );
-      case 2:
-        return HubShiftsScreen(
-          storage: widget.storage,
-          sync: widget.sync,
-        );
-      case 3:
-        return HubWeatherScreen(
-          storage: widget.storage,
-          weatherService: widget.weatherService,
-        );
-      case 0:
-      default:
-        return HubCenterScreen(
-          storage: widget.storage,
-          sync: widget.sync,
-          weatherService: widget.weatherService,
-          tuyaService: widget.tuyaService,
-          onOpenApps: () => _goTo(-1),
-          onOpenShifts: () => _goTo(2),
-          onOpenBudget: () => _goTo(1),
-          onOpenWeather: () => _goTo(3),
-        );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -159,15 +121,19 @@ class _HubMainScreenState extends State<HubMainScreen> {
         backgroundColor: Colors.transparent,
         body: Stack(
           children: [
-            // IndexedStack вместо AnimatedSwitcher — мгновенно и без лагов
             IndexedStack(
-              index: _position == -1 ? 1 : (_position == 0 ? 0 : (_position == 1 ? 2 : (_position == 2 ? 3 : 4))),
+              index: _position == -1
+                  ? 1
+                  : (_position == 0
+                      ? 0
+                      : (_position == 1 ? 2 : (_position == 2 ? 3 : 4))),
               children: [
                 HubCenterScreen(
                   storage: widget.storage,
                   sync: widget.sync,
                   weatherService: widget.weatherService,
                   tuyaService: widget.tuyaService,
+                  themeService: widget.themeService, // Передали сюда
                   onOpenApps: () => _goTo(-1),
                   onOpenShifts: () => _goTo(2),
                   onOpenBudget: () => _goTo(1),
@@ -203,13 +169,23 @@ class _HubMainScreenState extends State<HubMainScreen> {
     return Stack(
       children: [
         if (_position != 2)
-          Positioned(top: 8, left: 0, right: 0, child: Center(child: _edgePill(cs))),
+          Positioned(
+              top: 8, left: 0, right: 0, child: Center(child: _edgePill(cs))),
         if (_position != 3)
-          Positioned(bottom: 8, left: 0, right: 0, child: Center(child: _edgePill(cs))),
+          Positioned(
+              bottom: 8, left: 0, right: 0, child: Center(child: _edgePill(cs))),
         if (_position != -1)
-          Positioned(left: 8, top: 0, bottom: 0, child: Center(child: _edgePill(cs, vertical: true))),
+          Positioned(
+              left: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(child: _edgePill(cs, vertical: true))),
         if (_position != 1)
-          Positioned(right: 8, top: 0, bottom: 0, child: Center(child: _edgePill(cs, vertical: true))),
+          Positioned(
+              right: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(child: _edgePill(cs, vertical: true))),
       ],
     );
   }
