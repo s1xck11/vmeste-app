@@ -79,94 +79,110 @@ class _AddIncomeModalState extends State<AddIncomeModal> {
     final cs = Theme.of(context).colorScheme;
     final isEdit = widget.initialTransaction != null;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        decoration: BoxDecoration(color: cs.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: cs.outline, borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 20),
-            Text(isEdit ? 'Редактировать доход' : 'Новый доход', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -0.5)),
-            const SizedBox(height: 24),
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: cs.outline, borderRadius: BorderRadius.circular(2)))),
+                  const SizedBox(height: 20),
+                  Text(isEdit ? 'Редактировать доход' : 'Новый доход', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -0.5)),
+                  const SizedBox(height: 24),
 
-            TextField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              autofocus: !isEdit,
-              style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -1.5),
-              decoration: InputDecoration(
-                hintText: '0',
-                hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.5), fontSize: 40),
-                suffixText: '₽',
-                suffixStyle: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    autofocus: !isEdit,
+                    style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: cs.onSurface, letterSpacing: -1.5),
+                    decoration: InputDecoration(
+                      hintText: '0',
+                      hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.5), fontSize: 40),
+                      suffixText: '₽',
+                      suffixStyle: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  Divider(color: cs.outline, height: 1),
+                  const SizedBox(height: 20),
+
+                  Text('Зачислить на', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: widget.banks.map((b) => _bankChip(b, cs)).toList(),
+                  ),
+                  const SizedBox(height: 20),
+
+                  Text('Тип дохода', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _chip('income_salary', 'Зарплата', '💰', cs),
+                      _chip('income_bonus', 'Премия', '🏆', cs),
+                      _chip('income_other', 'Иной доход', '✨', cs),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  Row(
+                    children: [
+                      Expanded(flex: 2, child: TextField(
+                        controller: _commentController,
+                        style: TextStyle(fontSize: 16, color: cs.onSurface),
+                        decoration: InputDecoration(
+                          hintText: 'Комментарий',
+                          prefixIcon: Icon(Icons.edit_note, color: cs.onSurfaceVariant),
+                          filled: true, fillColor: cs.surfaceVariant,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 1, child: GestureDetector(
+                        onTap: () async {
+                          final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+                          if (picked != null) setState(() => _selectedDate = picked);
+                        },
+                        child: Container(
+                          height: 56,
+                          decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16)),
+                          child: Center(child: Text('${_selectedDate.day}.${_selectedDate.month}.${_selectedDate.year}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface))),
+                        ),
+                      )),
+                    ],
+                  ),
+                ],
               ),
             ),
-            Divider(color: cs.outline, height: 1),
-            const SizedBox(height: 24),
-
-            Text('Зачислить на', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: widget.banks.map((b) => _bankChip(b, cs)).toList(),
-            ),
-            const SizedBox(height: 24),
-
-            Text('Тип дохода', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _chip('income_salary', 'Зарплата', '💰', cs),
-                _chip('income_bonus', 'Премия', '🏆', cs),
-                _chip('income_other', 'Иной доход', '✨', cs),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            Row(
-              children: [
-                Expanded(flex: 2, child: TextField(
-                  controller: _commentController,
-                  style: TextStyle(fontSize: 16, color: cs.onSurface),
-                  decoration: InputDecoration(
-                    hintText: 'Комментарий',
-                    prefixIcon: Icon(Icons.edit_note, color: cs.onSurfaceVariant),
-                    filled: true, fillColor: cs.surfaceVariant,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                  ),
-                )),
-                const SizedBox(width: 12),
-                Expanded(flex: 1, child: GestureDetector(
-                  onTap: () async {
-                    final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
-                    if (picked != null) setState(() => _selectedDate = picked);
-                  },
-                  child: Container(
-                    height: 56,
-                    decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16)),
-                    child: Center(child: Text('${_selectedDate.day}.${_selectedDate.month}.${_selectedDate.year}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface))),
-                  ),
-                )),
-              ],
-            ),
-            const SizedBox(height: 32),
-
-            ElevatedButton(
+          ),
+          Padding(
+            padding: EdgeInsets.only(left: 24, right: 24, bottom: MediaQuery.of(context).padding.bottom + 16, top: 16),
+            child: ElevatedButton(
               onPressed: _save,
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 20), backgroundColor: cs.tertiary, foregroundColor: cs.onTertiary),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                backgroundColor: cs.tertiary,
+                foregroundColor: cs.onTertiary,
+                minimumSize: const Size(double.infinity, 0),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
               child: Text(isEdit ? 'Сохранить' : 'Добавить доход', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -177,16 +193,16 @@ class _AddIncomeModalState extends State<AddIncomeModal> {
       onTap: () => setState(() => _selectedBankId = b.id),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? cs.tertiary.withOpacity(0.15) : cs.surfaceVariant,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: selected ? cs.tertiary : Colors.transparent, width: 1.5),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(b.emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 8),
-          Text(b.name, style: TextStyle(fontSize: 15, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? cs.tertiary : cs.onSurface)),
+          Text(b.emoji, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 6),
+          Text(b.name, style: TextStyle(fontSize: 13, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? cs.tertiary : cs.onSurface)),
         ]),
       ),
     );
@@ -198,16 +214,16 @@ class _AddIncomeModalState extends State<AddIncomeModal> {
       onTap: () => setState(() => _selectedCategory = id),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? cs.tertiary.withOpacity(0.15) : cs.surfaceVariant,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: selected ? cs.tertiary : Colors.transparent, width: 1.5),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 8),
-          Text(label, style: TextStyle(fontSize: 15, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? cs.tertiary : cs.onSurface)),
+          Text(emoji, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 13, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? cs.tertiary : cs.onSurface)),
         ]),
       ),
     );
