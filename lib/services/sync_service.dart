@@ -14,6 +14,7 @@ import '../models/shift_type.dart';
 import '../models/partner.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
+import '../models/bank.dart'; // НОВОЕ
 import '../models/purchase_template.dart';
 import '../models/purchase_history_entry.dart';
 import 'storage_service.dart';
@@ -61,7 +62,6 @@ class SyncService {
     for (final l in List<VoidCallback>.from(_listeners)) {
       try { l(); } catch (e, st) { _log.error('Sync', 'listener error', e, st); }
     }
-    // Обновляем виджеты — они должны отражать актуальные данные
     widgetService?.updateAll();
   }
 
@@ -316,10 +316,7 @@ class SyncService {
   void _subscribe() {
     final code = storage.coupleCode;
     if (code == null) return;
-    if (!_isOnline) {
-      _log.info('Realtime', 'офлайн — пропускаю подписку');
-      return;
-    }
+    if (!_isOnline) return;
     _channel?.unsubscribe();
     _channel = _supabase
         .channel('couple:$code')
@@ -454,6 +451,7 @@ class SyncService {
     _replacePartners(data);
     _replaceBudgetCategories(data);
     _replaceHistory(data);
+    _replaceBanks(data); // НОВОЕ
 
     final profiles = data['profiles'] as Map?;
     if (profiles != null && storage.myKey != null) {
@@ -557,6 +555,15 @@ class SyncService {
     } catch (e) {}
   }
 
+  // НОВОЕ: синхронизация банков
+  void _replaceBanks(Map<String, dynamic> data) {
+    final raw = data['banks']; if (raw == null) return;
+    try {
+      final list = (raw as Map).values.map((v) => Bank.fromJson(Map<String, dynamic>.from(v as Map))).toList();
+      if (list.isNotEmpty) storage.banks = list;
+    } catch (e) {}
+  }
+
   void schedulePush() {
     if (storage.coupleCode == null) return;
     if (_isRemoteUpdate) return;
@@ -611,7 +618,6 @@ class SyncService {
       }).eq('code', storage.coupleCode!).timeout(const Duration(seconds: 30));
       storage.serverVersion = newVersion;
       _setStatus('online');
-      // После пуша данные локально точно свежие — обновим виджеты
       widgetService?.updateAll();
     } catch (e, st) {
       _log.error('Push', 'FAILED', e, st);
