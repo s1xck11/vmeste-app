@@ -1,3 +1,4 @@
+// (Импорты без изменений)
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
@@ -14,6 +15,7 @@ import 'hub_lights_screen.dart';
 import 'hub_tuya_setup_modal.dart';
 
 class HubCenterScreen extends StatefulWidget {
+  // ... конструктор без изменений
   final StorageService storage;
   final SyncService sync;
   final WeatherService weatherService;
@@ -40,6 +42,7 @@ class HubCenterScreen extends StatefulWidget {
 }
 
 class _HubCenterScreenState extends State<HubCenterScreen> {
+  // ... (переменные и initState/dispose без изменений)
   Timer? _clockTimer;
   DateTime _now = DateTime.now();
   WeatherCache? _weather;
@@ -87,7 +90,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   Future<void> _toggleLight(TuyaDevice device) async {
-    // Haptic теперь в Pressable
     final newState = !device.isOn;
     setState(() {
       final i = _lights.indexWhere((d) => d.id == device.id);
@@ -122,6 +124,8 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
       ..sort((a, b) => a.order.compareTo(b.order));
     return list;
   }
+
+  // ... (навигация и диалоги без изменений, они работают)
 
   void _openTasks() {
     Navigator.of(context).push(
@@ -226,6 +230,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ... (сборка без изменений, но добавлен animate: false)
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
       child: Column(
@@ -290,6 +295,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
 
     return Pressable(
       onTap: _openTasks,
+      animate: false, // <--- ОТКЛЮЧАЕМ СКЕЙЛ
       child: GlassContainer(
         radius: 32,
         padding: const EdgeInsets.all(24),
@@ -385,17 +391,20 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   Widget _buildPurchasesBlock() {
+    // ... (аналогично, добавить animate: false)
     final cs = Theme.of(context).colorScheme;
     final items = _activePurchases.take(5).toList();
 
     return Pressable(
       onTap: _openPurchases,
+      animate: false,
       child: GlassContainer(
         radius: 32,
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ... (контент тот же)
             Row(
               children: [
                 Icon(Icons.shopping_bag_outlined, color: cs.primary, size: 28),
@@ -486,11 +495,13 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   Widget _buildLightsBlock() {
+    // ... (добавить animate: false для прессов и оставить GestureDetector для ламп)
     final cs = Theme.of(context).colorScheme;
 
     if (!widget.tuyaService.isConfigured) {
       return Pressable(
         onTap: _showTuyaSetup,
+        animate: false,
         child: GlassContainer(
           radius: 32,
           padding: const EdgeInsets.all(24),
@@ -534,6 +545,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
 
     return Pressable(
       onTap: _openLights,
+      animate: false,
       child: GlassContainer(
         radius: 32,
         padding: const EdgeInsets.all(24),
@@ -572,7 +584,6 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
                           separatorBuilder: (_, __) => const SizedBox(height: 10),
                           itemBuilder: (ctx, i) {
                             final d = _lights[i];
-                            // Для ламп используем AnimatedContainer без Pressable, чтобы не было двойного скейла
                             return GestureDetector(
                               onTap: () => _toggleLight(d),
                               child: AnimatedContainer(
@@ -620,6 +631,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
   }
 
   Widget _buildClockWeatherBlock() {
+    // ... (аналогично, animate: false)
     final cs = Theme.of(context).colorScheme;
     final now = _now;
     final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -630,6 +642,7 @@ class _HubCenterScreenState extends State<HubCenterScreen> {
 
     return Pressable(
       onTap: widget.onOpenWeather,
+      animate: false,
       child: GlassContainer(
         radius: 32,
         padding: const EdgeInsets.all(24),
