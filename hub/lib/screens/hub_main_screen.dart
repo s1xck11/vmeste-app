@@ -6,6 +6,7 @@ import '../services/theme_service.dart';
 import '../services/weather_service.dart';
 import '../services/apps_service.dart';
 import '../services/tuya_service.dart';
+import '../services/launcher_service.dart';
 import 'hub_center_screen.dart';
 import 'hub_apps_screen.dart';
 import 'hub_shifts_screen.dart';
@@ -19,6 +20,7 @@ class HubMainScreen extends StatefulWidget {
   final WeatherService weatherService;
   final AppsService appsService;
   final TuyaService tuyaService;
+  final LauncherService launcherService;
 
   const HubMainScreen({
     super.key,
@@ -28,6 +30,7 @@ class HubMainScreen extends StatefulWidget {
     required this.weatherService,
     required this.appsService,
     required this.tuyaService,
+    required this.launcherService,
   });
 
   @override
@@ -134,6 +137,7 @@ class _HubMainScreenState extends State<HubMainScreen> {
                   weatherService: widget.weatherService,
                   tuyaService: widget.tuyaService,
                   themeService: widget.themeService,
+                  launcherService: widget.launcherService,
                   onOpenApps: () => _goTo(-1),
                   onOpenShifts: () => _goTo(2),
                   onOpenBudget: () => _goTo(1),
@@ -169,23 +173,13 @@ class _HubMainScreenState extends State<HubMainScreen> {
     return Stack(
       children: [
         if (_position != 2)
-          Positioned(
-              top: 8, left: 0, right: 0, child: Center(child: _edgePill(cs))),
+          Positioned(top: 8, left: 0, right: 0, child: Center(child: _edgePill(cs))),
         if (_position != 3)
-          Positioned(
-              bottom: 8, left: 0, right: 0, child: Center(child: _edgePill(cs))),
+          Positioned(bottom: 8, left: 0, right: 0, child: Center(child: _edgePill(cs))),
         if (_position != -1)
-          Positioned(
-              left: 8,
-              top: 0,
-              bottom: 0,
-              child: Center(child: _edgePill(cs, vertical: true))),
+          Positioned(left: 8, top: 0, bottom: 0, child: Center(child: _edgePill(cs, vertical: true))),
         if (_position != 1)
-          Positioned(
-              right: 8,
-              top: 0,
-              bottom: 0,
-              child: Center(child: _edgePill(cs, vertical: true))),
+          Positioned(right: 8, top: 0, bottom: 0, child: Center(child: _edgePill(cs, vertical: true))),
       ],
     );
   }
