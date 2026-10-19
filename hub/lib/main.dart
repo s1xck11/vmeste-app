@@ -121,7 +121,6 @@ class HubApp extends StatelessWidget {
     return ValueListenableBuilder<AppThemeConfig>(
       valueListenable: themeService.notifier,
       builder: (context, config, _) {
-        // Слушаем launcherService, чтобы перестраивать при переключении ТВ-режима
         return ListenableBuilder(
           listenable: launcherService,
           builder: (context, _) {
@@ -131,7 +130,6 @@ class HubApp extends StatelessWidget {
               title: 'Вместе Хаб',
               debugShowCheckedModeBanner: false,
               theme: AppTheme.build(config),
-              // Dpad.wrap включаем только в ТВ-режиме
               builder: isTvMode
                   ? Dpad.wrap(
                       onBack: () {
