@@ -14,7 +14,8 @@ import '../models/shift_type.dart';
 import '../models/partner.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
-import '../models/bank.dart'; // НОВОЕ
+import '../models/bank.dart';
+import '../models/recurring_payment.dart'; // НОВОЕ
 import '../models/purchase_template.dart';
 import '../models/purchase_history_entry.dart';
 import 'storage_service.dart';
@@ -443,6 +444,7 @@ class SyncService {
     _mergeList<Shift>(data, 'shifts', localItems: storage.shifts, fromJson: (j) => Shift.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.shifts = items);
     _mergeList<Transaction>(data, 'transactions', localItems: storage.transactions, fromJson: (j) => Transaction.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.transactions = items);
     _mergeList<PurchaseTemplate>(data, 'purchaseTemplates', localItems: storage.purchaseTemplates, fromJson: (j) => PurchaseTemplate.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.purchaseTemplates = items);
+    _mergeList<RecurringPayment>(data, 'recurringPayments', localItems: storage.recurringPayments, fromJson: (j) => RecurringPayment.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.recurringPayments = items); // НОВОЕ
 
     _replacePurchaseLists(data);
     _replacePurchaseCategories(data);
@@ -451,7 +453,8 @@ class SyncService {
     _replacePartners(data);
     _replaceBudgetCategories(data);
     _replaceHistory(data);
-    _replaceBanks(data); // НОВОЕ
+    _replaceBanks(data);
+    _replaceRecurringPayments(data); // НОВОЕ
 
     final profiles = data['profiles'] as Map?;
     if (profiles != null && storage.myKey != null) {
@@ -555,12 +558,19 @@ class SyncService {
     } catch (e) {}
   }
 
-  // НОВОЕ: синхронизация банков
   void _replaceBanks(Map<String, dynamic> data) {
     final raw = data['banks']; if (raw == null) return;
     try {
       final list = (raw as Map).values.map((v) => Bank.fromJson(Map<String, dynamic>.from(v as Map))).toList();
       if (list.isNotEmpty) storage.banks = list;
+    } catch (e) {}
+  }
+
+  void _replaceRecurringPayments(Map<String, dynamic> data) {
+    final raw = data['recurringPayments']; if (raw == null) return;
+    try {
+      final list = (raw as Map).values.map((v) => RecurringPayment.fromJson(Map<String, dynamic>.from(v as Map))).toList();
+      if (list.isNotEmpty) storage.recurringPayments = list;
     } catch (e) {}
   }
 
