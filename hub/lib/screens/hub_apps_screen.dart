@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:device_apps_ng/device_apps_ng.dart';
 import '../services/apps_service.dart';
@@ -210,7 +211,7 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
             ),
             padding: const EdgeInsets.all(6),
             child: FutureBuilder<Uint8List?>(
-              future: DeviceApps.getAppIcon(app.packageName),
+              future: DeviceApps.getApp(app.packageName)?.then((app) => app?.icon),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SizedBox(
