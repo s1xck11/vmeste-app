@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_device_apps/flutter_device_apps.dart' as apps_plugin;
+import 'package:device_apps_ng/device_apps_ng.dart';
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
@@ -73,21 +73,20 @@ void main() async {
 
 Future<void> _loadApps(AppsService appsService, DebugLogService logger) async {
   try {
-    final devicesApps = await apps_plugin.FlutterDeviceApps.listApps(
-      includeSystem: false,
-      onlyLaunchable: true,
-      includeIcons: false,
+    // Грузим только список (без иконок) — быстро
+    final apps = await DeviceApps.getInstalledApplications(
+      includeSystemApps: false,
+      onlyAppsWithLaunchIntent: true,
     );
-    final apps = devicesApps.map((a) {
+    final list = apps.map((a) {
       return AppInfo(
-        packageName: a.packageName ?? '',
-        appName: a.appName ?? (a.packageName ?? 'Приложение'),
-        icon: null,
+        packageName: a.packageName,
+        appName: a.appName,
       );
-    }).where((a) => a.packageName.isNotEmpty).toList();
+    }).toList();
 
-    await appsService.setApps(apps);
-    logger.info('Apps', 'загружено приложений: ${apps.length}');
+    await appsService.setApps(list);
+    logger.info('Apps', 'загружено приложений: ${list.length}');
   } catch (e, st) {
     logger.error('Apps', 'load FAILED', e, st);
   }
