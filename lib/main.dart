@@ -358,6 +358,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       case 2: targetTab = 2; break;
       case 3: targetTab = 3; break;
       case 4: targetTab = 3; break;
+      case 5: targetTab = 3; break;
       default: targetTab = 0;
     }
 
@@ -371,8 +372,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           case 0: _purchasesKey.currentState?.openAddModal(); break;
           case 1: _tasksKey.currentState?.openAddModal(); break;
           case 2: _shiftsKey.currentState?.openAddForToday(); break;
-          case 3: _budgetKey.currentState?.openAddModal(); break; // openAddModal теперь есть в budget_screen
+          case 3: _budgetKey.currentState?.openAddModal(); break;
           case 4: _budgetKey.currentState?.openAddIncomeModal(); break;
+          case 5: _budgetKey.currentState?.openAddTransferModal(); break;
         }
       });
     });
