@@ -1,11 +1,9 @@
-// lib/models/budget_category.dart
-
 import 'package:flutter/material.dart';
 
 class BudgetCategory {
   final String id;
   final String name;
-  final String type; // 'expense' или 'income'
+  final String type;
   final String emoji;
   final int colorValue;
   final DateTime createdAt;
@@ -44,9 +42,7 @@ class BudgetCategory {
       type: json['type'] ?? 'expense',
       emoji: json['emoji'] ?? '📦',
       colorValue: json['colorValue'] ?? 0xFF9E9E9E,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       updatedAt: json['updatedAt'] is int
           ? json['updatedAt']
           : (json['updatedAt'] != null
