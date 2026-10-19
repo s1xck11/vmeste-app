@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:device_apps_ng/device_apps_ng.dart';
+import 'package:dpad/dpad.dart';
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
@@ -10,6 +11,7 @@ import 'services/theme_service.dart';
 import 'services/weather_service.dart';
 import 'services/apps_service.dart';
 import 'services/tuya_service.dart';
+import 'services/launcher_service.dart';
 import 'services/update_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
@@ -58,6 +60,8 @@ void main() async {
   await appsService.init();
   final tuyaService = TuyaService();
   await tuyaService.init();
+  final launcherService = LauncherService();
+  await launcherService.init();
 
   _loadApps(appsService, logger);
 
@@ -68,12 +72,12 @@ void main() async {
     weatherService: weatherService,
     appsService: appsService,
     tuyaService: tuyaService,
+    launcherService: launcherService,
   ));
 }
 
 Future<void> _loadApps(AppsService appsService, DebugLogService logger) async {
   try {
-    // Грузим только список (без иконок) — быстро
     final apps = await DeviceApps.getInstalledApplications(
       includeSystemApps: false,
       onlyAppsWithLaunchIntent: true,
@@ -99,6 +103,7 @@ class HubApp extends StatelessWidget {
   final WeatherService weatherService;
   final AppsService appsService;
   final TuyaService tuyaService;
+  final LauncherService launcherService;
 
   const HubApp({
     super.key,
@@ -108,6 +113,7 @@ class HubApp extends StatelessWidget {
     required this.weatherService,
     required this.appsService,
     required this.tuyaService,
+    required this.launcherService,
   });
 
   @override
@@ -120,7 +126,22 @@ class HubApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.build(config),
           builder: (context, child) {
-            return AppBackground(child: child ?? const SizedBox.shrink());
+            // Оборачиваем в Dpad, чтобы пульт работал на всех экранах
+            return Dpad.wrap(
+              onBack: () {
+                // Возврат в центр хаба
+                final navigator = Navigator.of(context);
+                if (navigator.canPop()) {
+                  navigator.pop();
+                  return true;
+                }
+                // Если некуда возвращаться — возвращаем false (система выйдет)
+                return false;
+              },
+              child: AppBackground(
+                child: child ?? const SizedBox.shrink(),
+              ),
+            );
           },
           home: SplashScreen(
             storage: storage,
@@ -129,6 +150,7 @@ class HubApp extends StatelessWidget {
             weatherService: weatherService,
             appsService: appsService,
             tuyaService: tuyaService,
+            launcherService: launcherService,
           ),
         );
       },
@@ -143,6 +165,7 @@ class SplashScreen extends StatefulWidget {
   final WeatherService weatherService;
   final AppsService appsService;
   final TuyaService tuyaService;
+  final LauncherService launcherService;
 
   const SplashScreen({
     super.key,
@@ -152,6 +175,7 @@ class SplashScreen extends StatefulWidget {
     required this.weatherService,
     required this.appsService,
     required this.tuyaService,
+    required this.launcherService,
   });
 
   @override
@@ -182,6 +206,7 @@ class _SplashScreenState extends State<SplashScreen> {
       weatherService: widget.weatherService,
       appsService: widget.appsService,
       tuyaService: widget.tuyaService,
+      launcherService: widget.launcherService,
     );
 
     if (connected) {
@@ -198,6 +223,7 @@ class _SplashScreenState extends State<SplashScreen> {
             weatherService: widget.weatherService,
             appsService: widget.appsService,
             tuyaService: widget.tuyaService,
+            launcherService: widget.launcherService,
           ),
         ),
       );
