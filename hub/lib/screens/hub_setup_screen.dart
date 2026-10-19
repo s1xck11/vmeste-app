@@ -91,7 +91,7 @@ class _HubSetupScreenState extends State<HubSetupScreen> {
             weatherService: widget.weatherService,
             appsService: widget.appsService,
             tuyaService: widget.tuyaService,
-            launcherService: widget.launcherService, // Передали
+            launcherService: widget.launcherService,
           ),
         ),
       );
