@@ -371,7 +371,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           case 0: _purchasesKey.currentState?.openAddModal(); break;
           case 1: _tasksKey.currentState?.openAddModal(); break;
           case 2: _shiftsKey.currentState?.openAddForToday(); break;
-          case 3: _budgetKey.currentState?.openAddModal(); break;
+          case 3: _budgetKey.currentState?.openAddModal(); break; // openAddModal теперь есть в budget_screen
           case 4: _budgetKey.currentState?.openAddIncomeModal(); break;
         }
       });
@@ -409,7 +409,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                       _navItem(1, Icons.check_circle_outline, Icons.check_circle, 'Задачи', cs),
                       const SizedBox(width: 72),
                       _navItem(2, Icons.calendar_today_outlined, Icons.calendar_today, 'Смены', cs),
-                      _navItem(3, Icons.pie_chart_outline, Icons.pie_chart, 'Кошелёк', cs), // Переименовано
+                      _navItem(3, Icons.pie_chart_outline, Icons.pie_chart, 'Кошелёк', cs),
                     ],
                   ),
                 ),
