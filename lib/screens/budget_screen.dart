@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
+import '../models/bank.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/add_transaction_modal.dart';
 import '../widgets/add_income_modal.dart';
+import '../widgets/add_transfer_modal.dart';
 
 class BudgetScreen extends StatefulWidget {
   final StorageService storage;
@@ -31,6 +33,7 @@ class BudgetScreenState extends State<BudgetScreen> {
   String _tab = 'overview';
   List<Transaction> _transactions = [];
   List<BudgetCategory> _categories = [];
+  List<Bank> _banks = [];
 
   @override
   void initState() {
@@ -50,6 +53,7 @@ class BudgetScreenState extends State<BudgetScreen> {
     setState(() {
       _transactions = widget.storage.transactions;
       _categories = widget.storage.budgetCategories;
+      _banks = widget.storage.banks;
     });
   }
 
@@ -75,6 +79,30 @@ class BudgetScreenState extends State<BudgetScreen> {
       .fold(0.0, (s, t) => s + t.amount);
       
   double get _balance => _incomes - _expenses;
+
+  // Расчёт общего баланса по всем банкам на текущий момент
+  double get _totalBanksBalance {
+    double total = 0;
+    for (final b in _banks) {
+      total += _bankBalance(b.id);
+    }
+    return total;
+  }
+
+  // Расчёт баланса конкретного банка
+  double _bankBalance(String bankId) {
+    final b = _banks.firstWhere((x) => x.id == bankId, orElse: () => Bank(id: bankId, name: '?'));
+    double balance = b.initialBalance;
+    for (final t in _transactions) {
+      if (t.type == 'income' && t.bankId == bankId) balance += t.amount;
+      if (t.type == 'expense' && t.bankId == bankId) balance -= t.amount;
+      if (t.type == 'transfer') {
+        if (t.bankId == bankId) balance -= t.amount;
+        if (t.toBankId == bankId) balance += t.amount;
+      }
+    }
+    return balance;
+  }
 
   Map<String, double> _breakdown() {
     final map = <String, double>{};
@@ -110,15 +138,10 @@ class BudgetScreenState extends State<BudgetScreen> {
     });
   }
 
-  // Публичный метод для расхода
-  void openAddModal() {
-    _openAddExpenseModal();
-  }
-
-  // Публичный метод для дохода
-  void openAddIncomeModal() {
-    _openAddIncomeModal();
-  }
+  // Публичные методы для FAB
+  void openAddModal() => _openAddExpenseModal();
+  void openAddIncomeModal() => _openAddIncomeModal();
+  void openAddTransferModal() => _openAddTransferModal();
 
   void _openAddExpenseModal() {
     showModalBottomSheet(
@@ -127,6 +150,7 @@ class BudgetScreenState extends State<BudgetScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => AddTransactionModal(
         categories: _categories.where((c) => c.type == 'expense').toList(),
+        banks: _banks,
         onSave: (t) {
           final list = List<Transaction>.from(_transactions)..add(t);
           widget.storage.transactions = list;
@@ -144,6 +168,24 @@ class BudgetScreenState extends State<BudgetScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => AddIncomeModal(
         categories: _categories.where((c) => c.type == 'income').toList(),
+        banks: _banks,
+        onSave: (t) {
+          final list = List<Transaction>.from(_transactions)..add(t);
+          widget.storage.transactions = list;
+          _load();
+          widget.sync.schedulePush();
+        },
+      ),
+    );
+  }
+
+  void _openAddTransferModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddTransferModal(
+        banks: _banks,
         onSave: (t) {
           final list = List<Transaction>.from(_transactions)..add(t);
           widget.storage.transactions = list;
@@ -163,6 +205,7 @@ class BudgetScreenState extends State<BudgetScreen> {
         if (t.type == 'income') {
           return AddIncomeModal(
             categories: _categories.where((c) => c.type == 'income').toList(),
+            banks: _banks,
             initialTransaction: t,
             onSave: (updated) {
               final list = List<Transaction>.from(_transactions);
@@ -173,9 +216,14 @@ class BudgetScreenState extends State<BudgetScreen> {
               widget.sync.schedulePush();
             },
           );
+        } else if (t.type == 'transfer') {
+          // Для перевода показываем уведомление (редактирование перевода пока не поддерживается)
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Редактирование перевода пока не поддерживается')));
+          return const SizedBox.shrink();
         } else {
           return AddTransactionModal(
             categories: _categories.where((c) => c.type == 'expense').toList(),
+            banks: _banks,
             initialTransaction: t,
             onSave: (updated) {
               final list = List<Transaction>.from(_transactions);
@@ -232,8 +280,10 @@ class BudgetScreenState extends State<BudgetScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
                 children: [
-                  _buildBalanceCard(cs),
+                  _buildTotalBalanceCard(cs),
                   const SizedBox(height: 16),
+                  _buildBanksList(cs),
+                  const SizedBox(height: 24),
                   _buildTabs(cs),
                   const SizedBox(height: 16),
                   if (_tab == 'overview') _buildOverview(cs),
@@ -253,7 +303,7 @@ class BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
-  Widget _buildBalanceCard(ColorScheme cs) {
+  Widget _buildTotalBalanceCard(ColorScheme cs) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -263,21 +313,61 @@ class BudgetScreenState extends State<BudgetScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Баланс за месяц', style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85))),
+          Text('Общий баланс', style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85))),
           const SizedBox(height: 6),
-          Text('${_balance.toStringAsFixed(0)} ₽',
+          Text('${_totalBanksBalance.toStringAsFixed(0)} ₽',
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: cs.onPrimary)),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Доходы: ${_incomes.toStringAsFixed(0)} ₽',
+              Text('Доходы за месяц: ${_incomes.toStringAsFixed(0)} ₽',
                   style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
               Text('Расходы: ${_expenses.toStringAsFixed(0)} ₽',
                   style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBanksList(ColorScheme cs) {
+    if (_banks.isEmpty) return const SizedBox.shrink();
+    
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _banks.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (ctx, i) {
+          final b = _banks[i];
+          final balance = _bankBalance(b.id);
+          return Container(
+            width: 160,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.surfaceVariant,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: cs.outline),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(b.emoji, style: const TextStyle(fontSize: 20)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(b.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  ],
+                ),
+                Text('${balance.toStringAsFixed(0)} ₽', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: balance >= 0 ? cs.primary : cs.error)),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -424,6 +514,12 @@ class BudgetScreenState extends State<BudgetScreen> {
           orElse: () => BudgetCategory(id: t.categoryId, name: 'Другое', emoji: '📦', type: t.type),
         );
         final isExpense = t.type == 'expense';
+        final isIncome = t.type == 'income';
+        final isTransfer = t.type == 'transfer';
+        
+        final bank = t.bankId != null ? _banks.firstWhere((b) => b.id == t.bankId, orElse: () => Bank(id: t.bankId!, name: 'Банк')) : null;
+        final toBank = t.toBankId != null ? _banks.firstWhere((b) => b.id == t.toBankId, orElse: () => Bank(id: t.toBankId!, name: 'Банк')) : null;
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Material(
@@ -438,23 +534,34 @@ class BudgetScreenState extends State<BudgetScreen> {
                 ),
                 child: Row(
                   children: [
-                    Text(cat.emoji, style: const TextStyle(fontSize: 22)),
+                    Text(isTransfer ? '🔄' : cat.emoji, style: const TextStyle(fontSize: 22)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(t.comment.isEmpty ? cat.name : t.comment,
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                          Text(
+                            isTransfer 
+                              ? 'Перевод: ${bank?.name} → ${toBank?.name}' 
+                              : (t.comment.isEmpty ? cat.name : t.comment),
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface),
+                          ),
                           const SizedBox(height: 2),
-                          Text('${t.date.day}.${t.date.month}.${t.date.year} · ${cat.name}',
-                              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                          Text(
+                            '${t.date.day}.${t.date.month}.${t.date.year}${!isTransfer && bank != null ? " · ${bank.name}" : ""}',
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
                         ],
                       ),
                     ),
-                    Text('${isExpense ? '−' : '+'}${t.amount.toStringAsFixed(0)} ₽',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
-                            color: isExpense ? cs.error : cs.tertiary)),
+                    Text(
+                      '${isExpense ? '−' : (isIncome ? '+' : '')}${t.amount.toStringAsFixed(0)} ₽',
+                      style: TextStyle(
+                        fontSize: 15, 
+                        fontWeight: FontWeight.w700,
+                        color: isExpense ? cs.error : (isIncome ? cs.tertiary : cs.onSurfaceVariant),
+                      ),
+                    ),
                   ],
                 ),
               ),
