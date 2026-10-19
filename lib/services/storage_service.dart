@@ -56,7 +56,6 @@ class StorageService {
   set serverVersion(int v) => _box.put('serverVersion', v);
 
   // ============ ФОН ============
-  /// Путь к файлу фона (не сам base64 — экономим память).
   String get bgImagePath => _box.get('bgImagePath') as String? ?? '';
   set bgImagePath(String v) => _box.put('bgImagePath', v);
 
@@ -240,7 +239,7 @@ class StorageService {
   }
   set transactions(List<Transaction> items) => _box.put('transactions', items.map((e) => e.toJson()).toList());
 
-  // ============ КАТЕГОРИИ БЮДЖЕТА ============
+  // ============ КАТЕГОРИИ КОШЕЛЬКА ============
   List<BudgetCategory> get budgetCategories {
     final raw = _box.get('budgetCategories');
     if (raw == null) return _defaultBudgetCategories();
@@ -256,6 +255,7 @@ class StorageService {
 
   static List<BudgetCategory> _defaultBudgetCategories() {
     return [
+      // РАСХОДЫ
       BudgetCategory(id: 'cat_food', name: 'Продукты', emoji: '🍎', type: 'expense', colorValue: 0xFFFF8FAB),
       BudgetCategory(id: 'cat_transport', name: 'Транспорт', emoji: '🚗', type: 'expense', colorValue: 0xFF5856D6),
       BudgetCategory(id: 'cat_home', name: 'Жильё', emoji: '🏠', type: 'expense', colorValue: 0xFF34C759),
@@ -263,9 +263,11 @@ class StorageService {
       BudgetCategory(id: 'cat_health', name: 'Здоровье', emoji: '💊', type: 'expense', colorValue: 0xFFFF3B30),
       BudgetCategory(id: 'cat_clothes', name: 'Одежда', emoji: '👕', type: 'expense', colorValue: 0xFF00C7BE),
       BudgetCategory(id: 'cat_other_expense', name: 'Другое', emoji: '📦', type: 'expense', colorValue: 0xFF9E9E9E),
-      BudgetCategory(id: 'cat_salary', name: 'Зарплата', emoji: '💰', type: 'income', colorValue: 0xFF34C759),
-      BudgetCategory(id: 'cat_gift', name: 'Подарки', emoji: '🎁', type: 'income', colorValue: 0xFFFF8FAB),
-      BudgetCategory(id: 'cat_other_income', name: 'Другое', emoji: '📦', type: 'income', colorValue: 0xFF9E9E9E),
+      
+      // ДОХОДЫ (НОВЫЕ)
+      BudgetCategory(id: 'income_salary', name: 'Зарплата', emoji: '💰', type: 'income', colorValue: 0xFF34C759),
+      BudgetCategory(id: 'income_bonus', name: 'Премия', emoji: '🏆', type: 'income', colorValue: 0xFFFF9500),
+      BudgetCategory(id: 'income_other', name: 'Иной доход', emoji: '✨', type: 'income', colorValue: 0xFF5856D6),
     ];
   }
 
