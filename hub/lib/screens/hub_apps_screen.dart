@@ -194,6 +194,9 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
   }
 
   Widget _appTile(AppInfo app, ColorScheme cs) {
+    // Размер иконки для запроса (64dp)
+    final iconSize = (64 * MediaQuery.devicePixelRatioOf(context)).round();
+
     return Pressable(
       onTap: () => widget.onLaunchApp(app.packageName),
       onLongPress: () => _showAppMenu(app, cs),
@@ -210,8 +213,9 @@ class _HubAppsScreenState extends State<HubAppsScreen> {
               border: Border.all(color: cs.outline),
             ),
             padding: const EdgeInsets.all(6),
+            // ИСПРАВЛЕНО: используем getAppIcon вместо getApp
             child: FutureBuilder<Uint8List?>(
-              future: DeviceApps.getApp(app.packageName)?.then((app) => app?.icon),
+              future: DeviceApps.getAppIcon(app.packageName, iconSize: iconSize),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SizedBox(
