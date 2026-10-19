@@ -1,14 +1,12 @@
-// lib/screens/budget_screen.dart
-
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
-import '../models/partner.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/modern_app_bar.dart';
 import '../widgets/add_transaction_modal.dart';
+import '../widgets/add_income_modal.dart';
 
 class BudgetScreen extends StatefulWidget {
   final StorageService storage;
@@ -62,47 +60,22 @@ class BudgetScreenState extends State<BudgetScreen> {
 
   List<Transaction> get _monthTransactions {
     final start = DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final end =
-        DateTime(_currentMonth.year, _currentMonth.month + 1, 0, 23, 59);
+    final end = DateTime(_currentMonth.year, _currentMonth.month + 1, 0, 23, 59);
     return _transactions.where((t) =>
         t.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
         t.date.isBefore(end.add(const Duration(seconds: 1)))).toList();
   }
 
-  double _monthSalaryFromShifts() {
-    final partners = widget.storage.partners;
-    final prefix =
-        '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
-    double total = 0;
-    for (final s in widget.storage.shifts) {
-      if (!s.date.startsWith(prefix)) continue;
-      if (s.importedFrom == 'courier-helper' && s.income != null) {
-        total += s.income!.toDouble();
-        continue;
-      }
-      final p = partners.firstWhere(
-        (x) => x.id == s.partner,
-        orElse: () =>
-            Partner(id: s.partner, name: '', rate: 0, payType: 'hourly'),
-      );
-      if (p.payType == 'piecework') {
-        total += (s.pieceworkAmount ?? 0).toDouble();
-      } else if (p.payType == 'fixed') {
-        total += p.rate.toDouble();
-      } else {
-        total += s.hours * p.rate;
-      }
-    }
-    return total;
-  }
-
-  double get _manualIncomes => _monthTransactions
+  // Убрали _monthSalaryFromShifts() — больше не синхронизируемся со сменами
+  
+  double get _incomes => _monthTransactions
       .where((t) => t.type == 'income')
       .fold(0.0, (s, t) => s + t.amount);
-  double get _incomes => _manualIncomes + _monthSalaryFromShifts();
+      
   double get _expenses => _monthTransactions
       .where((t) => t.type == 'expense')
       .fold(0.0, (s, t) => s + t.amount);
+      
   double get _balance => _incomes - _expenses;
 
   Map<String, double> _breakdown() {
@@ -125,9 +98,7 @@ class BudgetScreenState extends State<BudgetScreen> {
       }
     }
     final total = obligatory + conscious + impulsive;
-    if (total == 0) {
-      return {'obligatory': 0, 'conscious': 0, 'impulsive': 0};
-    }
+    if (total == 0) return {'obligatory': 0, 'conscious': 0, 'impulsive': 0};
     return {
       'obligatory': obligatory / total * 100,
       'conscious': conscious / total * 100,
@@ -137,18 +108,17 @@ class BudgetScreenState extends State<BudgetScreen> {
 
   void _changeMonth(int delta) {
     setState(() {
-      _currentMonth =
-          DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
     });
   }
 
-  void _openAddModal() {
+  void _openAddExpenseModal() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => AddTransactionModal(
-        categories: _categories,
+        categories: _categories.where((c) => c.type == 'expense').toList(),
         onSave: (t) {
           final list = List<Transaction>.from(_transactions)..add(t);
           widget.storage.transactions = list;
@@ -159,23 +129,15 @@ class BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
-  /// Публичный — для вызова из MainScreen через GlobalKey
-  void openAddModal() {
-    _openAddModal();
-  }
-
-  void _openEditModal(Transaction t) {
+  void _openAddIncomeModal() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => AddTransactionModal(
-        categories: _categories,
-        initialTransaction: t,
-        onSave: (updated) {
-          final list = List<Transaction>.from(_transactions);
-          final i = list.indexWhere((e) => e.id == updated.id);
-          if (i >= 0) list[i] = updated;
+      builder: (_) => AddIncomeModal(
+        categories: _categories.where((c) => c.type == 'income').toList(),
+        onSave: (t) {
+          final list = List<Transaction>.from(_transactions)..add(t);
           widget.storage.transactions = list;
           _load();
           widget.sync.schedulePush();
@@ -184,11 +146,46 @@ class BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
+  void _openEditModal(Transaction t) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        if (t.type == 'income') {
+          return AddIncomeModal(
+            categories: _categories.where((c) => c.type == 'income').toList(),
+            initialTransaction: t,
+            onSave: (updated) {
+              final list = List<Transaction>.from(_transactions);
+              final i = list.indexWhere((e) => e.id == updated.id);
+              if (i >= 0) list[i] = updated;
+              widget.storage.transactions = list;
+              _load();
+              widget.sync.schedulePush();
+            },
+          );
+        } else {
+          return AddTransactionModal(
+            categories: _categories.where((c) => c.type == 'expense').toList(),
+            initialTransaction: t,
+            onSave: (updated) {
+              final list = List<Transaction>.from(_transactions);
+              final i = list.indexWhere((e) => e.id == updated.id);
+              if (i >= 0) list[i] = updated;
+              widget.storage.transactions = list;
+              _load();
+              widget.sync.schedulePush();
+            },
+          );
+        }
+      },
+    );
+  }
+
   String _monthName(int m) {
-    const names = [
-      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-    ];
+    const names = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
     return names[m - 1];
   }
 
@@ -200,7 +197,7 @@ class BudgetScreenState extends State<BudgetScreen> {
       body: Column(
         children: [
           ModernAppBar(
-            title: 'Бюджет',
+            title: 'Кошелёк',
             onAvatarTap: widget.onAvatarTap,
             avatarEmoji: widget.storage.myAvatar,
           ),
@@ -208,21 +205,13 @@ class BudgetScreenState extends State<BudgetScreen> {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Row(
               children: [
-                IconButton(
-                    onPressed: () => _changeMonth(-1),
-                    icon: Icon(Icons.chevron_left, color: cs.onSurface)),
+                IconButton(onPressed: () => _changeMonth(-1), icon: Icon(Icons.chevron_left, color: cs.onSurface)),
                 Expanded(
-                  child: Text(
-                      '${_monthName(_currentMonth.month)} ${_currentMonth.year}',
+                  child: Text('${_monthName(_currentMonth.month)} ${_currentMonth.year}',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurface)),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface)),
                 ),
-                IconButton(
-                    onPressed: () => _changeMonth(1),
-                    icon: Icon(Icons.chevron_right, color: cs.onSurface)),
+                IconButton(onPressed: () => _changeMonth(1), icon: Icon(Icons.chevron_right, color: cs.onSurface)),
               ],
             ),
           ),
@@ -233,7 +222,7 @@ class BudgetScreenState extends State<BudgetScreen> {
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 180),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
                 children: [
                   _buildBalanceCard(cs),
                   const SizedBox(height: 16),
@@ -248,6 +237,11 @@ class BudgetScreenState extends State<BudgetScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddExpenseModal, // Здесь кнопка для расхода, общая FAB в MainScreen
+        icon: const Icon(Icons.add),
+        label: const Text('Расход'),
+      ),
     );
   }
 
@@ -255,34 +249,24 @@ class BudgetScreenState extends State<BudgetScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-            colors: [cs.primary, cs.secondary],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight),
+        gradient: LinearGradient(colors: [cs.primary, cs.secondary], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Баланс за месяц',
-              style: TextStyle(
-                  fontSize: 14, color: cs.onPrimary.withOpacity(0.85))),
+          Text('Баланс за месяц', style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85))),
           const SizedBox(height: 6),
           Text('${_balance.toStringAsFixed(0)} ₽',
-              style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onPrimary)),
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: cs.onPrimary)),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Доходы: ${_incomes.toStringAsFixed(0)} ₽',
-                  style: TextStyle(
-                      fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
+                  style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
               Text('Расходы: ${_expenses.toStringAsFixed(0)} ₽',
-                  style: TextStyle(
-                      fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
+                  style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
             ],
           ),
         ],
@@ -291,15 +275,10 @@ class BudgetScreenState extends State<BudgetScreen> {
   }
 
   Widget _buildTabs(ColorScheme cs) {
-    final tabs = [
-      ('overview', 'Обзор'),
-      ('transactions', 'Транзакции'),
-      ('categories', 'Категории'),
-    ];
+    final tabs = [('overview', 'Обзор'), ('transactions', 'Транзакции'), ('categories', 'Категории')];
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-          color: cs.surfaceVariant, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: tabs.map((t) {
           final sel = t.$1 == _tab;
@@ -311,16 +290,14 @@ class BudgetScreenState extends State<BudgetScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   color: sel ? cs.surface : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
-                  child: Text(t.$2,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight:
-                            sel ? FontWeight.w700 : FontWeight.w500,
-                        color: sel ? cs.onSurface : cs.onSurfaceVariant,
-                      )),
+                  child: Text(t.$2, style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                    color: sel ? cs.onSurface : cs.onSurfaceVariant,
+                  )),
                 ),
               ),
             ),
@@ -332,103 +309,46 @@ class BudgetScreenState extends State<BudgetScreen> {
 
   Widget _buildOverview(ColorScheme cs) {
     final health = _health();
-    final salaryFromShifts = _monthSalaryFromShifts();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (salaryFromShifts > 0) ...[
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: cs.primary),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.work_outline,
-                    color: cs.onPrimaryContainer, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Зарплата из смен за месяц',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: cs.onPrimaryContainer
-                                  .withOpacity(0.8))),
-                      Text('${salaryFromShifts.toStringAsFixed(0)} ₽',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: cs.onPrimaryContainer)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-        Text('Финансовое здоровье',
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface)),
+        Text('Финансовое здоровье', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: cs.surfaceVariant,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: cs.outline),
+            color: cs.surfaceVariant, borderRadius: BorderRadius.circular(18), border: Border.all(color: cs.outline),
           ),
           child: Column(
             children: [
-              _healthBar('Обязательные', health['obligatory'] ?? 0,
-                  cs.error, cs),
+              _healthBar('Обязательные', health['obligatory'] ?? 0, cs.error, cs),
               const SizedBox(height: 10),
-              _healthBar('Осознанные', health['conscious'] ?? 0,
-                  cs.secondary, cs),
+              _healthBar('Осознанные', health['conscious'] ?? 0, cs.secondary, cs),
               const SizedBox(height: 10),
-              _healthBar('Импульсивные', health['impulsive'] ?? 0,
-                  cs.tertiary, cs),
+              _healthBar('Импульсивные', health['impulsive'] ?? 0, cs.tertiary, cs),
             ],
           ),
         ),
         const SizedBox(height: 20),
-        Text('Расходы по категориям',
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface)),
+        Text('Расходы по категориям', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
         const SizedBox(height: 8),
         if (_breakdown().isEmpty)
           Padding(
             padding: const EdgeInsets.all(32),
-            child: Center(
-                child: Text('Нет расходов за этот месяц',
-                    style: TextStyle(color: cs.onSurfaceVariant))),
+            child: Center(child: Text('Нет расходов за этот месяц', style: TextStyle(color: cs.onSurfaceVariant))),
           )
         else
           ...(_breakdown().entries.map((e) {
             final cat = _categories.firstWhere(
               (c) => c.id == e.key,
-              orElse: () => BudgetCategory(
-                  id: e.key,
-                  name: 'Другое',
-                  emoji: '📦',
-                  type: 'expense'),
+              orElse: () => BudgetCategory(id: e.key, name: 'Другое', emoji: '📦', type: 'expense'),
             );
             final percent = _expenses > 0 ? e.value / _expenses * 100 : 0;
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: cs.surfaceVariant,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: cs.outline),
+                color: cs.surfaceVariant, borderRadius: BorderRadius.circular(14), border: Border.all(color: cs.outline),
               ),
               child: Row(
                 children: [
@@ -438,19 +358,13 @@ class BudgetScreenState extends State<BudgetScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(cat.name,
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSurface)),
+                        Text(cat.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
                         const SizedBox(height: 4),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(3),
                           child: LinearProgressIndicator(
-                            value: percent / 100,
-                            minHeight: 4,
-                            backgroundColor: cs.surface,
-                            color: cs.primary,
+                            value: percent / 100, minHeight: 4,
+                            backgroundColor: cs.surface, color: cs.primary,
                           ),
                         ),
                       ],
@@ -458,10 +372,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                   ),
                   const SizedBox(width: 10),
                   Text('${e.value.toStringAsFixed(0)} ₽',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: cs.onSurface)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
                 ],
               ),
             );
@@ -473,49 +384,36 @@ class BudgetScreenState extends State<BudgetScreen> {
   Widget _healthBar(String label, double percent, Color color, ColorScheme cs) {
     return Row(
       children: [
-        SizedBox(
-            width: 110,
-            child: Text(label,
-                style: TextStyle(fontSize: 13, color: cs.onSurface))),
+        SizedBox(width: 110, child: Text(label, style: TextStyle(fontSize: 13, color: cs.onSurface))),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: percent / 100,
-              minHeight: 8,
-              backgroundColor: cs.surface,
-              color: color,
+              value: percent / 100, minHeight: 8,
+              backgroundColor: cs.surface, color: color,
             ),
           ),
         ),
         const SizedBox(width: 8),
-        SizedBox(
-            width: 45,
-            child: Text('${percent.toStringAsFixed(0)}%',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                    fontSize: 12, color: cs.onSurfaceVariant))),
+        SizedBox(width: 45, child: Text('${percent.toStringAsFixed(0)}%',
+            textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
       ],
     );
   }
 
   Widget _buildTransactions(ColorScheme cs) {
-    final list = List<Transaction>.from(_monthTransactions)
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final list = List<Transaction>.from(_monthTransactions)..sort((a, b) => b.date.compareTo(a.date));
     if (list.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(32),
-        child: Center(
-            child: Text('Нет транзакций за этот месяц',
-                style: TextStyle(color: cs.onSurfaceVariant))),
+        child: Center(child: Text('Нет транзакций за этот месяц', style: TextStyle(color: cs.onSurfaceVariant))),
       );
     }
     return Column(
       children: list.map((t) {
         final cat = _categories.firstWhere(
           (c) => c.id == t.categoryId,
-          orElse: () => BudgetCategory(
-              id: t.categoryId, name: 'Другое', emoji: '📦', type: t.type),
+          orElse: () => BudgetCategory(id: t.categoryId, name: 'Другое', emoji: '📦', type: t.type),
         );
         final isExpense = t.type == 'expense';
         return Padding(
@@ -523,14 +421,12 @@ class BudgetScreenState extends State<BudgetScreen> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(14),
               onTap: () => _openEditModal(t),
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: cs.surfaceVariant,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: cs.outline),
+                  color: cs.surfaceVariant, borderRadius: BorderRadius.circular(14), border: Border.all(color: cs.outline),
                 ),
                 child: Row(
                   children: [
@@ -541,24 +437,15 @@ class BudgetScreenState extends State<BudgetScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(t.comment.isEmpty ? cat.name : t.comment,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.onSurface)),
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
                           const SizedBox(height: 2),
-                          Text(
-                              '${t.date.day}.${t.date.month}.${t.date.year} · ${cat.name}',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurfaceVariant)),
+                          Text('${t.date.day}.${t.date.month}.${t.date.year} · ${cat.name}',
+                              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                         ],
                       ),
                     ),
-                    Text(
-                        '${isExpense ? '−' : '+'}${t.amount.toStringAsFixed(0)} ₽',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
+                    Text('${isExpense ? '−' : '+'}${t.amount.toStringAsFixed(0)} ₽',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
                             color: isExpense ? cs.error : cs.tertiary)),
                   ],
                 ),
@@ -571,24 +458,18 @@ class BudgetScreenState extends State<BudgetScreen> {
   }
 
   Widget _buildCategories(ColorScheme cs) {
+    // Показываем только новые категории (расходы + новые доходы)
     final expenses = _categories.where((c) => c.type == 'expense').toList();
-    final incomes = _categories.where((c) => c.type == 'income').toList();
+    final incomes = _categories.where((c) => c.type == 'income' && c.id.startsWith('income_')).toList();
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Расходы',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurfaceVariant)),
+        Text('Расходы', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
         const SizedBox(height: 8),
         ...expenses.map((c) => _categoryTile(c, cs)),
         const SizedBox(height: 16),
-        Text('Доходы',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurfaceVariant)),
+        Text('Доходы', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
         const SizedBox(height: 8),
         ...incomes.map((c) => _categoryTile(c, cs)),
       ],
@@ -600,17 +481,13 @@ class BudgetScreenState extends State<BudgetScreen> {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: cs.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline),
+        color: cs.surfaceVariant, borderRadius: BorderRadius.circular(12), border: Border.all(color: cs.outline),
       ),
       child: Row(
         children: [
           Text(c.emoji, style: const TextStyle(fontSize: 18)),
           const SizedBox(width: 10),
-          Expanded(
-              child: Text(c.name,
-                  style: TextStyle(fontSize: 14, color: cs.onSurface))),
+          Expanded(child: Text(c.name, style: TextStyle(fontSize: 14, color: cs.onSurface))),
         ],
       ),
     );
