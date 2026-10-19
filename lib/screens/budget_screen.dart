@@ -1,3 +1,5 @@
+// lib/screens/budget_screen.dart
+
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
@@ -9,6 +11,7 @@ import '../widgets/modern_app_bar.dart';
 import '../widgets/add_transaction_modal.dart';
 import '../widgets/add_income_modal.dart';
 import '../widgets/add_transfer_modal.dart';
+import 'banks_editor_screen.dart'; // НОВОЕ
 
 class BudgetScreen extends StatefulWidget {
   final StorageService storage;
@@ -77,10 +80,8 @@ class BudgetScreenState extends State<BudgetScreen> {
   double get _expenses => _monthTransactions
       .where((t) => t.type == 'expense')
       .fold(0.0, (s, t) => s + t.amount);
-      
-  double get _balance => _incomes - _expenses;
 
-  // Расчёт общего баланса по всем банкам на текущий момент
+  // Общий баланс по всем банкам
   double get _totalBanksBalance {
     double total = 0;
     for (final b in _banks) {
@@ -89,7 +90,7 @@ class BudgetScreenState extends State<BudgetScreen> {
     return total;
   }
 
-  // Расчёт баланса конкретного банка
+  // Баланс конкретного банка
   double _bankBalance(String bankId) {
     final b = _banks.firstWhere((x) => x.id == bankId, orElse: () => Bank(id: bankId, name: '?'));
     double balance = b.initialBalance;
@@ -217,7 +218,6 @@ class BudgetScreenState extends State<BudgetScreen> {
             },
           );
         } else if (t.type == 'transfer') {
-          // Для перевода показываем уведомление (редактирование перевода пока не поддерживается)
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Редактирование перевода пока не поддерживается')));
           return const SizedBox.shrink();
         } else {
@@ -313,7 +313,32 @@ class BudgetScreenState extends State<BudgetScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Общий баланс', style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85))),
+          Row(
+            children: [
+              Text('Общий баланс', style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.85))),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => BanksEditorScreen(storage: widget.storage, sync: widget.sync),
+                )),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: cs.onPrimary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.tune, size: 14, color: cs.onPrimary),
+                      const SizedBox(width: 4),
+                      Text('Банки', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onPrimary)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
           Text('${_totalBanksBalance.toStringAsFixed(0)} ₽',
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: cs.onPrimary)),
@@ -321,7 +346,7 @@ class BudgetScreenState extends State<BudgetScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Доходы за месяц: ${_incomes.toStringAsFixed(0)} ₽',
+              Text('Доходы: ${_incomes.toStringAsFixed(0)} ₽',
                   style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
               Text('Расходы: ${_expenses.toStringAsFixed(0)} ₽',
                   style: TextStyle(fontSize: 13, color: cs.onPrimary.withOpacity(0.85))),
@@ -336,7 +361,7 @@ class BudgetScreenState extends State<BudgetScreen> {
     if (_banks.isEmpty) return const SizedBox.shrink();
     
     return SizedBox(
-      height: 100,
+      height: 90,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _banks.length,
@@ -345,7 +370,7 @@ class BudgetScreenState extends State<BudgetScreen> {
           final b = _banks[i];
           final balance = _bankBalance(b.id);
           return Container(
-            width: 160,
+            width: 150,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: cs.surfaceVariant,
@@ -358,12 +383,12 @@ class BudgetScreenState extends State<BudgetScreen> {
               children: [
                 Row(
                   children: [
-                    Text(b.emoji, style: const TextStyle(fontSize: 20)),
-                    const SizedBox(width: 8),
+                    Text(b.emoji, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 6),
                     Expanded(child: Text(b.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ],
                 ),
-                Text('${balance.toStringAsFixed(0)} ₽', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: balance >= 0 ? cs.primary : cs.error)),
+                Text('${balance.toStringAsFixed(0)} ₽', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: balance >= 0 ? cs.primary : cs.error)),
               ],
             ),
           );
