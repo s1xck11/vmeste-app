@@ -11,7 +11,8 @@ import '../models/shift_type.dart';
 import '../models/partner.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
-import '../models/bank.dart'; // НОВОЕ
+import '../models/bank.dart';
+import '../models/recurring_payment.dart'; // НОВОЕ
 import '../models/purchase_template.dart';
 import '../models/purchase_history_entry.dart';
 
@@ -25,7 +26,6 @@ class StorageService {
   }
 
   // ============ ГРУППА ============
-  // ... (без изменений, всё как было)
   String? get coupleCode => _box.get('coupleCode') as String?;
   set coupleCode(String? v) => _box.put('coupleCode', v);
 
@@ -72,7 +72,6 @@ class StorageService {
   set notificationTiming(int v) => _box.put('notifTiming', v);
 
   // ============ ПОКУПКИ ============
-  // ... (без изменений)
   List<Purchase> get purchases {
     final raw = _box.get('purchases');
     if (raw == null) return [];
@@ -242,7 +241,7 @@ class StorageService {
   }
   set transactions(List<Transaction> items) => _box.put('transactions', items.map((e) => e.toJson()).toList());
 
-  // ============ БАНКИ (НОВОЕ) ============
+  // ============ БАНКИ ============
   List<Bank> get banks {
     final raw = _box.get('banks');
     if (raw == null) return Bank.defaults();
@@ -255,6 +254,19 @@ class StorageService {
     }
   }
   set banks(List<Bank> b) => _box.put('banks', b.map((e) => e.toJson()).toList());
+
+  // ============ РЕГУЛЯРНЫЕ ПЛАТЕЖИ (НОВОЕ) ============
+  List<RecurringPayment> get recurringPayments {
+    final raw = _box.get('recurringPayments');
+    if (raw == null) return [];
+    try {
+      final list = (raw as List).cast<Map>();
+      return list.map((e) => RecurringPayment.fromJson(Map<String, dynamic>.from(e))).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+  set recurringPayments(List<RecurringPayment> p) => _box.put('recurringPayments', p.map((e) => e.toJson()).toList());
 
   // ============ КАТЕГОРИИ КОШЕЛЬКА ============
   List<BudgetCategory> get budgetCategories {
@@ -301,7 +313,8 @@ class StorageService {
       'partners': _mapById(partners.map((p) => p.toJson()).toList()),
       'transactions': _mapById(transactions.map((t) => t.toJson()).toList()),
       'budgetCategories': _mapById(budgetCategories.map((c) => c.toJson()).toList()),
-      'banks': _mapById(banks.map((b) => b.toJson()).toList()), // НОВОЕ
+      'banks': _mapById(banks.map((b) => b.toJson()).toList()),
+      'recurringPayments': _mapById(recurringPayments.map((p) => p.toJson()).toList()), // НОВОЕ
     };
   }
 
@@ -318,7 +331,8 @@ class StorageService {
     _restoreList(data, 'partners', (m) => partners = m.map((e) => Partner.fromJson(e)).toList());
     _restoreList(data, 'transactions', (m) => transactions = m.map((e) => Transaction.fromJson(e)).toList());
     _restoreList(data, 'budgetCategories', (m) => budgetCategories = m.map((e) => BudgetCategory.fromJson(e)).toList());
-    _restoreList(data, 'banks', (m) => banks = m.map((e) => Bank.fromJson(e)).toList()); // НОВОЕ
+    _restoreList(data, 'banks', (m) => banks = m.map((e) => Bank.fromJson(e)).toList());
+    _restoreList(data, 'recurringPayments', (m) => recurringPayments = m.map((e) => RecurringPayment.fromJson(e)).toList()); // НОВОЕ
   }
 
   void _restoreList(Map<String, dynamic> data, String key, void Function(List<Map<String, dynamic>>) setter) {
