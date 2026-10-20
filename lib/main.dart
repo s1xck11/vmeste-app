@@ -16,6 +16,7 @@ import 'theme/app_theme_config.dart';
 import 'widgets/glass_container.dart';
 import 'widgets/app_background.dart';
 import 'widgets/add_fab.dart';
+import 'widgets/curved_nav_bar.dart'; // НОВОЕ
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
@@ -384,7 +385,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    final navBottom = 14 + bottomInset * 0.5;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -395,34 +395,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           clipBehavior: Clip.none,
           children: [
             IndexedStack(index: _currentIndex, children: _screens),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: navBottom,
-              child: GlassContainer(
-                radius: 32,
-                showAllBorder: false,
-                shadow: true,
-                child: SizedBox(
-                  height: 68,
-                  child: Row(
-                    children: [
-                      _navItem(0, Icons.shopping_bag_outlined, Icons.shopping_bag, 'Покупки', cs),
-                      _navItem(1, Icons.check_circle_outline, Icons.check_circle, 'Задачи', cs),
-                      const SizedBox(width: 72),
-                      _navItem(2, Icons.calendar_today_outlined, Icons.calendar_today, 'Смены', cs),
-                      _navItem(3, Icons.pie_chart_outline, Icons.pie_chart, 'Кошелёк', cs),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            
+            // Новый премиальный навбар
             Positioned(
               left: 0,
               right: 0,
-              bottom: navBottom + 68 - 24,
-              child: Center(
-                child: AddFab(onPick: _onFabPick),
+              bottom: 0 + bottomInset * 0.5,
+              child: CurvedNavBar(
+                currentIndex: _currentIndex,
+                onTap: (i) => setState(() => _currentIndex = i),
+                onFabTap: () => _showFabMenu(), // Вызов меню FAB
+                cs: cs,
               ),
             ),
           ],
@@ -431,26 +414,26 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _navItem(int index, IconData icon, IconData activeIcon, String label, ColorScheme cs) {
-    final selected = _currentIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _currentIndex = index),
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(selected ? activeIcon : icon, size: 22,
-                color: selected ? cs.primary : cs.onSurfaceVariant),
-            const SizedBox(height: 3),
-            Text(label, style: TextStyle(
-              fontSize: 10,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? cs.primary : cs.onSurfaceVariant,
-            )),
-          ],
-        ),
-      ),
+  // Показываем меню FAB (то, что раньше делал AddFab)
+  void _showFabMenu() {
+    // Используем существующий AddFab для логики меню, но вызываем вручную
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.18),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: AddFabContent(
+              onPick: (kind) {
+                Navigator.pop(ctx);
+                _onFabPick(kind);
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
