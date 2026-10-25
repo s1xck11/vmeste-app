@@ -16,7 +16,6 @@ import 'theme/app_theme_config.dart';
 import 'widgets/glass_container.dart';
 import 'widgets/app_background.dart';
 import 'widgets/add_fab.dart';
-import 'widgets/curved_nav_bar.dart'; // НОВОЕ
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
@@ -201,16 +200,23 @@ class _SplashScreenState extends State<SplashScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: cs.background,
-      body: Center(child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.favorite, size: 80, color: cs.primary),
-          const SizedBox(height: 24),
-          Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
-          const SizedBox(height: 24),
-          CircularProgressIndicator(color: cs.primary),
-        ],
-      )),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // НОВАЯ ИКОНКА НА ЭКРАНЕ ЗАГРУЗКИ
+            Image.asset(
+              'assets/icon/app_icon.png',
+              width: 120,
+              height: 120,
+            ),
+            const SizedBox(height: 24),
+            Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
+            const SizedBox(height: 32),
+            CircularProgressIndicator(color: cs.primary),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -404,7 +410,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               child: CurvedNavBar(
                 currentIndex: _currentIndex,
                 onTap: (i) => setState(() => _currentIndex = i),
-                onFabTap: () => _showFabMenu(), // Вызов меню FAB
+                onFabTap: () => _showFabMenu(),
                 cs: cs,
               ),
             ),
@@ -414,9 +420,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  // Показываем меню FAB (то, что раньше делал AddFab)
   void _showFabMenu() {
-    // Используем существующий AddFab для логики меню, но вызываем вручную
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
