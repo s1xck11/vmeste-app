@@ -1,5 +1,3 @@
-// lib/services/update_service.dart
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -29,20 +27,16 @@ class UpdateInfo {
 
 class UpdateService {
   final _log = DebugLogService();
-
   static const String _repo = 's1xck11/vmeste-app';
+  static const Duration _checkInterval = Duration(hours: 1);
 
   static String _currentVersion = '1.0.0';
   static int _currentBuild = 0;
   static bool _loaded = false;
+  static DateTime? _lastCheckTime;
 
-  /// Версия приложения из APK, например "1.1.199".
   static String get currentVersion => _currentVersion;
-
-  /// Номер сборки из APK, например 199.
   static int get currentBuild => _currentBuild;
-
-  /// Полная строка для UI: "1.1.199+199".
   static String get currentFull => '$_currentVersion+$_currentBuild';
 
   static Future<void> loadVersion() async {
@@ -59,7 +53,18 @@ class UpdateService {
     }
   }
 
-  Future<UpdateInfo?> checkForUpdate() async {
+  /// Проверяет, нужно ли делать запрос (прошло ли достаточно времени)
+  bool _shouldCheck() {
+    if (_lastCheckTime == null) return true;
+    return DateTime.now().difference(_lastCheckTime!) > _checkInterval;
+  }
+
+  Future<UpdateInfo?> checkForUpdate({bool force = false}) async {
+    if (!force && !_shouldCheck()) {
+      _log.info('Update', 'слишком часто, пропускаю');
+      return null;
+    }
+
     try {
       _log.info('Update', 'проверка обновлений... (текущая ${currentFull})');
       final uri = Uri.parse('https://api.github.com/repos/$_repo/releases/latest');
@@ -67,6 +72,8 @@ class UpdateService {
         uri,
         headers: {'Accept': 'application/vnd.github+json'},
       ).timeout(const Duration(seconds: 20));
+
+      _lastCheckTime = DateTime.now();
 
       if (resp.statusCode != 200) {
         _log.warn('Update', 'HTTP ${resp.statusCode}');
@@ -78,21 +85,16 @@ class UpdateService {
       final name = (data['name'] as String?) ?? tag;
       final body = (data['body'] as String?) ?? '';
 
-      // Убираем "v" из тега: "v1.1.199" → "1.1.199"
       final remoteVersion = tag.replaceAll(RegExp(r'^[vV]'), '');
 
-      // Простое сравнение: если версия отличается → есть обновление
       if (remoteVersion == currentVersion) {
-        _log.info('Update', 'обновлений нет (текущая $currentVersion, последняя $tag)');
+        _log.info('Update', 'обновлений нет');
         return null;
       }
 
-      // Дополнительная проверка: сравниваем по частям,
-      // чтобы откатить "понижение версии"
       final ver = _parseVersion(remoteVersion);
       final curVer = _parseVersion(currentVersion);
       if (ver != null && curVer != null && !_isNewer(ver, curVer)) {
-        _log.info('Update', 'версия на сервере не новее (текущая $currentVersion, последняя $tag)');
         return null;
       }
 
@@ -140,29 +142,20 @@ class UpdateService {
     void Function(int received, int total)? onProgress,
     void Function(String status)? onStatus,
   }) async {
-    if (info.apkUrl == null) {
-      _log.warn('Update', 'нет APK в релизе');
-      return null;
-    }
+    if (info.apkUrl == null) return null;
 
     const maxAttempts = 5;
     final dir = await getTemporaryDirectory();
     final partFile = File('${dir.path}/vmeste-${info.tag}.apk.part');
     final finalFile = File('${dir.path}/vmeste-${info.tag}.apk');
 
-    if (await finalFile.exists()) {
-      _log.info('Update', 'уже скачан: ${finalFile.path}');
-      return finalFile;
-    }
+    if (await finalFile.exists()) return finalFile;
 
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         int existingLength = 0;
-        if (await partFile.exists()) {
-          existingLength = await partFile.length();
-        }
+        if (await partFile.exists()) existingLength = await partFile.length();
 
-        _log.info('Update', 'попытка $attempt/$maxAttempts, уже есть $existingLength байт');
         if (onStatus != null) {
           onStatus(attempt == 1 && existingLength == 0
               ? 'Скачивание...'
@@ -178,7 +171,6 @@ class UpdateService {
           final uri = Uri.parse(info.apkUrl!);
           final request = await client.getUrl(uri);
           request.followRedirects = true;
-          request.headers.set('Accept', '*/*');
           if (existingLength > 0) {
             request.headers.set('Range', 'bytes=$existingLength-');
           }
@@ -186,20 +178,12 @@ class UpdateService {
           final response = await request.close();
           final status = response.statusCode;
 
-          if (status != 200 && status != 206) {
-            _log.warn('Update', 'HTTP $status');
-            client.close(force: true);
-            return null;
-          }
+          if (status != 200 && status != 206) return null;
 
           int startFrom = 0;
           if (status == 206 && existingLength > 0) {
             startFrom = existingLength;
-            _log.info('Update', 'сервер поддержал докачку с $startFrom');
           } else if (status == 200) {
-            if (existingLength > 0) {
-              _log.info('Update', 'сервер НЕ поддержал докачку — начинаем с нуля');
-            }
             startFrom = 0;
             if (await partFile.exists()) await partFile.delete();
           }
@@ -224,34 +208,23 @@ class UpdateService {
 
           if (await finalFile.exists()) await finalFile.delete();
           await partFile.rename(finalFile.path);
-          _log.info('Update', 'скачано: ${finalFile.path} (${received ~/ 1024} КБ)');
           return finalFile;
         } finally {
           client.close(force: true);
         }
       } catch (e, st) {
-        _log.error('Update', 'попытка $attempt FAILED', e, st);
-        if (onStatus != null) {
-          onStatus('Обрыв, повтор через 3 сек...');
-        }
-        if (attempt < maxAttempts) {
-          await Future.delayed(const Duration(seconds: 3));
-        }
+        if (onStatus != null) onStatus('Обрыв, повтор через 3 сек...');
+        if (attempt < maxAttempts) await Future.delayed(const Duration(seconds: 3));
       }
     }
-
-    _log.warn('Update', 'не удалось скачать за $maxAttempts попыток');
     return null;
   }
 
   Future<bool> installApk(File file) async {
     try {
-      _log.info('Update', 'открываю установщик: ${file.path}');
       final result = await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
-      _log.info('Update', 'результат: ${result.type} — ${result.message}');
       return result.type == ResultType.done;
-    } catch (e, st) {
-      _log.error('Update', 'installApk FAILED', e, st);
+    } catch (e) {
       return false;
     }
   }
@@ -267,9 +240,7 @@ class UpdateService {
   List<int>? _parseVersion(String v) {
     try {
       final parts = v.split('.').map((s) => int.tryParse(s) ?? 0).toList();
-      while (parts.length < 3) {
-        parts.add(0);
-      }
+      while (parts.length < 3) parts.add(0);
       return parts.take(3).toList();
     } catch (_) {
       return null;
