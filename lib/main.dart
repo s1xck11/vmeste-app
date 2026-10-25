@@ -13,9 +13,9 @@ import 'services/update_service.dart';
 import 'services/widget_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
-import 'widgets/glass_container.dart';
 import 'widgets/app_background.dart';
 import 'widgets/add_fab.dart';
+import 'widgets/curved_nav_bar.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
@@ -161,11 +161,20 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final _updateService = UpdateService();
+
   @override
-  void initState() { super.initState(); _check(); }
+  void initState() { 
+    super.initState(); 
+    _check(); 
+  }
 
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
+    
+    // Авто-проверка обновлений (не блокирует загрузку)
+    _autoCheckUpdate();
+
     if (widget.storage.isConfigured) {
       final ok = await widget.sync.autoConnect();
       if (!mounted) return;
@@ -195,6 +204,38 @@ class _SplashScreenState extends State<SplashScreen> {
     ));
   }
 
+  Future<void> _autoCheckUpdate() async {
+    final info = await _updateService.checkForUpdate();
+    if (info != null && mounted) {
+      _showAutoUpdateDialog(info);
+    }
+  }
+
+  void _showAutoUpdateDialog(UpdateInfo info) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Доступно обновление ${info.tag}'),
+        content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия приложения'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _downloadAndInstall(info);
+            },
+            child: const Text('Обновить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _downloadAndInstall(UpdateInfo info) async {
+    final file = await _updateService.downloadApk(info);
+    if (file != null) await _updateService.installApk(file);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -204,12 +245,7 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // НОВАЯ ИКОНКА НА ЭКРАНЕ ЗАГРУЗКИ
-            Image.asset(
-              'assets/icon/app_icon.png',
-              width: 120,
-              height: 120,
-            ),
+            Image.asset('assets/icon/app_icon.png', width: 120, height: 120),
             const SizedBox(height: 24),
             Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
             const SizedBox(height: 32),
@@ -245,6 +281,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final List<Widget> _screens;
+  final _updateService = UpdateService();
 
   final _purchasesKey = GlobalKey<PurchasesScreenState>();
   final _tasksKey = GlobalKey<TasksScreenState>();
@@ -261,34 +298,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
 
     _screens = [
-      PurchasesScreen(
-        key: _purchasesKey,
-        storage: widget.storage,
-        sync: widget.sync,
-        themeService: widget.themeService,
-        onAvatarTap: _openSettings,
-      ),
-      TasksScreen(
-        key: _tasksKey,
-        storage: widget.storage,
-        sync: widget.sync,
-        themeService: widget.themeService,
-        onAvatarTap: _openSettings,
-      ),
-      ShiftsScreen(
-        key: _shiftsKey,
-        storage: widget.storage,
-        sync: widget.sync,
-        themeService: widget.themeService,
-        onAvatarTap: _openSettings,
-      ),
-      BudgetScreen(
-        key: _budgetKey,
-        storage: widget.storage,
-        sync: widget.sync,
-        themeService: widget.themeService,
-        onAvatarTap: _openSettings,
-      ),
+      PurchasesScreen(key: _purchasesKey, storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+      TasksScreen(key: _tasksKey, storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+      ShiftsScreen(key: _shiftsKey, storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
+      BudgetScreen(key: _budgetKey, storage: widget.storage, sync: widget.sync, themeService: widget.themeService, onAvatarTap: _openSettings),
     ];
 
     widget.sync.onStatusChanged = () { if (mounted) setState(() {}); };
@@ -318,6 +331,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       widget.sync.pullNow();
+      _checkUpdateOnResume();
+    }
+  }
+
+  Future<void> _checkUpdateOnResume() async {
+    final info = await _updateService.checkForUpdate();
+    if (info != null && mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Доступно обновление ${info.tag}'),
+          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия приложения'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _updateService.downloadApk(info).then((file) {
+                  if (file != null) _updateService.installApk(file);
+                });
+              },
+              child: const Text('Обновить'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -402,7 +441,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           children: [
             IndexedStack(index: _currentIndex, children: _screens),
             
-            // Новый премиальный навбар
             Positioned(
               left: 0,
               right: 0,
