@@ -150,7 +150,6 @@ class TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  // Публичный метод для вызова из MainScreen
   void openAddModal() {
     _openAddModal();
   }
@@ -386,39 +385,46 @@ class TasksScreenState extends State<TasksScreen> {
   Widget _buildQuickAdd(ColorScheme cs) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _quickController,
-              onSubmitted: (_) => _quickAdd(),
-              textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                hintText: 'Что сделать?',
-                filled: true,
-                fillColor: cs.surfaceVariant,
-                prefixIcon: Icon(Icons.check_circle_outline, color: cs.onSurfaceVariant, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _quickController,
+                onSubmitted: (_) => _quickAdd(),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  hintText: 'Что нужно сделать?',
+                  border: InputBorder.none,
+                  prefixIcon: Icon(Icons.check_circle_outline, color: cs.primary, size: 24),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            height: 56, width: 56,
-            child: ElevatedButton(
-              onPressed: _quickAdd,
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            Container(
+              margin: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: cs.primary,
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(Icons.add),
+              child: IconButton(
+                icon: Icon(Icons.arrow_forward, color: cs.onPrimary, size: 20),
+                onPressed: _quickAdd,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -434,9 +440,24 @@ class _EmptyTasks extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.task_alt, size: 64, color: cs.tertiary),
-          const SizedBox(height: 16),
-          Text('Задач нет', style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cs.primaryContainer.withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.task_alt, size: 56, color: cs.primary),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Все задачи выполнены!',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Или добавь новую, используя поле выше',
+            style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+          ),
         ],
       ),
     );
