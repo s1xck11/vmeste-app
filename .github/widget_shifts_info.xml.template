@@ -5,6 +5,6 @@
     android:targetCellWidth="4"
     android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
-    android:initialLayout="@layout/widget_shifts"
+    android:initialLayout="@layout/widget_clock"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />
