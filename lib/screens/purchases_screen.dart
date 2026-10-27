@@ -133,7 +133,6 @@ class PurchasesScreenState extends State<PurchasesScreen> {
     );
   }
 
-  // Публичный метод для вызова из MainScreen
   void openAddModal() {
     _openAddModal();
   }
@@ -467,41 +466,47 @@ class PurchasesScreenState extends State<PurchasesScreen> {
 
   Widget _buildQuickAdd(ColorScheme cs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _quickController,
-              onSubmitted: (_) => _openAddModal(),
-              textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                hintText: 'Что купить?',
-                filled: true,
-                fillColor: cs.surfaceVariant,
-                prefixIcon: Icon(Icons.add_shopping_cart, color: cs.onSurfaceVariant, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _quickController,
+                onSubmitted: (_) => _openAddModal(),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  hintText: 'Что купить?',
+                  border: InputBorder.none,
+                  prefixIcon: Icon(Icons.add_shopping_cart, color: cs.primary, size: 24),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            height: 56,
-            width: 56,
-            child: ElevatedButton(
-              onPressed: _openAddModal,
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            Container(
+              margin: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: cs.primary,
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(Icons.add),
+              child: IconButton(
+                icon: Icon(Icons.arrow_forward, color: cs.onPrimary, size: 20),
+                onPressed: _openAddModal,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -517,9 +522,24 @@ class _EmptyPurchases extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shopping_bag_outlined, size: 64, color: cs.onSurfaceVariant),
-          const SizedBox(height: 16),
-          Text('Список пуст', style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cs.secondaryContainer.withOpacity(0.3),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.shopping_bag_outlined, size: 56, color: cs.secondary),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Список покупок пуст',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Добавь первый товар, чтобы ничего не забыть',
+            style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+          ),
         ],
       ),
     );
