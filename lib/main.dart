@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:home_widget/home_widget.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // НОВОЕ
+import 'package:flutter_svg/flutter_svg.dart';
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
@@ -12,6 +13,7 @@ import 'services/theme_service.dart';
 import 'services/background_service.dart';
 import 'services/update_service.dart';
 import 'services/widget_service.dart';
+import 'services/tile_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/app_background.dart';
@@ -77,6 +79,7 @@ void main() async {
   final sync = SyncService(storage: storage);
   final widgetService = WidgetService(storage);
   sync.widgetService = widgetService;
+  final tileService = TileService();
 
   int? initialTab;
   try {
@@ -89,13 +92,25 @@ void main() async {
     logger.error('Widget', 'initiallyLaunchedFromHomeWidget FAILED', e, st);
   }
 
+  String? initialAction;
+  try {
+    initialAction = await tileService.getInitialAction();
+    if (initialAction != null) {
+      logger.info('Tile', 'запущено из плитки: $initialAction');
+    }
+  } catch (e, st) {
+    logger.error('Tile', 'initial action FAILED', e, st);
+  }
+
   runApp(VmesteApp(
     storage: storage,
     sync: sync,
     themeService: themeService,
     bgService: bgService,
     widgetService: widgetService,
+    tileService: tileService,
     initialTab: initialTab,
+    initialAction: initialAction,
   ));
 }
 
@@ -105,7 +120,9 @@ class VmesteApp extends StatelessWidget {
   final ThemeService themeService;
   final BackgroundService bgService;
   final WidgetService widgetService;
+  final TileService tileService;
   final int? initialTab;
+  final String? initialAction;
 
   const VmesteApp({
     super.key,
@@ -114,7 +131,9 @@ class VmesteApp extends StatelessWidget {
     required this.themeService,
     required this.bgService,
     required this.widgetService,
+    required this.tileService,
     this.initialTab,
+    this.initialAction,
   });
 
   @override
@@ -132,7 +151,9 @@ class VmesteApp extends StatelessWidget {
             themeService: themeService,
             bgService: bgService,
             widgetService: widgetService,
+            tileService: tileService,
             initialTab: initialTab,
+            initialAction: initialAction,
           ),
         );
       },
@@ -146,7 +167,10 @@ class SplashScreen extends StatefulWidget {
   final ThemeService themeService;
   final BackgroundService bgService;
   final WidgetService widgetService;
+  final TileService tileService;
   final int? initialTab;
+  final String? initialAction;
+
   const SplashScreen({
     super.key,
     required this.storage,
@@ -154,7 +178,9 @@ class SplashScreen extends StatefulWidget {
     required this.themeService,
     required this.bgService,
     required this.widgetService,
+    required this.tileService,
     this.initialTab,
+    this.initialAction,
   });
 
   @override
@@ -165,14 +191,13 @@ class _SplashScreenState extends State<SplashScreen> {
   final _updateService = UpdateService();
 
   @override
-  void initState() { 
-    super.initState(); 
-    _check(); 
+  void initState() {
+    super.initState();
+    _check();
   }
 
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
-    
     _autoCheckUpdate();
 
     if (widget.storage.isConfigured) {
@@ -186,7 +211,9 @@ class _SplashScreenState extends State<SplashScreen> {
             themeService: widget.themeService,
             bgService: widget.bgService,
             widgetService: widget.widgetService,
+            tileService: widget.tileService,
             initialTab: widget.initialTab,
+            initialAction: widget.initialAction,
           ),
         ));
         return;
@@ -207,30 +234,26 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _autoCheckUpdate() async {
     final info = await _updateService.checkForUpdate();
     if (info != null && mounted) {
-      _showAutoUpdateDialog(info);
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Доступно обновление ${info.tag}'),
+          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _updateService.downloadApk(info).then((f) {
+                  if (f != null) _updateService.installApk(f);
+                });
+              },
+              child: const Text('Обновить'),
+            ),
+          ],
+        ),
+      );
     }
-  }
-
-  void _showAutoUpdateDialog(UpdateInfo info) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Доступно обновление ${info.tag}'),
-        content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия приложения'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _updateService.downloadApk(info).then((file) {
-                if (file != null) _updateService.installApk(file);
-              });
-            },
-            child: const Text('Обновить'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -242,7 +265,6 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // ВОТ ТУТ НАШ НОВЫЙ SVG ЛОГОТИП
             SvgPicture.asset(
               'assets/icon/logo.svg',
               width: 140,
@@ -265,7 +287,9 @@ class MainScreen extends StatefulWidget {
   final ThemeService themeService;
   final BackgroundService bgService;
   final WidgetService widgetService;
+  final TileService tileService;
   final int? initialTab;
+  final String? initialAction;
   const MainScreen({
     super.key,
     required this.storage,
@@ -273,7 +297,9 @@ class MainScreen extends StatefulWidget {
     required this.themeService,
     required this.bgService,
     required this.widgetService,
+    required this.tileService,
     this.initialTab,
+    this.initialAction,
   });
 
   @override
@@ -312,6 +338,21 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       widget.widgetService.updateAll();
     });
 
+    // Обработка запуска из плитки/уведомления
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.initialAction == 'openExpense') {
+        _openQuickExpense();
+      }
+    });
+
+    // Слушаем события пока приложение открыто
+    widget.tileService.setHandler((call) async {
+      if (call.method == 'openExpense') {
+        _openQuickExpense();
+      }
+      return null;
+    });
+
     try {
       HomeWidget.widgetClicked.listen((uri) {
         final tab = _tabFromUri(uri);
@@ -320,6 +361,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
       });
     } catch (_) {}
+  }
+
+  void _openQuickExpense() {
+    if (!mounted) return;
+    setState(() => _currentIndex = 3); // Кошелёк
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (!mounted) return;
+        _budgetKey.currentState?.openAddModal();
+      });
+    });
   }
 
   @override
@@ -344,14 +396,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text('Доступно обновление ${info.tag}'),
-          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия приложения'),
+          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                _updateService.downloadApk(info).then((file) {
-                  if (file != null) _updateService.installApk(file);
+                _updateService.downloadApk(info).then((f) {
+                  if (f != null) _updateService.installApk(f);
                 });
               },
               child: const Text('Обновить'),
@@ -442,7 +494,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           clipBehavior: Clip.none,
           children: [
             IndexedStack(index: _currentIndex, children: _screens),
-            
             Positioned(
               left: 0,
               right: 0,
