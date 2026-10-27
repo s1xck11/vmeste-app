@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:home_widget/home_widget.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // НОВОЕ
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
@@ -172,7 +173,6 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
     
-    // Авто-проверка обновлений (не блокирует загрузку)
     _autoCheckUpdate();
 
     if (widget.storage.isConfigured) {
@@ -222,18 +222,15 @@ class _SplashScreenState extends State<SplashScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _downloadAndInstall(info);
+              _updateService.downloadApk(info).then((file) {
+                if (file != null) _updateService.installApk(file);
+              });
             },
             child: const Text('Обновить'),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _downloadAndInstall(UpdateInfo info) async {
-    final file = await _updateService.downloadApk(info);
-    if (file != null) await _updateService.installApk(file);
   }
 
   @override
@@ -245,7 +242,12 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/icon/app_icon.png', width: 120, height: 120),
+            // ВОТ ТУТ НАШ НОВЫЙ SVG ЛОГОТИП
+            SvgPicture.asset(
+              'assets/icon/logo.svg',
+              width: 140,
+              height: 140,
+            ),
             const SizedBox(height: 24),
             Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
             const SizedBox(height: 32),
