@@ -63,8 +63,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
 
   void _changeMonth(int delta) {
     setState(() {
-      _currentMonth =
-          DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
     });
   }
 
@@ -82,8 +81,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
     }
     final partner = _partners.firstWhere(
       (p) => p.id == s.partner,
-      orElse: () =>
-          Partner(id: s.partner, name: '', rate: 0, payType: 'hourly'),
+      orElse: () => Partner(id: s.partner, name: '', rate: 0, payType: 'hourly'),
     );
     if (partner.payType == 'piecework') {
       return (s.pieceworkAmount ?? 0).toDouble();
@@ -94,8 +92,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
 
   double _monthTotal() {
     double sum = 0;
-    final prefix =
-        '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
+    final prefix = '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
     for (final s in _shifts) {
       if (s.date.startsWith(prefix)) sum += _calcSalary(s);
     }
@@ -104,8 +101,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
 
   double _partnerTotal(String partnerId) {
     double sum = 0;
-    final prefix =
-        '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
+    final prefix = '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
     for (final s in _shifts) {
       if (!s.date.startsWith(prefix)) continue;
       if (s.partner == partnerId) sum += _calcSalary(s);
@@ -114,19 +110,25 @@ class ShiftsScreenState extends State<ShiftsScreen> {
   }
 
   int _partnerShiftCount(String partnerId) {
-    final prefix =
-        '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
-    return _shifts.where((s) {
-      if (!s.date.startsWith(prefix)) return false;
-      return s.partner == partnerId;
-    }).length;
+    final prefix = '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
+    return _shifts.where((s) => s.date.startsWith(prefix) && s.partner == partnerId).length;
+  }
+
+  // НОВОЕ: Счетчик часов
+  double _partnerHours(String partnerId) {
+    final prefix = '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
+    double hours = 0;
+    for (final s in _shifts) {
+      if (s.date.startsWith(prefix) && s.partner == partnerId) {
+        hours += s.hours;
+      }
+    }
+    return hours;
   }
 
   String _monthName(int m) {
-    const names = [
-      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-    ];
+    const names = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
     return names[m - 1];
   }
 
@@ -157,11 +159,6 @@ class ShiftsScreenState extends State<ShiftsScreen> {
         },
       ),
     );
-  }
-
-  /// Публичный — открыть добавление смены на сегодня
-  void openAddForToday() {
-    _openAddForDay(DateTime.now());
   }
 
   @override
@@ -200,6 +197,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                               partner1,
                               _partnerTotal(partner1.id),
                               _partnerShiftCount(partner1.id),
+                              _partnerHours(partner1.id),
                               cs,
                             ),
                           ),
@@ -211,6 +209,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                               partner2,
                               _partnerTotal(partner2.id),
                               _partnerShiftCount(partner2.id),
+                              _partnerHours(partner2.id),
                               cs,
                             ),
                           ),
@@ -224,6 +223,11 @@ class ShiftsScreenState extends State<ShiftsScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openAddForDay(DateTime.now()),
+        icon: const Icon(Icons.add),
+        label: const Text('Добавить'),
       ),
     );
   }
@@ -262,7 +266,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
     );
   }
 
-  Widget _buildPartnerCard(Partner p, double sum, int count, ColorScheme cs) {
+  Widget _buildPartnerCard(Partner p, double sum, int count, double hours, ColorScheme cs) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -294,9 +298,10 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                 fontWeight: FontWeight.w700,
                 color: cs.onSurface),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
+          // НОВОЕ: Часы и смены
           Text(
-            '$count смен',
+            '$count смен · ${hours.toStringAsFixed(0)} ч.',
             style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
           ),
         ],
@@ -379,7 +384,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
               crossAxisCount: 7,
               mainAxisSpacing: 4,
               crossAxisSpacing: 4,
-              childAspectRatio: 0.80, // ячейка выше
+              childAspectRatio: 0.95,
             ),
             itemBuilder: (ctx, i) {
               final dayIndex = i - (startWeekday - 1) + 1;
@@ -403,13 +408,12 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                   margin: const EdgeInsets.all(1),
                   decoration: BoxDecoration(
                     color: isToday ? cs.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   padding: const EdgeInsets.symmetric(
-                      vertical: 6, horizontal: 2),
+                      vertical: 4, horizontal: 2),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         '$dayIndex',
@@ -422,7 +426,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                         ),
                       ),
                       if (shifts.isNotEmpty) ...[
-                        const SizedBox(height: 1),
+                        const SizedBox(height: 2),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: shifts.take(3).map((s) {
@@ -435,8 +439,8 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                                   color: '#9E9E9E'),
                             );
                             return Container(
-                              width: 4,
-                              height: 4,
+                              width: 5,
+                              height: 5,
                               margin: const EdgeInsets.symmetric(
                                   horizontal: 1),
                               decoration: BoxDecoration(
@@ -447,20 +451,16 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                           }).toList(),
                         ),
                         if (dayTotal > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 1),
-                            child: Text(
-                              dayTotal >= 1000
-                                  ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
-                                  : dayTotal.toStringAsFixed(0),
-                              style: TextStyle(
-                                fontSize: 8,
-                                height: 1.0,
-                                color: isToday
-                                    ? cs.onPrimary
-                                    : cs.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          Text(
+                            dayTotal >= 1000
+                                ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
+                                : dayTotal.toStringAsFixed(0),
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: isToday
+                                  ? cs.onPrimary.withOpacity(0.9)
+                                  : cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                       ],
