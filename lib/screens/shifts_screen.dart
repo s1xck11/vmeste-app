@@ -114,7 +114,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
     return _shifts.where((s) => s.date.startsWith(prefix) && s.partner == partnerId).length;
   }
 
-  // НОВОЕ: Счетчик часов
+  // Счетчик часов партнёра
   double _partnerHours(String partnerId) {
     final prefix = '${_currentMonth.year}-${_currentMonth.month < 10 ? '0${_currentMonth.month}' : _currentMonth.month}';
     double hours = 0;
@@ -159,6 +159,11 @@ class ShiftsScreenState extends State<ShiftsScreen> {
         },
       ),
     );
+  }
+
+  // Публичный метод для вызова из MainScreen (FAB)
+  void openAddForToday() {
+    _openAddForDay(DateTime.now());
   }
 
   @override
@@ -299,7 +304,6 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                 color: cs.onSurface),
           ),
           const SizedBox(height: 4),
-          // НОВОЕ: Часы и смены
           Text(
             '$count смен · ${hours.toStringAsFixed(0)} ч.',
             style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
