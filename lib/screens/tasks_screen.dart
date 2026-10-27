@@ -1,3 +1,5 @@
+// lib/screens/tasks_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -146,6 +148,11 @@ class TasksScreenState extends State<TasksScreen> {
         },
       ),
     );
+  }
+
+  // Публичный метод для вызова из MainScreen
+  void openAddModal() {
+    _openAddModal();
   }
 
   void _openEditModal(Task t) {
