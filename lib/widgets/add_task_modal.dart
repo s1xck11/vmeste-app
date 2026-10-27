@@ -1,5 +1,3 @@
-// lib/widgets/add_task_modal.dart
-
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../models/task_category.dart';
@@ -31,6 +29,9 @@ class _AddTaskModalState extends State<AddTaskModal> {
   String _assignee = 'any';
   String _repeat = 'none';
   DateTime? _deadline;
+  
+  // ГЛАВНОЕ УЛУЧШЕНИЕ: скрываем второстепенные поля по умолчанию
+  bool _showAdvanced = false;
 
   @override
   void initState() {
@@ -46,6 +47,9 @@ class _AddTaskModalState extends State<AddTaskModal> {
       if (t.deadline.isNotEmpty) {
         _deadline = DateTime.tryParse(t.deadline);
       }
+      _showAdvanced = true; // При редактировании показываем всё
+    } else if (widget.categories.isNotEmpty) {
+      _categoryId = widget.categories.first.id;
     }
   }
 
@@ -60,6 +64,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
     FocusScope.of(context).unfocus();
+    
     final now = DateTime.now().millisecondsSinceEpoch;
     final deadlineStr = _deadline == null
         ? ''
@@ -93,6 +98,12 @@ class _AddTaskModalState extends State<AddTaskModal> {
       initialDate: _deadline ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(colorScheme: Theme.of(context).colorScheme),
+          child: child!,
+        );
+      },
     );
     if (picked != null) setState(() => _deadline = picked);
   }
@@ -101,136 +112,216 @@ class _AddTaskModalState extends State<AddTaskModal> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.outline,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2)),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Text(
-                widget.initialTask == null ? 'Новая задача' : 'Редактировать',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: cs.onSurface),
-              ),
-              const SizedBox(height: 16),
-
-              TextField(
-                controller: _nameCtrl,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(labelText: 'Название', hintText: 'Помыть посуду'),
-              ),
-              const SizedBox(height: 16),
-
-              _sectionLabel(cs, 'Приоритет'),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, children: [
-                _chip(cs, 'low', '🟢 Низкий', _priority, (v) => setState(() => _priority = v)),
-                _chip(cs, 'med', '🟡 Средний', _priority, (v) => setState(() => _priority = v)),
-                _chip(cs, 'high', '🔴 Высокий', _priority, (v) => setState(() => _priority = v)),
-              ]),
-              const SizedBox(height: 16),
-
-              _sectionLabel(cs, 'Категория'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: widget.categories.map((c) {
-                  final sel = c.id == _categoryId;
-                  return GestureDetector(
-                    onTap: () => setState(() => _categoryId = c.id),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: sel ? cs.primaryContainer : cs.surfaceVariant,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: sel ? cs.primary : cs.outline),
-                      ),
-                      child: Text(
-                        '${c.emoji} ${c.label}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-                          color: sel ? cs.onPrimaryContainer : cs.onSurface,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-
-              _sectionLabel(cs, 'Ответственный'),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, children: [
-                _chip(cs, 'any', '👥 Любой', _assignee, (v) => setState(() => _assignee = v)),
-                ...widget.partners.map((p) => _chip(cs, p.id, p.name, _assignee, (v) => setState(() => _assignee = v))),
-              ]),
-              const SizedBox(height: 16),
-
-              _sectionLabel(cs, 'Дедлайн'),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickDate,
-                      icon: const Icon(Icons.calendar_today, size: 18),
-                      label: Text(
-                        _deadline == null
-                            ? 'Без дедлайна'
-                            : '${_deadline!.day}.${_deadline!.month}.${_deadline!.year}',
-                      ),
-                    ),
-                  ),
-                  if (_deadline != null) ...[
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () => setState(() => _deadline = null),
-                      icon: Icon(Icons.close, color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              _sectionLabel(cs, 'Повторять'),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, children: [
-                _chip(cs, 'none', 'Не повторять', _repeat, (v) => setState(() => _repeat = v)),
-                _chip(cs, 'daily', '🔁 Каждый день', _repeat, (v) => setState(() => _repeat = v)),
-                _chip(cs, 'weekly', '🔁 Каждую неделю', _repeat, (v) => setState(() => _repeat = v)),
-                _chip(cs, 'monthly', '🔁 Каждый месяц', _repeat, (v) => setState(() => _repeat = v)),
-              ]),
-              const SizedBox(height: 16),
-
-              TextField(
-                controller: _commentCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Комментарий'),
+                widget.initialTask == null ? 'Новая задача' : 'Редактировать задачу',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.onSurface),
               ),
               const SizedBox(height: 20),
 
+              // 1. Название (всегда видно)
+              TextField(
+                controller: _nameCtrl,
+                autofocus: widget.initialTask == null,
+                textCapitalization: TextCapitalization.sentences,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  labelText: 'Что нужно сделать?',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  filled: true,
+                  fillColor: cs.surfaceVariant,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // 2. Категория (всегда видно)
+              _sectionLabel(cs, 'Категория'),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: widget.categories.map((c) {
+                    final sel = c.id == _categoryId;
+                    return GestureDetector(
+                      onTap: () => setState(() => _categoryId = c.id),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: sel ? cs.primaryContainer : cs.surfaceVariant,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: sel ? cs.primary : Colors.transparent, width: 1.5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(c.emoji, style: const TextStyle(fontSize: 16)),
+                            const SizedBox(width: 6),
+                            Text(
+                              c.label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                color: sel ? cs.onPrimaryContainer : cs.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // 3. Приоритет (всегда видно)
+              _sectionLabel(cs, 'Приоритет'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _priorityChip(cs, 'low', '🟢 Низкий', _priority),
+                  const SizedBox(width: 8),
+                  _priorityChip(cs, 'med', '🟡 Средний', _priority),
+                  const SizedBox(width: 8),
+                  _priorityChip(cs, 'high', '🔴 Высокий', _priority),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // 4. Переключатель дополнительных настроек
+              InkWell(
+                onTap: () => setState(() => _showAdvanced = !_showAdvanced),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _showAdvanced ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        color: cs.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _showAdvanced ? 'Скрыть дополнительные настройки' : 'Показать дополнительные настройки',
+                        style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 5. Дополнительные настройки (скрыты по умолчанию)
+              if (_showAdvanced) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceVariant.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: cs.outline.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionLabel(cs, 'Ответственный'),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          _smallChip(cs, 'any', '👥 Любой', _assignee),
+                          ...widget.partners.map((p) => _smallChip(cs, p.id, p.name, _assignee)),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      _sectionLabel(cs, 'Дедлайн'),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _pickDate,
+                              icon: const Icon(Icons.calendar_today, size: 18),
+                              label: Text(
+                                _deadline == null
+                                    ? 'Без срока'
+                                    : '${_deadline!.day}.${_deadline!.month}.${_deadline!.year}',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
+                          if (_deadline != null) ...[
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => setState(() => _deadline = null),
+                              icon: Icon(Icons.close, color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      _sectionLabel(cs, 'Повторять'),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          _smallChip(cs, 'none', 'Не повторять', _repeat),
+                          _smallChip(cs, 'daily', '🔁 День', _repeat),
+                          _smallChip(cs, 'weekly', '🔁 Неделя', _repeat),
+                          _smallChip(cs, 'monthly', '🔁 Месяц', _repeat),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      _sectionLabel(cs, 'Комментарий'),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _commentCtrl,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'Дополнительные детали...',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          filled: true,
+                          fillColor: cs.surface,
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // 6. Кнопки действий
               Row(
                 children: [
                   Expanded(
@@ -239,20 +330,29 @@ class _AddTaskModalState extends State<AddTaskModal> {
                         FocusScope.of(context).unfocus();
                         Navigator.pop(context);
                       },
-                      child: const Text('Отмена'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('Отмена', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
                     child: ElevatedButton.icon(
                       onPressed: _save,
-                      icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Сохранить'),
+                      icon: const Icon(Icons.check, size: 20),
+                      label: const Text('Сохранить', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
                     ),
                   ),
                 ],
               ),
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
             ],
           ),
         ),
@@ -263,36 +363,54 @@ class _AddTaskModalState extends State<AddTaskModal> {
   Widget _sectionLabel(ColorScheme cs, String text) {
     return Text(
       text.toUpperCase(),
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: cs.onSurfaceVariant,
-        letterSpacing: 0.5,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.8),
+    );
+  }
+
+  Widget _priorityChip(ColorScheme cs, String value, String label, String current) {
+    final sel = value == current;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _priority = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: sel ? cs.primaryContainer : cs.surfaceVariant,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: sel ? cs.primary : Colors.transparent, width: 1.5),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                color: sel ? cs.onPrimaryContainer : cs.onSurface,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _chip(
-    ColorScheme cs,
-    String value,
-    String label,
-    String current,
-    void Function(String) onTap,
-  ) {
+  Widget _smallChip(ColorScheme cs, String value, String label, String current) {
     final sel = value == current;
     return GestureDetector(
-      onTap: () => onTap(value),
-      child: Container(
+      onTap: () => setState(() => _assignee = value == 'any' || _repeat == value ? value : value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: sel ? cs.primaryContainer : cs.surfaceVariant,
+          color: sel ? cs.primaryContainer : cs.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: sel ? cs.primary : cs.outline),
+          border: Border.all(color: sel ? cs.primary : cs.outline, width: 1),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
             color: sel ? cs.onPrimaryContainer : cs.onSurface,
           ),
