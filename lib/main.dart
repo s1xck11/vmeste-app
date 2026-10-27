@@ -1,5 +1,3 @@
-// lib/main.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -191,8 +189,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  final _updateService = UpdateService();
-
   @override
   void initState() {
     super.initState();
@@ -201,7 +197,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
-    _autoCheckUpdate();
     _checkQuickExpenseNotification();
 
     if (widget.storage.isConfigured) {
@@ -234,31 +229,6 @@ class _SplashScreenState extends State<SplashScreen> {
         tileService: widget.tileService,
       ),
     ));
-  }
-
-  Future<void> _autoCheckUpdate() async {
-    final info = await _updateService.checkForUpdate();
-    if (info != null && mounted) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text('Доступно обновление ${info.tag}'),
-          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _updateService.downloadApk(info).then((f) {
-                  if (f != null) _updateService.installApk(f);
-                });
-              },
-              child: const Text('Обновить'),
-            ),
-          ],
-        ),
-      );
-    }
   }
 
   Future<void> _checkQuickExpenseNotification() async {
@@ -358,6 +328,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (widget.initialAction == 'openExpense') {
         _openQuickExpense();
       }
+      
+      // Проверка обновлений на главном экране (чтобы диалог не убивался роутингом)
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) _autoCheckUpdate();
+      });
     });
 
     // Слушаем события, пока приложение открыто
@@ -378,9 +353,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  Future<void> _autoCheckUpdate() async {
+    final info = await _updateService.checkForUpdate();
+    if (info != null && mounted) {
+      showDialog(
+        context: context,
+        useRootNavigator: true,
+        builder: (ctx) => AlertDialog(
+          title: Text('Доступно обновление ${info.tag}'),
+          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия приложения'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _updateService.downloadApk(info).then((f) {
+                  if (f != null) _updateService.installApk(f);
+                });
+              },
+              child: const Text('Обновить'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   void _openQuickExpense() {
     if (!mounted) return;
-    setState(() => _currentIndex = 3); // Кошелёк
+    setState(() => _currentIndex = 3);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 150), () {
         if (!mounted) return;
@@ -409,9 +410,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (info != null && mounted) {
       showDialog(
         context: context,
+        useRootNavigator: true,
         builder: (ctx) => AlertDialog(
           title: Text('Доступно обновление ${info.tag}'),
-          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия'),
+          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия приложения'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
             ElevatedButton(
