@@ -1,5 +1,3 @@
-// lib/screens/categories_editor_screen.dart
-
 import 'package:flutter/material.dart';
 import '../models/purchase_category.dart';
 import '../models/task_category.dart';
@@ -26,146 +24,97 @@ class CategoriesEditorScreen extends StatefulWidget {
 }
 
 class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
+  // Работаем с копией, сохраняем только по кнопке
+  late List<PurchaseCategory> _purchaseCats;
+  late List<TaskCategory> _taskCats;
+  late List<ShiftType> _shiftTypes;
+
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _purchaseCats = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
+    _taskCats = List<TaskCategory>.from(widget.storage.taskCategories);
+    _shiftTypes = List<ShiftType>.from(widget.storage.shiftTypes);
+  }
+
   String _title() {
     switch (widget.kind) {
-      case CategoryKind.purchase: return 'Категории покупок';
-      case CategoryKind.task: return 'Категории задач';
-      case CategoryKind.shiftType: return 'Типы смен';
+      case CategoryKind.purchase:
+        return 'Категории покупок';
+      case CategoryKind.task:
+        return 'Категории задач';
+      case CategoryKind.shiftType:
+        return 'Типы смен';
     }
   }
 
-  Future<void> _add() async {
+  void _save() {
+    setState(() => _saving = true);
+    switch (widget.kind) {
+      case CategoryKind.purchase:
+        widget.storage.purchaseCategories = _purchaseCats;
+        break;
+      case CategoryKind.task:
+        widget.storage.taskCategories = _taskCats;
+        break;
+      case CategoryKind.shiftType:
+        widget.storage.shiftTypes = _shiftTypes;
+        break;
+    }
+    widget.sync.schedulePush();
+    Navigator.pop(context);
+  }
+
+  void _add() {
     final now = DateTime.now().millisecondsSinceEpoch;
-    switch (widget.kind) {
-      case CategoryKind.purchase:
-        final list = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
-        list.add(PurchaseCategory(
-          id: 'cat_$now',
-          label: 'Новая',
-          emoji: '📦',
-          order: list.length,
-          updatedAt: now,
-        ));
-        widget.storage.purchaseCategories = list;
-        break;
-      case CategoryKind.task:
-        final list = List<TaskCategory>.from(widget.storage.taskCategories);
-        list.add(TaskCategory(
-          id: 'tcat_$now',
-          label: 'Новая',
-          emoji: '📦',
-          order: list.length,
-          updatedAt: now,
-        ));
-        widget.storage.taskCategories = list;
-        break;
-      case CategoryKind.shiftType:
-        final list = List<ShiftType>.from(widget.storage.shiftTypes);
-        list.add(ShiftType(
-          id: 'st_$now',
-          label: 'Новый',
-          hours: 8,
-          color: '#FF8FAB',
-        ));
-        widget.storage.shiftTypes = list;
-        break;
-    }
-    widget.sync.schedulePush();
-    setState(() {});
+    setState(() {
+      switch (widget.kind) {
+        case CategoryKind.purchase:
+          _purchaseCats.add(PurchaseCategory(
+            id: 'cat_$now',
+            label: 'Новая',
+            emoji: '📦',
+            order: _purchaseCats.length,
+            updatedAt: now,
+          ));
+          break;
+        case CategoryKind.task:
+          _taskCats.add(TaskCategory(
+            id: 'tcat_$now',
+            label: 'Новая',
+            emoji: '📦',
+            order: _taskCats.length,
+            updatedAt: now,
+          ));
+          break;
+        case CategoryKind.shiftType:
+          _shiftTypes.add(ShiftType(
+            id: 'st_$now',
+            label: 'Новый',
+            hours: 8,
+            color: '#FF8FAB',
+          ));
+          break;
+      }
+    });
   }
 
-  Future<void> _delete(int index) async {
-    switch (widget.kind) {
-      case CategoryKind.purchase:
-        final list = List<PurchaseCategory>.from(widget.storage.purchaseCategories)..removeAt(index);
-        widget.storage.purchaseCategories = list;
-        break;
-      case CategoryKind.task:
-        final list = List<TaskCategory>.from(widget.storage.taskCategories)..removeAt(index);
-        widget.storage.taskCategories = list;
-        break;
-      case CategoryKind.shiftType:
-        final list = List<ShiftType>.from(widget.storage.shiftTypes)..removeAt(index);
-        widget.storage.shiftTypes = list;
-        break;
-    }
-    widget.sync.schedulePush();
-    setState(() {});
-  }
-
-  void _editLabel(int index, String value) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    switch (widget.kind) {
-      case CategoryKind.purchase:
-        final list = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
-        final old = list[index];
-        list[index] = PurchaseCategory(
-          id: old.id,
-          label: value,
-          emoji: old.emoji,
-          order: old.order,
-          updatedAt: now,
-        );
-        widget.storage.purchaseCategories = list;
-        break;
-      case CategoryKind.task:
-        final list = List<TaskCategory>.from(widget.storage.taskCategories);
-        final old = list[index];
-        list[index] = TaskCategory(
-          id: old.id,
-          label: value,
-          emoji: old.emoji,
-          order: old.order,
-          updatedAt: now,
-        );
-        widget.storage.taskCategories = list;
-        break;
-      case CategoryKind.shiftType:
-        final list = List<ShiftType>.from(widget.storage.shiftTypes);
-        final old = list[index];
-        list[index] = ShiftType(
-          id: old.id,
-          label: value,
-          hours: old.hours,
-          color: old.color,
-        );
-        widget.storage.shiftTypes = list;
-        break;
-    }
-    widget.sync.schedulePush();
-  }
-
-  void _editEmoji(int index, String value) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    switch (widget.kind) {
-      case CategoryKind.purchase:
-        final list = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
-        final old = list[index];
-        list[index] = PurchaseCategory(
-          id: old.id,
-          label: old.label,
-          emoji: value,
-          order: old.order,
-          updatedAt: now,
-        );
-        widget.storage.purchaseCategories = list;
-        break;
-      case CategoryKind.task:
-        final list = List<TaskCategory>.from(widget.storage.taskCategories);
-        final old = list[index];
-        list[index] = TaskCategory(
-          id: old.id,
-          label: old.label,
-          emoji: value,
-          order: old.order,
-          updatedAt: now,
-        );
-        widget.storage.taskCategories = list;
-        break;
-      case CategoryKind.shiftType:
-        break;
-    }
-    widget.sync.schedulePush();
+  void _delete(int index) {
+    setState(() {
+      switch (widget.kind) {
+        case CategoryKind.purchase:
+          _purchaseCats.removeAt(index);
+          break;
+        case CategoryKind.task:
+          _taskCats.removeAt(index);
+          break;
+        case CategoryKind.shiftType:
+          _shiftTypes.removeAt(index);
+          break;
+      }
+    });
   }
 
   @override
@@ -180,13 +129,37 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
         ],
       ),
       body: _buildList(cs),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          child: ElevatedButton(
+            onPressed: _saving ? null : _save,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              minimumSize: const Size(double.infinity, 0),
+            ),
+            child: const Text('Сохранить', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildList(ColorScheme cs) {
     final items = _buildItems();
     if (items.isEmpty) {
-      return Center(child: Text('Пусто', style: TextStyle(color: cs.onSurfaceVariant)));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.category_outlined, size: 64, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text('Пусто', style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            Text('Нажми «+», чтобы добавить', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+          ],
+        ),
+      );
     }
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -198,43 +171,74 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
     final cs = Theme.of(context).colorScheme;
     switch (widget.kind) {
       case CategoryKind.purchase:
-        final cats = widget.storage.purchaseCategories;
-        return List.generate(cats.length, (i) {
-          final c = cats[i];
+        return List.generate(_purchaseCats.length, (i) {
+          final c = _purchaseCats[i];
           return _row(
             cs: cs,
             emoji: c.emoji,
             label: c.label,
             showEmoji: true,
-            onLabel: (v) => _editLabel(i, v),
-            onEmoji: (v) => _editEmoji(i, v),
+            onLabel: (v) {
+              setState(() {
+                _purchaseCats[i] = PurchaseCategory(
+                  id: c.id, label: v, emoji: c.emoji,
+                  order: c.order, updatedAt: DateTime.now().millisecondsSinceEpoch,
+                );
+              });
+            },
+            onEmoji: (v) {
+              setState(() {
+                _purchaseCats[i] = PurchaseCategory(
+                  id: c.id, label: c.label, emoji: v,
+                  order: c.order, updatedAt: DateTime.now().millisecondsSinceEpoch,
+                );
+              });
+            },
             onDelete: () => _delete(i),
           );
         });
       case CategoryKind.task:
-        final cats = widget.storage.taskCategories;
-        return List.generate(cats.length, (i) {
-          final c = cats[i];
+        return List.generate(_taskCats.length, (i) {
+          final c = _taskCats[i];
           return _row(
             cs: cs,
             emoji: c.emoji,
             label: c.label,
             showEmoji: true,
-            onLabel: (v) => _editLabel(i, v),
-            onEmoji: (v) => _editEmoji(i, v),
+            onLabel: (v) {
+              setState(() {
+                _taskCats[i] = TaskCategory(
+                  id: c.id, label: v, emoji: c.emoji,
+                  order: c.order, updatedAt: DateTime.now().millisecondsSinceEpoch,
+                );
+              });
+            },
+            onEmoji: (v) {
+              setState(() {
+                _taskCats[i] = TaskCategory(
+                  id: c.id, label: c.label, emoji: v,
+                  order: c.order, updatedAt: DateTime.now().millisecondsSinceEpoch,
+                );
+              });
+            },
             onDelete: () => _delete(i),
           );
         });
       case CategoryKind.shiftType:
-        final types = widget.storage.shiftTypes;
-        return List.generate(types.length, (i) {
-          final t = types[i];
+        return List.generate(_shiftTypes.length, (i) {
+          final t = _shiftTypes[i];
           return _row(
             cs: cs,
             emoji: '🎨',
             label: t.label,
             showEmoji: false,
-            onLabel: (v) => _editLabel(i, v),
+            onLabel: (v) {
+              setState(() {
+                _shiftTypes[i] = ShiftType(
+                  id: t.id, label: v, hours: t.hours, color: t.color,
+                );
+              });
+            },
             onEmoji: null,
             onDelete: () => _delete(i),
           );
