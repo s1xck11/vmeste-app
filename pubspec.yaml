@@ -31,6 +31,10 @@ dependencies:
   http: ^1.2.1
   home_widget: ^0.6.0
 
+  # Для стиля заметок и логотипа
+  flutter_staggered_grid_view: ^0.7.0
+  flutter_svg: ^2.0.10
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -39,6 +43,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/
 
 flutter_launcher_icons:
   android: true
