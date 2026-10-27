@@ -74,6 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _copy(String text, String label) {
+    if (text.isEmpty) return;
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label скопирован')));
   }
@@ -94,7 +95,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Твоё имя'),
-        content: TextField(controller: ctrl, autofocus: true),
+        content: TextField(
+          controller: ctrl, 
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
           ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Сохранить')),
@@ -178,7 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Доступна версия ${info.tag}'),
-        content: Text(info.body.isNotEmpty ? info.body : 'Новая версия'),
+        content: Text(info.body.isNotEmpty ? info.body : 'Новая версия приложения'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
           ElevatedButton(
@@ -222,176 +227,278 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          Center(
-            child: Column(
+          // 1. Профиль
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [cs.primary.withOpacity(0.1), cs.surfaceVariant],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: cs.outline.withOpacity(0.5)),
+            ),
+            child: Row(
               children: [
                 GestureDetector(
                   onTap: _pickAvatar,
                   child: Container(
-                    width: 88, height: 88,
+                    width: 64, height: 64,
                     decoration: BoxDecoration(
-                      color: cs.primaryContainer,
+                      color: cs.surface,
                       shape: BoxShape.circle,
                       border: Border.all(color: cs.primary, width: 2),
+                      boxShadow: [BoxShadow(color: cs.primary.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))],
                     ),
-                    child: Center(child: Text(widget.storage.myAvatar, style: const TextStyle(fontSize: 44))),
+                    child: Center(child: Text(widget.storage.myAvatar, style: const TextStyle(fontSize: 32))),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(widget.storage.myName.isEmpty ? 'Нажми, чтобы выбрать аватар' : widget.storage.myName,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurface)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [cs.primary.withOpacity(0.15), cs.primary.withOpacity(0.05)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: cs.primary.withOpacity(0.3)),
-            ),
-            child: Column(
-              children: [
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Text('🐉', style: TextStyle(fontSize: 22)),
-                  const SizedBox(width: 8),
-                  Text('Сяо Чэн 小程', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.primary)),
-                ]),
-                const SizedBox(height: 6),
-                Text('Сделано с любовью для Серёжи и Насти ❤️',
-                    textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: cs.onSurface)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Профиль', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+                      const SizedBox(height: 4),
+                      InkWell(
+                        onTap: _editName,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  widget.storage.myName.isEmpty ? 'Задать имя' : widget.storage.myName,
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Icon(Icons.edit_outlined, size: 18, color: cs.primary),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
-          _sectionTitle('ПРОФИЛЬ', cs),
-          _tile(icon: Icons.person_outline, title: 'Моё имя',
-              subtitle: widget.storage.myName.isEmpty ? 'Не задано' : widget.storage.myName,
-              onTap: _editName, cs: cs),
-          _tile(icon: Icons.palette_outlined, title: 'Оформление', subtitle: 'Тема и палитра',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => ThemePickerScreen(themeService: widget.themeService))), cs: cs),
-          _tile(icon: Icons.wallpaper, title: 'Фон приложения',
-              subtitle: _bgService.hasImage ? 'Задан' : 'Не задан',
-              onTap: () => _showBackgroundDialog(cs), cs: cs),
+          // 2. О приложении
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [cs.primary.withOpacity(0.15), cs.surfaceVariant],
+                begin: Alignment.topLeft, end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: cs.primary.withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                const Text('🐉', style: TextStyle(fontSize: 28)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Сяо Чэн 小程', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.primary)),
+                      const SizedBox(height: 2),
+                      Text('Сделано с любовью для Серёжи и Насти', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
 
-          const SizedBox(height: 16),
+          // 3. Основные настройки
+          _sectionTitle('ОСНОВНЫЕ', cs),
+          _settingsTile(
+            icon: Icons.palette_outlined, 
+            title: 'Оформление', 
+            subtitle: 'Тема и цветовая палитра',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ThemePickerScreen(themeService: widget.themeService)
+            )), 
+            cs: cs
+          ),
+          _settingsTile(
+            icon: Icons.wallpaper, 
+            title: 'Фон приложения',
+            subtitle: _bgService.hasImage ? 'Изображение задано' : 'Стандартный фон',
+            onTap: () => _showBackgroundSheet(cs), 
+            cs: cs
+          ),
+          const SizedBox(height: 8),
+          _settingsTile(
+            icon: Icons.receipt_long_outlined,
+            title: 'Кнопка «Добавить расход»',
+            subtitle: _quickExpenseEnabled ? 'Показывается в шторке уведомлений' : 'Отключено',
+            trailing: Switch(
+              value: _quickExpenseEnabled,
+              onChanged: _toggleQuickExpense,
+            ),
+            cs: cs,
+          ),
+          _settingsTile(
+            icon: Icons.notifications_outlined,
+            title: 'Уведомления о сменах',
+            subtitle: _notifService.enabled ? 'За ${_notifService.timing} мин до смены' : 'Выключены',
+            trailing: Switch(
+              value: _notifService.enabled,
+              onChanged: (v) async {
+                await _notifService.setEnabled(v);
+                setState(() {});
+              },
+            ),
+            cs: cs,
+          ),
+          if (_notifService.enabled)
+            Padding(
+              padding: const EdgeInsets.only(left: 56, top: 4, bottom: 8),
+              child: Row(
+                children: [
+                  Text('Напомнить за: ', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  DropdownButton<int>(
+                    value: _notifService.timing,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(value: 15, child: Text('15 мин')),
+                      DropdownMenuItem(value: 30, child: Text('30 мин')),
+                      DropdownMenuItem(value: 60, child: Text('60 мин')),
+                      DropdownMenuItem(value: 120, child: Text('120 мин')),
+                    ],
+                    onChanged: (v) async {
+                      if (v != null) {
+                        await _notifService.setTiming(v);
+                        setState(() {});
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
 
+          const SizedBox(height: 24),
+
+          // 4. Связь и синхронизация
           _sectionTitle('СВЯЗЬ', cs),
-          _tile(icon: Icons.circle, iconColor: _syncColor(), title: 'Статус', subtitle: _syncText(), cs: cs),
-          _tile(icon: Icons.copy, title: 'Код группы', subtitle: widget.storage.coupleCode ?? '—',
-              onTap: () => _copy(widget.storage.coupleCode ?? '', 'Код'), cs: cs),
-          _tile(icon: Icons.numbers, title: 'Версия данных', subtitle: '${widget.storage.serverVersion}', cs: cs),
-          _tile(icon: Icons.sync, title: 'Отправить в облако', subtitle: 'Принудительная синхронизация',
-              onTap: () { widget.sync.schedulePush(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Отправлено'))); }, cs: cs),
-          _tile(icon: Icons.people_outline, title: 'Участники группы',
-              subtitle: '${widget.storage.members.length} устройств',
-              onTap: () => _showMembers(cs), cs: cs),
+          _settingsTile(
+            icon: Icons.circle, 
+            iconColor: _syncColor(), 
+            title: 'Статус синхронизации', 
+            subtitle: _syncText(), 
+            cs: cs
+          ),
+          _settingsTile(
+            icon: Icons.copy, 
+            title: 'Код группы', 
+            subtitle: widget.storage.coupleCode ?? 'Не задан',
+            onTap: () => _copy(widget.storage.coupleCode ?? '', 'Код'), 
+            cs: cs
+          ),
+          _settingsTile(
+            icon: Icons.key, 
+            title: 'Мой ключ доступа',
+            subtitle: widget.storage.myKey ?? 'Не задан',
+            onTap: () => _copy(widget.storage.myKey ?? '', 'Ключ'), 
+            cs: cs
+          ),
+          _settingsTile(
+            icon: Icons.people_outline, 
+            title: 'Участники группы',
+            subtitle: '${widget.storage.members.length} устройств',
+            onTap: () => _showMembers(cs), 
+            cs: cs
+          ),
+          _settingsTile(
+            icon: Icons.sync, 
+            title: 'Отправить в облако', 
+            subtitle: 'Принудительная синхронизация',
+            onTap: () { 
+              widget.sync.schedulePush(); 
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Отправлено'))); 
+            }, 
+            cs: cs
+          ),
           if (widget.sync.status != 'online')
-            _tile(icon: Icons.refresh, title: 'Подключиться заново', onTap: widget.onReconnect, cs: cs),
-          _tile(icon: Icons.key, title: 'Мой ключ',
-              subtitle: widget.storage.myKey ?? '—',
-              onTap: () => _copy(widget.storage.myKey ?? '', 'Ключ'), cs: cs),
+            _settingsTile(
+              icon: Icons.refresh, 
+              title: 'Подключиться заново', 
+              onTap: widget.onReconnect, 
+              cs: cs
+            ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
-          _sectionTitle('НАСТРОЙКИ', cs),
+          // 5. Данные и редакторы
+          _sectionTitle('ДАННЫЕ И НАСТРОЙКИ', cs),
           _expandableShiftTypes(cs),
           _expandablePartners(cs),
-          _tile(
+          _settingsTile(
             icon: Icons.account_balance_outlined,
             title: 'Банки',
-            subtitle: 'Управление банками и начальным балансом',
+            subtitle: 'Управление счетами и балансом',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => BanksEditorScreen(storage: widget.storage, sync: widget.sync),
             )),
             cs: cs,
           ),
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Column(
-              children: [
-                SwitchListTile(
-                  value: _quickExpenseEnabled,
-                  onChanged: _toggleQuickExpense,
-                  secondary: Icon(Icons.receipt_long_outlined, color: cs.primary, size: 22),
-                  title: const Text('Кнопка «Добавить расход»'),
-                  subtitle: Text(_quickExpenseEnabled
-                      ? 'Показывается в шторке уведомлений'
-                      : 'Отключено'),
-                ),
-              ],
-            ),
+          _settingsTile(
+            icon: Icons.download, 
+            title: 'Импорт из Курьера', 
+            subtitle: 'Вставить JSON данные',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => CourierImportScreen(storage: widget.storage, sync: widget.sync)
+            )), 
+            cs: cs
           ),
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Column(
-              children: [
-                SwitchListTile(
-                  value: _notifService.enabled,
-                  onChanged: (v) async {
-                    await _notifService.setEnabled(v);
-                    setState(() {});
-                  },
-                  secondary: Icon(Icons.notifications_outlined, color: cs.primary, size: 22),
-                  title: const Text('Уведомления о сменах'),
-                  subtitle: Text(_notifService.enabled
-                      ? 'За ${_notifService.timing} мин до смены'
-                      : 'Выключены'),
-                ),
-                if (_notifService.enabled)
-                  ListTile(
-                    title: const Text('Напомнить за'),
-                    trailing: DropdownButton<int>(
-                      value: _notifService.timing,
-                      items: const [
-                        DropdownMenuItem(value: 15, child: Text('15 мин')),
-                        DropdownMenuItem(value: 30, child: Text('30 мин')),
-                        DropdownMenuItem(value: 60, child: Text('60 мин')),
-                        DropdownMenuItem(value: 120, child: Text('120 мин')),
-                      ],
-                      onChanged: (v) async {
-                        if (v != null) {
-                          await _notifService.setTiming(v);
-                          setState(() {});
-                        }
-                      },
-                    ),
-                  ),
-              ],
-            ),
+          _settingsTile(
+            icon: Icons.history, 
+            title: 'История покупок',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => PurchaseHistoryScreen(storage: widget.storage, sync: widget.sync)
+            )), 
+            cs: cs
           ),
-
-          const SizedBox(height: 16),
-
-          _sectionTitle('ДАННЫЕ', cs),
-          _tile(icon: Icons.download, title: 'Импорт из Курьера', subtitle: 'Вставить JSON',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => CourierImportScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.history, title: 'История покупок',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => PurchaseHistoryScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-          _tile(icon: Icons.folder_outlined, title: 'Экспорт / Импорт JSON',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync))), cs: cs),
-
-          const SizedBox(height: 16),
-
-          _sectionTitle('ПРОЧЕЕ', cs),
-          _tile(icon: Icons.system_update_alt, title: 'Проверить обновления',
-              subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentFull}',
-              onTap: _checkingUpdate ? null : _checkUpdates, cs: cs),
-          _tile(icon: Icons.bug_report_outlined, title: 'Отладка',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen())), cs: cs),
+          _settingsTile(
+            icon: Icons.folder_outlined, 
+            title: 'Экспорт / Импорт JSON',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync)
+            )), 
+            cs: cs
+          ),
 
           const SizedBox(height: 24),
 
+          // 6. Прочее
+          _sectionTitle('ПРОЧЕЕ', cs),
+          _settingsTile(
+            icon: Icons.system_update_alt, 
+            title: 'Проверить обновления',
+            subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentFull}',
+            onTap: _checkingUpdate ? null : _checkUpdates, 
+            cs: cs
+          ),
+          _settingsTile(
+            icon: Icons.bug_report_outlined, 
+            title: 'Экран отладки',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen())), 
+            cs: cs
+          ),
+
+          const SizedBox(height: 32),
+
+          // 7. Выход
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -399,8 +506,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('Отключиться?'),
-                    content: const Text('Локальные данные останутся. Синхронизация прекратится.'),
+                    title: const Text('Отключиться от группы?'),
+                    content: const Text('Локальные данные останутся на устройстве, но синхронизация с партнером прекратится.'),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
                       ElevatedButton(
@@ -413,15 +520,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
               icon: const Icon(Icons.logout, size: 18),
-              label: const Text('Отключиться от группы'),
+              label: const Text('Отключиться'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: cs.error,
                 side: BorderSide(color: cs.error),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
             ),
           ),
+          const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+
+  Widget _settingsTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    VoidCallback? onTap,
+    Color? iconColor,
+    Widget? trailing,
+    required ColorScheme cs,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: cs.surfaceVariant.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (iconColor ?? cs.primary).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor ?? cs.primary, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(subtitle, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                    ],
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing else if (onTap != null) Icon(Icons.chevron_right, color: cs.onSurfaceVariant, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -436,21 +596,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return Column(
           children: [
             ...List.generate(types.length, (i) => Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(10)),
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
                   Container(
                     width: 12, height: 12,
                     decoration: BoxDecoration(color: _parseColor(types[i].color), shape: BoxShape.circle),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       initialValue: types[i].label,
-                      style: TextStyle(color: cs.onSurface),
-                      decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+                      style: TextStyle(color: cs.onSurface, fontSize: 14),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none, 
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
                       onFieldSubmitted: (v) {
                         types[i] = ShiftType(id: types[i].id, label: v, hours: types[i].hours, color: types[i].color);
                         widget.storage.shiftTypes = types;
@@ -472,13 +636,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             )),
             TextButton.icon(
               onPressed: () {
-                types.add(ShiftType(id: 'st_${DateTime.now().millisecondsSinceEpoch}', label: 'Новый', hours: 8, color: '#FF8FAB'));
+                types.add(ShiftType(id: 'st_${DateTime.now().millisecondsSinceEpoch}', label: 'Новая смена', hours: 8, color: '#FF8FAB'));
                 widget.storage.shiftTypes = types;
                 widget.sync.schedulePush();
                 setSt();
               },
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Добавить'),
+              label: const Text('Добавить тип'),
             ),
           ],
         );
@@ -497,20 +661,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: List.generate(partners.length, (i) {
             final p = partners[i];
             return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(14)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextFormField(
                     initialValue: p.name,
-                    style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600, fontSize: 15),
                     decoration: InputDecoration(
                       labelText: 'Имя партнёра',
-                      labelStyle: TextStyle(color: cs.onSurfaceVariant),
-                      border: const OutlineInputBorder(),
+                      labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                      border: InputBorder.none,
                       isDense: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
                     onFieldSubmitted: (v) {
                       partners[i] = Partner(id: p.id, name: v, rate: p.rate, payType: p.payType);
@@ -518,20 +683,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       widget.sync.schedulePush();
                     },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: TextFormField(
                           initialValue: p.rate.toStringAsFixed(0),
                           keyboardType: TextInputType.number,
-                          style: TextStyle(color: cs.onSurface),
+                          style: TextStyle(color: cs.onSurface, fontSize: 14),
                           decoration: InputDecoration(
                             labelText: 'Ставка',
                             suffixText: '₽',
-                            labelStyle: TextStyle(color: cs.onSurfaceVariant),
-                            border: const OutlineInputBorder(),
+                            suffixStyle: TextStyle(color: cs.onSurfaceVariant),
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                            border: InputBorder.none,
                             isDense: true,
+                            contentPadding: EdgeInsets.zero,
                           ),
                           onFieldSubmitted: (v) {
                             partners[i] = Partner(id: p.id, name: p.name, rate: double.tryParse(v) ?? 0, payType: p.payType);
@@ -540,11 +707,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: p.payType,
-                          decoration: const InputDecoration(labelText: 'Тип', border: OutlineInputBorder(), isDense: true),
+                          decoration: InputDecoration(
+                            labelText: 'Тип оплаты',
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
                           items: const [
                             DropdownMenuItem(value: 'hourly', child: Text('Почасовая')),
                             DropdownMenuItem(value: 'fixed', child: Text('Фиксированная')),
@@ -578,35 +751,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _showBackgroundDialog(ColorScheme cs) async {
-    await showDialog(
+  Future<void> _showBackgroundSheet(ColorScheme cs) async {
+    await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx2, setSt) => AlertDialog(
-          title: const Text('Фон приложения'),
-          content: Column(
+        builder: (ctx2, setSt) => Container(
+          padding: EdgeInsets.only(
+            left: 24, right: 24, top: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Center(
+                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2))),
+              ),
+              const SizedBox(height: 20),
+              Text('Фон приложения', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cs.onSurface)),
+              const SizedBox(height: 20),
               Row(
                 children: [
-                  Expanded(child: OutlinedButton.icon(onPressed: _pickBackground, icon: const Icon(Icons.upload), label: const Text('Загрузить'))),
-                  const SizedBox(width: 8),
-                  Expanded(child: OutlinedButton.icon(onPressed: _clearBackground, icon: const Icon(Icons.clear), label: const Text('Убрать'))),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () { _pickBackground(); Navigator.pop(ctx); },
+                      icon: const Icon(Icons.upload, size: 20),
+                      label: const Text('Загрузить', style: TextStyle(fontWeight: FontWeight.w600)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () { _clearBackground(); Navigator.pop(ctx); },
+                      icon: const Icon(Icons.clear, size: 20),
+                      label: const Text('Убрать', style: TextStyle(fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: cs.error,
+                        side: BorderSide(color: cs.error),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text('Размытие: ${_bgService.blur.toStringAsFixed(0)}'),
-              Slider(
-                value: _bgService.blur, min: 0, max: 30,
-                onChanged: (v) async {
-                  await _setBlur(v);
-                  setSt(() {});
-                  setState(() {});
-                },
+              const SizedBox(height: 24),
+              Text('Степень размытия: ${_bgService.blur.toStringAsFixed(0)}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
+              const SizedBox(height: 8),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 6,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                ),
+                child: Slider(
+                  value: _bgService.blur, min: 0, max: 30,
+                  onChanged: (v) async {
+                    await _setBlur(v);
+                    setSt(() {});
+                    setState(() {});
+                  },
+                ),
               ),
+              const SizedBox(height: 12),
             ],
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
         ),
       ),
     );
@@ -623,9 +841,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: widget.storage.members.map((uid) {
             final isMe = uid == widget.storage.currentUserId;
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text('${isMe ? "📱 Это вы" : "📱 Устройство"}: ${uid.length > 8 ? uid.substring(0, 8) : uid}…',
-                  style: TextStyle(color: isMe ? cs.primary : cs.onSurface, fontWeight: isMe ? FontWeight.bold : FontWeight.normal)),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Icon(isMe ? Icons.phone_android : Icons.devices, size: 18, color: isMe ? cs.primary : cs.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Text('${isMe ? "Это вы" : "Устройство"}: ${uid.length > 8 ? uid.substring(0, 8) : uid}…',
+                      style: TextStyle(color: isMe ? cs.primary : cs.onSurface, fontWeight: isMe ? FontWeight.w600 : FontWeight.normal)),
+                ],
+              ),
             );
           }).toList(),
         ),
@@ -636,21 +860,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _sectionTitle(String text, ColorScheme cs) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
       child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.8)),
-    );
-  }
-
-  Widget _tile({required IconData icon, required String title, String? subtitle, VoidCallback? onTap, Color? iconColor, required ColorScheme cs}) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon, color: iconColor ?? cs.primary, size: 22),
-        title: Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: cs.onSurface)),
-        subtitle: subtitle != null ? Text(subtitle, style: TextStyle(color: cs.onSurfaceVariant)) : null,
-        trailing: onTap != null ? Icon(Icons.chevron_right, color: cs.onSurfaceVariant, size: 20) : null,
-        onTap: onTap,
-      ),
     );
   }
 }
@@ -678,19 +889,42 @@ class _ExpandableSectionState extends State<_ExpandableSection> {
   @override
   Widget build(BuildContext context) {
     final cs = widget.cs;
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         children: [
-          ListTile(
-            leading: Icon(widget.icon, color: cs.primary, size: 22),
-            title: Text(widget.title, style: TextStyle(fontWeight: FontWeight.w500, color: cs.onSurface)),
-            trailing: Icon(_expanded ? Icons.expand_less : Icons.expand_more, color: cs.onSurfaceVariant),
+          InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(widget.icon, color: cs.primary, size: 20),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(widget.title, style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface, fontSize: 15)),
+                  ),
+                  Icon(_expanded ? Icons.expand_less : Icons.expand_more, color: cs.onSurfaceVariant, size: 20),
+                ],
+              ),
+            ),
           ),
           if (_expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: widget.builder(() => setState(() {})),
             ),
         ],
