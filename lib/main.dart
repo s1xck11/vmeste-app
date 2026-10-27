@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:home_widget/home_widget.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'supabase_config.dart';
 import 'services/storage_service.dart';
 import 'services/sync_service.dart';
@@ -199,6 +200,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _check() async {
     await Future.delayed(const Duration(milliseconds: 300));
     _autoCheckUpdate();
+    _checkQuickExpenseNotification();
 
     if (widget.storage.isConfigured) {
       final ok = await widget.sync.autoConnect();
@@ -254,6 +256,16 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _checkQuickExpenseNotification() async {
+    try {
+      final box = Hive.box('vmeste_data');
+      final enabled = box.get('quick_expense_notif_enabled') as bool? ?? false;
+      if (enabled) {
+        await widget.tileService.showNotification();
+      }
+    } catch (_) {}
   }
 
   @override
@@ -345,7 +357,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       }
     });
 
-    // Слушаем события пока приложение открыто
+    // Слушаем события, пока приложение открыто
     widget.tileService.setHandler((call) async {
       if (call.method == 'openExpense') {
         _openQuickExpense();
