@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/widget_bg_glass">
+
+    <!-- Время и Погода -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        
+        <!-- Используем TextClock для авто-обновления времени системой -->
+        <TextClock
+            android:id="@+id/widget_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:format24Hour="HH:mm"
+            android:textSize="48sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:shadowColor="#80000000"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="4"/>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:gravity="end"
+            android:orientation="vertical">
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⛅"
+                android:textSize="24sp"/>
+                
+            <TextView
+                android:id="@+id/widget_weather"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+18°"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"/>
+        </LinearLayout>
+    </RelativeLayout>
+
+    <!-- Дата (через TextClock) -->
+    <TextClock
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:format24Hour="d MMMM, EEEE"
+        android:textSize="14sp"
+        android:textColor="#CCFFFFFF"
+        android:layout_marginBottom="12dp"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#33FFFFFF"
+        android:layout_marginBottom="12dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="СМЕНЫ СЕГОДНЯ"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.1"
+        android:textColor="#99FFFFFF"
+        android:layout_marginBottom="4dp"/>
+
+    <TextView
+        android:id="@+id/widget_shifts_list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Смен нет"
+        android:textSize="14sp"
+        android:textColor="#FFFFFF"
+        android:maxLines="2"
+        android:ellipsize="end"/>
+
+</LinearLayout>
