@@ -1,3 +1,5 @@
+// lib/main.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -229,6 +231,7 @@ class _SplashScreenState extends State<SplashScreen> {
         themeService: widget.themeService,
         bgService: widget.bgService,
         widgetService: widget.widgetService,
+        tileService: widget.tileService,
       ),
     ));
   }
@@ -446,6 +449,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         themeService: widget.themeService,
         bgService: widget.bgService,
         widgetService: widget.widgetService,
+        tileService: widget.tileService,
       ),
     ));
   }
