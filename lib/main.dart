@@ -1,4 +1,4 @@
-import 'dart:async'; // <-- ДОБАВЛЕНО: для StreamSubscription
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,6 +45,7 @@ class _SupabaseHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
+    client.badCertificateCallback = (cert, host, port) => true;
     client.connectionTimeout = const Duration(seconds: 30);
     client.idleTimeout = const Duration(seconds: 30);
     return client;
@@ -312,7 +313,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final List<Widget> _screens;
   final _updateService = UpdateService();
-  StreamSubscription<dynamic>? _widgetClickSub; // Исправлено: тип теперь виден благодаря dart:async
+  StreamSubscription<dynamic>? _widgetClickSub;
 
   final _purchasesKey = GlobalKey<PurchasesScreenState>();
   final _tasksKey = GlobalKey<TasksScreenState>();
@@ -406,7 +407,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _widgetClickSub?.cancel(); // Отписка для предотвращения утечки памяти
+    _widgetClickSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.sync.onStatusChanged = null;
     super.dispose();
