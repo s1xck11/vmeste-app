@@ -53,7 +53,6 @@ class UpdateService {
     }
   }
 
-  /// Проверяет, нужно ли делать запрос (прошло ли достаточно времени)
   bool _shouldCheck() {
     if (_lastCheckTime == null) return true;
     return DateTime.now().difference(_lastCheckTime!) > _checkInterval;
@@ -67,7 +66,9 @@ class UpdateService {
 
     try {
       _log.info('Update', 'проверка обновлений... (текущая ${currentFull})');
-      final uri = Uri.parse('https://api.github.com/repos/$_repo/releases/latest');
+      
+      // Берем список всех релизов (а не latest), чтобы отфильтровать хабы
+      final uri = Uri.parse('https://api.github.com/repos/$_repo/releases');
       final resp = await http.get(
         uri,
         headers: {'Accept': 'application/vnd.github+json'},
@@ -80,12 +81,31 @@ class UpdateService {
         return null;
       }
 
-      final data = jsonDecode(resp.body) as Map<String, dynamic>;
-      final tag = (data['tag_name'] as String?) ?? '';
-      final name = (data['name'] as String?) ?? tag;
-      final body = (data['body'] as String?) ?? '';
+      final List<dynamic> releases = jsonDecode(resp.body) as List<dynamic>;
+      
+      Map<String, dynamic>? mobileRelease;
+      for (final r in releases) {
+        final rMap = Map<String, dynamic>.from(r as Map);
+        final tag = (rMap['tag_name'] as String?) ?? '';
+        // Нас интересуют только мобильные релизы: начинаются на "v" но НЕ на "hub-v"
+        if (tag.startsWith('v') && !tag.startsWith('hub-v')) {
+          mobileRelease = rMap;
+          break;
+        }
+      }
 
+      if (mobileRelease == null) {
+        _log.info('Update', 'нет мобильных релизов');
+        return null;
+      }
+
+      final tag = (mobileRelease['tag_name'] as String?) ?? '';
+      final name = (mobileRelease['name'] as String?) ?? tag;
+      final body = (mobileRelease['body'] as String?) ?? '';
+
+      // Убираем "v" из тега: "v1.1.221" -> "1.1.221"
       final remoteVersion = tag.replaceAll(RegExp(r'^[vV]'), '');
+      _log.info('Update', 'последний мобильный релиз: $tag (версия $remoteVersion)');
 
       if (remoteVersion == currentVersion) {
         _log.info('Update', 'обновлений нет');
@@ -95,10 +115,11 @@ class UpdateService {
       final ver = _parseVersion(remoteVersion);
       final curVer = _parseVersion(currentVersion);
       if (ver != null && curVer != null && !_isNewer(ver, curVer)) {
+        _log.info('Update', 'версия на сервере не новее');
         return null;
       }
 
-      final assets = (data['assets'] as List?) ?? [];
+      final assets = (mobileRelease['assets'] as List?) ?? [];
       String? apkUrl;
       int apkSize = 0;
       for (final a in assets) {
