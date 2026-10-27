@@ -75,7 +75,6 @@ class ShiftsScreenState extends State<ShiftsScreen> {
     return _shifts.where((s) => s.date == key).toList();
   }
 
-  // ИСПРАВЛЕНО: Безопасный парсинг без использования '!'
   double _calcSalary(Shift s) {
     if (s.importedFrom == 'courier-helper') {
       return (s.income is num) ? (s.income as num).toDouble() : 0.0;
@@ -190,38 +189,13 @@ class ShiftsScreenState extends State<ShiftsScreen> {
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 180),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
                 children: [
                   _buildSalaryCard(total, cs),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   if (partner1 != null || partner2 != null)
-                    Row(
-                      children: [
-                        if (partner1 != null)
-                          Expanded(
-                            child: _buildPartnerCard(
-                              partner1,
-                              _partnerTotal(partner1.id),
-                              _partnerShiftCount(partner1.id),
-                              _partnerHours(partner1.id),
-                              cs,
-                            ),
-                          ),
-                        if (partner1 != null && partner2 != null)
-                          const SizedBox(width: 12),
-                        if (partner2 != null)
-                          Expanded(
-                            child: _buildPartnerCard(
-                              partner2,
-                              _partnerTotal(partner2.id),
-                              _partnerShiftCount(partner2.id),
-                              _partnerHours(partner2.id),
-                              cs,
-                            ),
-                          ),
-                      ],
-                    ),
-                  const SizedBox(height: 20),
+                    _buildPartnersSection(partner1, partner2, cs),
+                  const SizedBox(height: 24),
                   _buildCalendar(cs),
                   const SizedBox(height: 20),
                 ],
@@ -230,54 +204,88 @@ class ShiftsScreenState extends State<ShiftsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openAddForDay(DateTime.now()),
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
-        elevation: 4,
-        icon: const Icon(Icons.add, size: 20),
-        label: const Text('Добавить', style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
+    );
+  }
+
+  Widget _buildPartnersSection(Partner? p1, Partner? p2, ColorScheme cs) {
+    return Row(
+      children: [
+        if (p1 != null)
+          Expanded(
+            child: _buildPartnerCard(
+              p1,
+              _partnerTotal(p1.id),
+              _partnerShiftCount(p1.id),
+              _partnerHours(p1.id),
+              cs,
+            ),
+          ),
+        if (p1 != null && p2 != null)
+          const SizedBox(width: 12),
+        if (p2 != null)
+          Expanded(
+            child: _buildPartnerCard(
+              p2,
+              _partnerTotal(p2.id),
+              _partnerShiftCount(p2.id),
+              _partnerHours(p2.id),
+              cs,
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildSalaryCard(double total, ColorScheme cs) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [cs.primary, cs.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: cs.primary.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: cs.primary.withOpacity(0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Зарплата за ${_monthName(_currentMonth.month).toLowerCase()}',
-            style: TextStyle(
-              fontSize: 14, 
-              color: cs.onPrimary.withOpacity(0.85),
-              fontWeight: FontWeight.w500,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: cs.onPrimary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.work_outline, color: cs.onPrimary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Зарплата за ${_monthName(_currentMonth.month).toLowerCase()}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: cs.onPrimary.withOpacity(0.9),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
             '${total.toStringAsFixed(0)} ₽',
             style: TextStyle(
-              fontSize: 40,
+              fontSize: 44,
               fontWeight: FontWeight.w800,
               color: cs.onPrimary,
-              letterSpacing: -1.0,
+              letterSpacing: -1.5,
               height: 1.0,
             ),
           ),
@@ -288,14 +296,21 @@ class ShiftsScreenState extends State<ShiftsScreen> {
 
   Widget _buildPartnerCard(Partner p, double sum, int count, double hours, ColorScheme cs) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: cs.surface,
+        gradient: LinearGradient(
+          colors: [
+            cs.surfaceVariant,
+            cs.surfaceVariant.withOpacity(0.7),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cs.outline.withOpacity(0.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -306,35 +321,66 @@ class ShiftsScreenState extends State<ShiftsScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.person_outline, size: 14, color: cs.onSurfaceVariant),
-              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.person_outline, size: 18, color: cs.primary),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   p.name,
-                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           Text(
             '${sum.toStringAsFixed(0)} ₽',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 26,
               fontWeight: FontWeight.w800,
               color: cs.onSurface,
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '$count смен · ${hours.toStringAsFixed(0)} ч.',
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _partnerStat('${count} смен', Icons.event, cs),
+              const SizedBox(width: 12),
+              _partnerStat('${hours.toStringAsFixed(0)} ч.', Icons.schedule, cs),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _partnerStat(String text, IconData icon, ColorScheme cs) {
+    return Row(
+      children: [
+        Icon(icon, size: 12, color: cs.onSurfaceVariant),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -349,16 +395,16 @@ class ShiftsScreenState extends State<ShiftsScreen> {
     final weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(color: cs.outline.withOpacity(0.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -366,28 +412,40 @@ class ShiftsScreenState extends State<ShiftsScreen> {
         children: [
           Row(
             children: [
-              IconButton(
-                onPressed: () => _changeMonth(-1),
-                icon: Icon(Icons.chevron_left, color: cs.onSurface),
+              Container(
+                decoration: BoxDecoration(
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  onPressed: () => _changeMonth(-1),
+                  icon: Icon(Icons.chevron_left, color: cs.onSurface),
+                ),
               ),
               Expanded(
                 child: Text(
                   '${_monthName(month)} $year',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                     color: cs.onSurface,
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: () => _changeMonth(1),
-                icon: Icon(Icons.chevron_right, color: cs.onSurface),
+              Container(
+                decoration: BoxDecoration(
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: IconButton(
+                  onPressed: () => _changeMonth(1),
+                  icon: Icon(Icons.chevron_right, color: cs.onSurface),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Row(
             children: weekdays
                 .map((w) => Expanded(
@@ -405,15 +463,15 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                     ))
                 .toList(),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: ((startWeekday - 1) + daysInMonth + 6) ~/ 7 * 7,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
               childAspectRatio: 0.95,
             ),
             itemBuilder: (ctx, i) {
@@ -435,38 +493,45 @@ class ShiftsScreenState extends State<ShiftsScreen> {
               return GestureDetector(
                 onTap: () => _openAddForDay(day),
                 child: Container(
-                  margin: const EdgeInsets.all(1),
                   decoration: BoxDecoration(
-                    color: isToday 
-                        ? cs.primary 
-                        : (shifts.isNotEmpty ? cs.primaryContainer.withOpacity(0.3) : Colors.transparent),
-                    borderRadius: BorderRadius.circular(12),
-                    border: isToday ? null : Border.all(color: cs.outline.withOpacity(0.2)),
-                    boxShadow: isToday ? [
-                      BoxShadow(
-                        color: cs.primary.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      )
-                    ] : null,
+                    color: isToday
+                        ? cs.primary
+                        : (shifts.isNotEmpty
+                            ? cs.primaryContainer.withOpacity(0.25)
+                            : cs.surfaceVariant),
+                    borderRadius: BorderRadius.circular(14),
+                    border: isToday
+                        ? null
+                        : Border.all(color: cs.outline.withOpacity(0.3)),
+                    boxShadow: isToday
+                        ? [
+                            BoxShadow(
+                              color: cs.primary.withOpacity(0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            )
+                          ]
+                        : null,
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         '$dayIndex',
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 15,
+                          fontWeight:
+                              isToday ? FontWeight.w800 : FontWeight.w600,
                           color: isToday ? cs.onPrimary : cs.onSurface,
                         ),
                       ),
                       if (shifts.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: shifts.take(3).map((s) {
+                        const SizedBox(height: 6),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 3,
+                          runSpacing: 3,
+                          children: shifts.take(4).map((s) {
                             final t = _types.firstWhere(
                               (x) => x.id == s.type,
                               orElse: () => ShiftType(
@@ -476,27 +541,43 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                                   color: '#9E9E9E'),
                             );
                             return Container(
-                              width: 5,
-                              height: 5,
-                              margin: const EdgeInsets.symmetric(horizontal: 1),
+                              width: 6,
+                              height: 6,
                               decoration: BoxDecoration(
                                 color: _parseColor(t.color),
                                 shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isToday
+                                      ? cs.onPrimary.withOpacity(0.5)
+                                      : Colors.white.withOpacity(0.7),
+                                  width: 1.5,
+                                ),
                               ),
                             );
                           }).toList(),
                         ),
                         if (dayTotal > 0)
-                          Text(
-                            dayTotal >= 1000
-                                ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
-                                : dayTotal.toStringAsFixed(0),
-                            style: TextStyle(
-                              fontSize: 9,
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
                               color: isToday
-                                  ? cs.onPrimary.withOpacity(0.9)
-                                  : cs.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
+                                  ? cs.onPrimary.withOpacity(0.2)
+                                  : cs.primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              dayTotal >= 1000
+                                  ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
+                                  : dayTotal.toStringAsFixed(0),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isToday
+                                    ? cs.onPrimary
+                                    : cs.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                       ],
