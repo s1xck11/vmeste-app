@@ -22,7 +22,7 @@ import 'debug_screen.dart';
 import 'courier_import_screen.dart';
 import 'theme_picker_screen.dart';
 import 'purchase_history_screen.dart';
-import 'banks_editor_screen.dart'; // НОВОЕ
+import 'banks_editor_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final StorageService storage;
@@ -143,7 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_checkingUpdate) return;
     setState(() => _checkingUpdate = true);
     try {
-      final info = await _updateService.checkForUpdate();
+      final info = await _updateService.checkForUpdate(force: true);
       if (!mounted) return;
       if (info == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -171,11 +171,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Размер: $sizeMb',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('Размер: $sizeMb', style: const TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 8),
-              if (info.body.isNotEmpty)
-                Text(info.body, style: const TextStyle(fontSize: 13)),
+              if (info.body.isNotEmpty) Text(info.body, style: const TextStyle(fontSize: 13)),
             ],
           ),
         ),
@@ -243,10 +241,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 Navigator.pop(ctx);
                 await _updateService.clearPartial(info.tag);
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Отменено')),
-                );
               },
               child: const Text('Отмена'),
             ),
@@ -262,82 +256,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         totalNotifier.value = t;
         progressNotifier.value = t > 0 ? r / t : 0;
       },
-      onStatus: (s) {
-        statusNotifier.value = s;
-      },
+      onStatus: (s) => statusNotifier.value = s,
     ).then((file) {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
-
-      if (file == null) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Обрыв связи'),
-            content: const Text(
-              'Скачивание прервалось. Файл сохранён — при следующей попытке '
-              'загрузка продолжится с того же места.',
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _downloadWithProgress(info);
-                },
-                child: const Text('Повторить'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await _updateService.clearPartial(info.tag);
-                },
-                child: const Text('Начать заново'),
-              ),
-            ],
-          ),
-        );
-        return;
-      }
-      _showInstallDialog(file, info.tag);
+      if (file == null) return;
+      _updateService.installApk(file);
     });
-  }
-
-  void _showInstallDialog(File file, String tag) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Готово к установке'),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Обновление $tag скачано. Нажми «Установить», чтобы открыть системный установщик.'),
-            const SizedBox(height: 8),
-            const Text(
-              'Если Android попросит разрешение на установку из неизвестных источников — разреши для «Вместе».',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
-          ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final ok = await _updateService.installApk(file);
-              if (!mounted) return;
-              if (!ok) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Не удалось открыть установщик')),
-                );
-              }
-            },
-            icon: const Icon(Icons.install_mobile),
-            label: const Text('Установить'),
-          ),
-        ],
-      ),
-    );
   }
 
   Color _syncColor() {
@@ -447,11 +372,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
 
           _sectionTitle('НАСТРОЙКИ', cs),
-          _expandableCategories(cs),
-          _expandableTaskCategories(cs),
           _expandableShiftTypes(cs),
           _expandablePartners(cs),
-          // НОВОЕ: Банки
           _tile(
             icon: Icons.account_balance_outlined,
             title: 'Банки',
@@ -555,122 +477,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _expandableCategories(ColorScheme cs) {
-    return _ExpandableSection(
-      title: 'Категории покупок',
-      icon: Icons.category_outlined,
-      cs: cs,
-      builder: (setSt) {
-        final cats = List<PurchaseCategory>.from(widget.storage.purchaseCategories);
-        return Column(
-          children: [
-            ...List.generate(cats.length, (i) => _editableRow(
-              cs: cs,
-              emoji: cats[i].emoji,
-              label: cats[i].label,
-              onLabel: (v) {
-                cats[i] = PurchaseCategory(
-                  id: cats[i].id, label: v, emoji: cats[i].emoji,
-                  order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
-                widget.storage.purchaseCategories = cats;
-                widget.sync.schedulePush();
-                setSt();
-              },
-              onEmoji: (v) {
-                cats[i] = PurchaseCategory(
-                  id: cats[i].id, label: cats[i].label, emoji: v,
-                  order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
-                widget.storage.purchaseCategories = cats;
-                widget.sync.schedulePush();
-                setSt();
-              },
-              onDelete: () {
-                cats.removeAt(i);
-                widget.storage.purchaseCategories = cats;
-                widget.sync.schedulePush();
-                setSt();
-              },
-            )),
-            TextButton.icon(
-              onPressed: () {
-                cats.add(PurchaseCategory(
-                  id: 'cat_${DateTime.now().millisecondsSinceEpoch}',
-                  label: 'Новая',
-                  emoji: '📦',
-                  order: cats.length,
-                  updatedAt: DateTime.now().millisecondsSinceEpoch,
-                ));
-                widget.storage.purchaseCategories = cats;
-                widget.sync.schedulePush();
-                setSt();
-              },
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Добавить'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _expandableTaskCategories(ColorScheme cs) {
-    return _ExpandableSection(
-      title: 'Категории задач',
-      icon: Icons.checklist,
-      cs: cs,
-      builder: (setSt) {
-        final cats = List<TaskCategory>.from(widget.storage.taskCategories);
-        return Column(
-          children: [
-            ...List.generate(cats.length, (i) => _editableRow(
-              cs: cs,
-              emoji: cats[i].emoji,
-              label: cats[i].label,
-              onLabel: (v) {
-                cats[i] = TaskCategory(
-                  id: cats[i].id, label: v, emoji: cats[i].emoji,
-                  order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
-                widget.storage.taskCategories = cats;
-                widget.sync.schedulePush();
-                setSt();
-              },
-              onEmoji: (v) {
-                cats[i] = TaskCategory(
-                  id: cats[i].id, label: cats[i].label, emoji: v,
-                  order: cats[i].order, updatedAt: DateTime.now().millisecondsSinceEpoch);
-                widget.storage.taskCategories = cats;
-                widget.sync.schedulePush();
-                setSt();
-              },
-              onDelete: () {
-                cats.removeAt(i);
-                widget.storage.taskCategories = cats;
-                widget.sync.schedulePush();
-                setSt();
-              },
-            )),
-            TextButton.icon(
-              onPressed: () {
-                cats.add(TaskCategory(
-                  id: 'tcat_${DateTime.now().millisecondsSinceEpoch}',
-                  label: 'Новая',
-                  emoji: '📦',
-                  order: cats.length,
-                  updatedAt: DateTime.now().millisecondsSinceEpoch,
-                ));
-                widget.storage.taskCategories = cats;
-                widget.sync.schedulePush();
-                setSt();
-              },
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Добавить'),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -839,51 +645,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }),
         );
       },
-    );
-  }
-
-  Widget _editableRow({
-    required ColorScheme cs,
-    required String emoji,
-    required String label,
-    required void Function(String) onLabel,
-    required void Function(String) onEmoji,
-    required VoidCallback onDelete,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: cs.surfaceVariant,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 40,
-            child: TextFormField(
-              initialValue: emoji,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20),
-              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
-              onFieldSubmitted: onEmoji,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: TextFormField(
-              initialValue: label,
-              style: TextStyle(color: cs.onSurface),
-              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
-              onFieldSubmitted: onLabel,
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
-            onPressed: onDelete,
-          ),
-        ],
-      ),
     );
   }
 
