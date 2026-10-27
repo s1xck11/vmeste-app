@@ -9,54 +9,31 @@ import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 
-// ============================================================
-// Базовый провайдер. Наследники задают:
-//  - layoutId (R.layout.widget_*)
-//  - ключи в SharedPreferences для title/lines/sub
-//  - индекс вкладки для тапа
-// ============================================================
-
 abstract class BaseVmesteWidget : AppWidgetProvider() {
-
     abstract val layoutId: Int
     abstract val prefTitle: String
     abstract val prefLines: String
     abstract val prefSub: String
     abstract val tabIndex: Int
 
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         for (widgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, widgetId)
         }
     }
 
-    private fun updateWidget(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        widgetId: Int
-    ) {
+    private fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int) {
         val views = RemoteViews(context.packageName, layoutId)
         val prefs = HomeWidgetPlugin.getData(context)
 
         val title = prefs.getString(prefTitle, "") ?: ""
         val linesRaw = prefs.getString(prefLines, "") ?: ""
         val sub = prefs.getString(prefSub, "") ?: ""
-
-        val lines = if (linesRaw.isEmpty()) emptyList()
-                    else linesRaw.split("\n")
+        val lines = if (linesRaw.isEmpty()) emptyList() else linesRaw.split("\n")
 
         views.setTextViewText(R.id.widget_title, title)
 
-        val lineIds = intArrayOf(
-            R.id.widget_line0,
-            R.id.widget_line1,
-            R.id.widget_line2,
-            R.id.widget_line3,
-        )
+        val lineIds = intArrayOf(R.id.widget_line0, R.id.widget_line1, R.id.widget_line2, R.id.widget_line3)
         for (i in lineIds.indices) {
             val tv = lineIds[i]
             if (i < lines.size) {
@@ -75,13 +52,8 @@ abstract class BaseVmesteWidget : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_sub, View.GONE)
         }
 
-        val intent = HomeWidgetLaunchIntent.getActivity(
-            context,
-            MainActivity::class.java,
-            Uri.parse("vmeste://open?tab=$tabIndex")
-        )
+        val intent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse("vmeste://open?tab=$tabIndex"))
         views.setOnClickPendingIntent(R.id.widget_root, intent)
-
         appWidgetManager.updateAppWidget(widgetId, views)
     }
 }
@@ -108,4 +80,24 @@ class VmesteTasksWidget : BaseVmesteWidget() {
     override val prefLines = "tasks_lines"
     override val prefSub = "tasks_sub"
     override val tabIndex = 1
+}
+
+// НОВЫЙ ВИДЖЕТ: ЧАСЫ + ПОГОДА + СМЕНЫ
+class VmesteClockWidget : AppWidgetProvider() {
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        for (widgetId in appWidgetIds) {
+            val views = RemoteViews(context.packageName, R.layout.widget_clock)
+            val prefs = HomeWidgetPlugin.getData(context)
+            
+            val weather = prefs.getString("clock_weather", "--°") ?: "--°"
+            val shiftsRaw = prefs.getString("clock_shifts", "Смен нет") ?: "Смен нет"
+            
+            views.setTextViewText(R.id.widget_weather, weather)
+            views.setTextViewText(R.id.widget_shifts_list, shiftsRaw)
+
+            val intent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse("vmeste://open?tab=2"))
+            views.setOnClickPendingIntent(R.id.widget_root, intent)
+            appWidgetManager.updateAppWidget(widgetId, views)
+        }
+    }
 }
