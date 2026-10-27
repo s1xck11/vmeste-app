@@ -44,7 +44,7 @@ class _SupabaseHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
-    client.badCertificateCallback = (cert, host, port) => true;
+    // Удалена опасная строка badCertificateCallback для безопасности
     client.connectionTimeout = const Duration(seconds: 30);
     client.idleTimeout = const Duration(seconds: 30);
     return client;
@@ -252,13 +252,30 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             SvgPicture.asset(
               'assets/icon/logo.svg',
-              width: 140,
-              height: 140,
+              width: 120,
+              height: 120,
             ),
-            const SizedBox(height: 24),
-            Text('Вместе', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: cs.onSurface)),
-            const SizedBox(height: 32),
-            CircularProgressIndicator(color: cs.primary),
+            const SizedBox(height: 20),
+            Text(
+              'Вместе',
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: cs.onSurface,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Приложение для пар',
+              style: TextStyle(
+                fontSize: 16,
+                color: cs.onSurface.withOpacity(0.6),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 48),
+            CircularProgressIndicator(color: cs.primary, strokeWidth: 3),
           ],
         ),
       ),
@@ -295,6 +312,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final List<Widget> _screens;
   final _updateService = UpdateService();
+  StreamSubscription<dynamic>? _widgetClickSub; // Добавлено для предотвращения утечки памяти
 
   final _purchasesKey = GlobalKey<PurchasesScreenState>();
   final _tasksKey = GlobalKey<TasksScreenState>();
@@ -323,19 +341,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       widget.widgetService.updateAll();
     });
 
-    // Обработка запуска из плитки/уведомления
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.initialAction == 'openExpense') {
         _openQuickExpense();
       }
-      
-      // Проверка обновлений на главном экране (чтобы диалог не убивался роутингом)
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) _autoCheckUpdate();
       });
     });
 
-    // Слушаем события, пока приложение открыто
     widget.tileService.setHandler((call) async {
       if (call.method == 'openExpense') {
         _openQuickExpense();
@@ -344,7 +358,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
 
     try {
-      HomeWidget.widgetClicked.listen((uri) {
+      // Исправлено: сохраняем подписку для последующей отмены
+      _widgetClickSub = HomeWidget.widgetClicked.listen((uri) {
         final tab = _tabFromUri(uri);
         if (tab != null && mounted) {
           setState(() => _currentIndex = tab);
@@ -392,6 +407,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _widgetClickSub?.cancel(); // Исправлено: отписка для предотвращения утечки памяти
     WidgetsBinding.instance.removeObserver(this);
     widget.sync.onStatusChanged = null;
     super.dispose();
