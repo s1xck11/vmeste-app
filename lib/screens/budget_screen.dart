@@ -138,6 +138,7 @@ class BudgetScreenState extends State<BudgetScreen> {
     });
   }
 
+  // ============ ПУБЛИЧНЫЕ МЕТОДЫ ДЛЯ FAB ============
   void openAddModal() => _openAddExpenseModal();
   void openAddIncomeModal() => _openAddIncomeModal();
   void openAddTransferModal() => _openAddTransferModal();
@@ -360,7 +361,6 @@ class BudgetScreenState extends State<BudgetScreen> {
 
   Widget _buildBanksList(ColorScheme cs) {
     if (_banks.isEmpty) return const SizedBox.shrink();
-    
     return SizedBox(
       height: 90,
       child: ListView.separated(
@@ -495,7 +495,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                     _statChip('Доход', income, cs.tertiary, cs),
                     _statChip('Расход', expense, cs.error, cs),
                     _statChip('Перевод +', inTransfer, cs.secondary, cs),
-                    _statChip('Перевод −', outTransfer, cs.tertiary, cs), // ИСПРАВЛЕНО: было cs.warning
+                    _statChip('Перевод −', outTransfer, cs.tertiary, cs),
                   ],
                 ),
               ],
