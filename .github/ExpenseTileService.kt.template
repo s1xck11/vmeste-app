@@ -1,4 +1,4 @@
-package com.vmeste.vmeste_hub
+package com.vmeste.vmeste_app
 
 import android.app.PendingIntent
 import android.content.Intent
