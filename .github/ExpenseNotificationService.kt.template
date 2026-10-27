@@ -1,0 +1,61 @@
+package com.vmeste.vmeste_hub
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+
+object ExpenseNotificationService {
+    private const val CHANNEL_ID = "expense_shortcut"
+    private const val NOTIFICATION_ID = 1001
+
+    fun show(context: Context) {
+        // Создаём канал (Android 8+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Быстрый расход",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Кнопка для быстрого добавления расхода"
+                setShowBadge(false)
+            }
+            val manager = context.getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = "OPEN_EXPENSE"
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pending = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Добавить расход")
+            .setContentText("Нажми, чтобы открыть модалку")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setShowWhen(false)
+            .setContentIntent(pending)
+            .addAction(0, "Открыть", pending)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+        } catch (_: SecurityException) {
+            // Нет разрешения POST_NOTIFICATIONS (Android 13+)
+        }
+    }
+
+    fun hide(context: Context) {
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+    }
+}
