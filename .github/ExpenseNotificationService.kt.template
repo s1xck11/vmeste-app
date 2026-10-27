@@ -1,4 +1,4 @@
-package com.vmeste.vmeste_hub
+package com.vmeste.vmeste_app
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,7 +14,6 @@ object ExpenseNotificationService {
     private const val NOTIFICATION_ID = 1001
 
     fun show(context: Context) {
-        // Создаём канал (Android 8+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -51,7 +50,7 @@ object ExpenseNotificationService {
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
         } catch (_: SecurityException) {
-            // Нет разрешения POST_NOTIFICATIONS (Android 13+)
+            // Нет POST_NOTIFICATIONS
         }
     }
 
