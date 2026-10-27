@@ -28,29 +28,33 @@ jobs:
         run: |
           NEW_VERSION="1.1.${{ github.run_number }}"
           sed -i "s|^version: .*|version: $NEW_VERSION+${{ github.run_number }}|" pubspec.yaml
-          echo "=== pubspec version ==="
           grep "^version:" pubspec.yaml
       
       - name: Create Android project files
         run: flutter create --org com.vmeste --project-name vmeste_app .
       
       - name: Copy root build.gradle template
-        run: |
-          cp .github/build.gradle.root.template android/build.gradle
+        run: cp .github/build.gradle.root.template android/build.gradle
       
       - name: Copy settings.gradle template
-        run: |
-          cp .github/settings.gradle.template android/settings.gradle
+        run: cp .github/settings.gradle.template android/settings.gradle
       
       - name: Copy app build.gradle template
-        run: |
-          cp .github/build.gradle.template android/app/build.gradle
+        run: cp .github/build.gradle.template android/app/build.gradle
       
       - name: Copy gradle-wrapper.properties template
-        run: |
-          cp .github/gradle-wrapper.properties.template android/gradle/wrapper/gradle-wrapper.properties
+        run: cp .github/gradle-wrapper.properties.template android/gradle/wrapper/gradle-wrapper.properties
       
-      - name: Add permissions to AndroidManifest
+      - name: Install Kotlin services
+        run: |
+          KOTLIN_DIR="android/app/src/main/kotlin/com/vmeste/vmeste_app"
+          mkdir -p "$KOTLIN_DIR"
+          cp .github/MainActivity.kt.template "$KOTLIN_DIR/MainActivity.kt"
+          cp .github/ExpenseTileService.kt.template "$KOTLIN_DIR/ExpenseTileService.kt"
+          cp .github/ExpenseNotificationService.kt.template "$KOTLIN_DIR/ExpenseNotificationService.kt"
+          ls -la "$KOTLIN_DIR"
+      
+      - name: Add permissions and services to AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           
@@ -69,54 +73,43 @@ jobs:
           if ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$MANIFEST"; then
             sed -i 's|<manifest \(.*\)>|<manifest \1>\n    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>|' "$MANIFEST"
           fi
-      
-      - name: Install widget Kotlin provider
-        run: |
-          mkdir -p android/app/src/main/kotlin/com/vmeste/vmeste_app
-          cp .github/vmeste_widget_provider.kt.template \
-             android/app/src/main/kotlin/com/vmeste/vmeste_app/VmesteWidgetProvider.kt
-      
-      - name: Install widget resources
-        run: |
-          mkdir -p android/app/src/main/res/layout
-          mkdir -p android/app/src/main/res/drawable
-          mkdir -p android/app/src/main/res/xml
-          cp .github/widget_shifts.xml.template    android/app/src/main/res/layout/widget_shifts.xml
-          cp .github/widget_purchases.xml.template android/app/src/main/res/layout/widget_purchases.xml
-          cp .github/widget_tasks.xml.template     android/app/src/main/res/layout/widget_tasks.xml
-          cp .github/widget_bg.xml.template        android/app/src/main/res/drawable/widget_bg.xml
-          cp .github/widget_shifts_info.xml.template    android/app/src/main/res/xml/widget_shifts_info.xml
-          cp .github/widget_purchases_info.xml.template android/app/src/main/res/xml/widget_purchases_info.xml
-          cp .github/widget_tasks_info.xml.template     android/app/src/main/res/xml/widget_tasks_info.xml
-      
-      - name: Inject widget receivers into AndroidManifest
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          LINE=$(grep -n '</application>' "$MANIFEST" | head -1 | cut -d: -f1)
-          echo "Line: $LINE"
-          head -n $((LINE - 1)) "$MANIFEST" > /tmp/m.xml
-          cat >> /tmp/m.xml <<'WIDGETS'
-              <receiver android:name=".VmesteShiftsWidget" android:exported="true" android:label="Вместе · Смены">
-                  <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-                  <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_shifts_info" />
-              </receiver>
-              <receiver android:name=".VmestePurchasesWidget" android:exported="true" android:label="Вместе · Покупки">
-                  <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-                  <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_purchases_info" />
-              </receiver>
-              <receiver android:name=".VmesteTasksWidget" android:exported="true" android:label="Вместе · Задачи">
-                  <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-                  <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_tasks_info" />
-              </receiver>
-          WIDGETS
-          tail -n +$LINE "$MANIFEST" >> /tmp/m.xml
-          mv /tmp/m.xml "$MANIFEST"
-          grep -c "VmesteShiftsWidget" "$MANIFEST" || true
+          
+          # Добавляем сервис плитки перед </application>
+          python3 - <<'PY'
+          import pathlib
+          p = pathlib.Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text()
+          if 'ExpenseTileService' not in s:
+              block = '''
+                      <service
+                          android:name=".ExpenseTileService"
+                          android:exported="true"
+                          android:icon="@mipmap/ic_launcher"
+                          android:label="Добавить расход"
+                          android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+                          <intent-filter>
+                              <action android:name="android.service.quicksettings.action.QS_TILE" />
+                          </intent-filter>
+                      </service>
+          '''
+              s = s.replace('</application>', block + '    </application>')
+              p.write_text(s)
+          PY
+          grep -c "ExpenseTileService" "$MANIFEST" || true
       
       - name: Set app name to Вместе
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i 's|android:label="vmeste_app"|android:label="Вместе"|' "$MANIFEST"
+      
+      - name: Add androidx.core dependency
+        run: |
+          cat >> android/app/build.gradle <<'EOF'
+
+          dependencies {
+              implementation 'androidx.core:core-ktx:1.12.0'
+          }
+          EOF
       
       - name: Restore keystore
         run: |
