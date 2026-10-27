@@ -1,3 +1,5 @@
+// lib/screens/purchases_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -129,6 +131,11 @@ class PurchasesScreenState extends State<PurchasesScreen> {
         },
       ),
     );
+  }
+
+  // Публичный метод для вызова из MainScreen
+  void openAddModal() {
+    _openAddModal();
   }
 
   void _openEditModal(Purchase p) {
@@ -359,7 +366,6 @@ class PurchasesScreenState extends State<PurchasesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Заголовок категории (тап сворачивает/разворачивает)
           InkWell(
             onTap: () => _toggleCollapsed(cat.id),
             borderRadius: BorderRadius.circular(12),
