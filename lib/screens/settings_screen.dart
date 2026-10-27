@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/purchase_category.dart';
 import '../models/task_category.dart';
 import '../models/shift_type.dart';
@@ -16,6 +17,7 @@ import '../services/theme_service.dart';
 import '../services/background_service.dart';
 import '../services/notification_service.dart';
 import '../services/update_service.dart';
+import '../services/tile_service.dart';
 import 'avatar_picker_screen.dart';
 import 'data_management_screen.dart';
 import 'debug_screen.dart';
@@ -49,7 +51,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late BackgroundService _bgService;
   late NotificationService _notifService;
   final _updateService = UpdateService();
+  final _tileService = TileService();
   bool _checkingUpdate = false;
+  bool _quickExpenseEnabled = false;
 
   @override
   void initState() {
@@ -58,6 +62,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bgService = BackgroundService.instance;
     _notifService = NotificationService(widget.storage);
     _notifService.init();
+
+    final box = Hive.box('vmeste_data');
+    _quickExpenseEnabled = box.get('quick_expense_notif_enabled') as bool? ?? false;
   }
 
   @override
@@ -139,6 +146,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
+  Future<void> _toggleQuickExpense(bool value) async {
+    setState(() => _quickExpenseEnabled = value);
+    final box = Hive.box('vmeste_data');
+    await box.put('quick_expense_notif_enabled', value);
+    if (value) {
+      await _tileService.showNotification();
+    } else {
+      await _tileService.hideNotification();
+    }
+  }
+
   Future<void> _checkUpdates() async {
     if (_checkingUpdate) return;
     setState(() => _checkingUpdate = true);
@@ -146,9 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final info = await _updateService.checkForUpdate(force: true);
       if (!mounted) return;
       if (info == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Обновлений нет')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Обновлений нет')));
       } else {
         _showUpdateDialog(info);
       }
@@ -158,111 +174,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showUpdateDialog(UpdateInfo info) {
-    final sizeMb = info.apkSize > 0
-        ? '${(info.apkSize / 1024 / 1024).toStringAsFixed(1)} МБ'
-        : 'неизвестно';
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Доступна версия ${info.tag}'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Размер: $sizeMb', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 8),
-              if (info.body.isNotEmpty) Text(info.body, style: const TextStyle(fontSize: 13)),
-            ],
-          ),
-        ),
+        content: Text(info.body.isNotEmpty ? info.body : 'Новая версия'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
-          ElevatedButton.icon(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              _downloadWithProgress(info);
+              _updateService.downloadApk(info).then((f) {
+                if (f != null) _updateService.installApk(f);
+              });
             },
-            icon: const Icon(Icons.download),
-            label: const Text('Скачать'),
+            child: const Text('Скачать'),
           ),
         ],
       ),
     );
-  }
-
-  void _downloadWithProgress(UpdateInfo info) {
-    final progressNotifier = ValueNotifier<double>(0);
-    final receivedNotifier = ValueNotifier<int>(0);
-    final totalNotifier = ValueNotifier<int>(info.apkSize);
-    final statusNotifier = ValueNotifier<String>('Скачивание...');
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Скачивание обновления'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ValueListenableBuilder<String>(
-                valueListenable: statusNotifier,
-                builder: (_, v, __) => Text(v, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-              ),
-              const SizedBox(height: 12),
-              ValueListenableBuilder<double>(
-                valueListenable: progressNotifier,
-                builder: (_, v, __) => LinearProgressIndicator(
-                  value: v > 0 ? v : null,
-                  minHeight: 6,
-                  backgroundColor: Colors.grey[300],
-                ),
-              ),
-              const SizedBox(height: 10),
-              ValueListenableBuilder<int>(
-                valueListenable: receivedNotifier,
-                builder: (_, r, __) => ValueListenableBuilder<int>(
-                  valueListenable: totalNotifier,
-                  builder: (_, t, __) => Text(
-                    t > 0
-                        ? '${(r / 1024 / 1024).toStringAsFixed(1)} / ${(t / 1024 / 1024).toStringAsFixed(1)} МБ'
-                        : '${(r / 1024 / 1024).toStringAsFixed(1)} МБ',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await _updateService.clearPartial(info.tag);
-              },
-              child: const Text('Отмена'),
-            ),
-          ],
-        );
-      },
-    );
-
-    _updateService.downloadApk(
-      info,
-      onProgress: (r, t) {
-        receivedNotifier.value = r;
-        totalNotifier.value = t;
-        progressNotifier.value = t > 0 ? r / t : 0;
-      },
-      onStatus: (s) => statusNotifier.value = s,
-    ).then((file) {
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      if (file == null) return;
-      _updateService.installApk(file);
-    });
   }
 
   Color _syncColor() {
@@ -388,13 +318,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               children: [
                 SwitchListTile(
+                  value: _quickExpenseEnabled,
+                  onChanged: _toggleQuickExpense,
+                  secondary: Icon(Icons.receipt_long_outlined, color: cs.primary, size: 22),
+                  title: const Text('Кнопка «Добавить расход»'),
+                  subtitle: Text(_quickExpenseEnabled
+                      ? 'Показывается в шторке уведомлений'
+                      : 'Отключено'),
+                ),
+              ],
+            ),
+          ),
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              children: [
+                SwitchListTile(
                   value: _notifService.enabled,
                   onChanged: (v) async {
                     await _notifService.setEnabled(v);
                     setState(() {});
                   },
                   secondary: Icon(Icons.notifications_outlined, color: cs.primary, size: 22),
-                  title: const Text('Уведомления'),
+                  title: const Text('Уведомления о сменах'),
                   subtitle: Text(_notifService.enabled
                       ? 'За ${_notifService.timing} мин до смены'
                       : 'Выключены'),
@@ -492,18 +438,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ...List.generate(types.length, (i) => Container(
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: cs.surfaceVariant,
-                borderRadius: BorderRadius.circular(10),
-              ),
+              decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(10)),
               child: Row(
                 children: [
                   Container(
                     width: 12, height: 12,
-                    decoration: BoxDecoration(
-                      color: _parseColor(types[i].color),
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: BoxDecoration(color: _parseColor(types[i].color), shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -512,8 +452,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(color: cs.onSurface),
                       decoration: const InputDecoration(border: InputBorder.none, isDense: true),
                       onFieldSubmitted: (v) {
-                        types[i] = ShiftType(
-                          id: types[i].id, label: v, hours: types[i].hours, color: types[i].color);
+                        types[i] = ShiftType(id: types[i].id, label: v, hours: types[i].hours, color: types[i].color);
                         widget.storage.shiftTypes = types;
                         widget.sync.schedulePush();
                       },
@@ -533,12 +472,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             )),
             TextButton.icon(
               onPressed: () {
-                types.add(ShiftType(
-                  id: 'st_${DateTime.now().millisecondsSinceEpoch}',
-                  label: 'Новый',
-                  hours: 8,
-                  color: '#FF8FAB',
-                ));
+                types.add(ShiftType(id: 'st_${DateTime.now().millisecondsSinceEpoch}', label: 'Новый', hours: 8, color: '#FF8FAB'));
                 widget.storage.shiftTypes = types;
                 widget.sync.schedulePush();
                 setSt();
@@ -565,10 +499,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cs.surfaceVariant,
-                borderRadius: BorderRadius.circular(12),
-              ),
+              decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(12)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -582,8 +513,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       isDense: true,
                     ),
                     onFieldSubmitted: (v) {
-                      partners[i] = Partner(
-                        id: p.id, name: v, rate: p.rate, payType: p.payType);
+                      partners[i] = Partner(id: p.id, name: v, rate: p.rate, payType: p.payType);
                       widget.storage.partners = partners;
                       widget.sync.schedulePush();
                     },
@@ -604,10 +534,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             isDense: true,
                           ),
                           onFieldSubmitted: (v) {
-                            partners[i] = Partner(
-                              id: p.id, name: p.name,
-                              rate: double.tryParse(v) ?? 0,
-                              payType: p.payType);
+                            partners[i] = Partner(id: p.id, name: p.name, rate: double.tryParse(v) ?? 0, payType: p.payType);
                             widget.storage.partners = partners;
                             widget.sync.schedulePush();
                           },
@@ -617,20 +544,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: p.payType,
-                          decoration: const InputDecoration(
-                            labelText: 'Тип',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
+                          decoration: const InputDecoration(labelText: 'Тип', border: OutlineInputBorder(), isDense: true),
                           items: const [
                             DropdownMenuItem(value: 'hourly', child: Text('Почасовая')),
                             DropdownMenuItem(value: 'fixed', child: Text('Фиксированная')),
                             DropdownMenuItem(value: 'piecework', child: Text('Сдельная')),
                           ],
                           onChanged: (v) {
-                            partners[i] = Partner(
-                              id: p.id, name: p.name, rate: p.rate,
-                              payType: v ?? 'hourly');
+                            partners[i] = Partner(id: p.id, name: p.name, rate: p.rate, payType: v ?? 'hourly');
                             widget.storage.partners = partners;
                             widget.sync.schedulePush();
                             setSt();
