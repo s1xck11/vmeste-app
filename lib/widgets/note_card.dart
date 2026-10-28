@@ -35,12 +35,23 @@ class NoteCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: cs.surfaceVariant,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isHighPriority
-                  ? cs.error.withOpacity(0.5)
-                  : cs.outline.withOpacity(0.5),
-              width: isHighPriority ? 1.5 : 1,
-            ),
+            // Внутренняя тень для эффекта глубины
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 8,
+                spreadRadius: -1,
+                offset: const Offset(0, 2),
+              ),
+              // Для высокого приоритета добавляем красноватое свечение
+              if (isHighPriority)
+                BoxShadow(
+                  color: cs.error.withOpacity(0.2),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 0),
+                ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
