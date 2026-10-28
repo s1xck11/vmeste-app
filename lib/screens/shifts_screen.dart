@@ -189,7 +189,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 140),
                 children: [
                   _buildSalaryCard(total, cs),
                   const SizedBox(height: 16),
@@ -472,7 +472,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
               crossAxisCount: 7,
               mainAxisSpacing: 6,
               crossAxisSpacing: 6,
-              childAspectRatio: 1.0,
+              childAspectRatio: 0.8, // Сделали ячейки выше, чтобы контент влезал
             ),
             itemBuilder: (ctx, i) {
               final dayIndex = i - (startWeekday - 1) + 1;
