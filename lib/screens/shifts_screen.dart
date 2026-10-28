@@ -87,7 +87,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
       return (s.pieceworkAmount is num) ? (s.pieceworkAmount as num).toDouble() : 0.0;
     }
     if (partner.payType == 'fixed') return partner.rate.toDouble();
-    
+
     final hours = (s.hours is num) ? (s.hours as num).toDouble() : 0.0;
     return hours * partner.rate;
   }
@@ -472,7 +472,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
               crossAxisCount: 7,
               mainAxisSpacing: 6,
               crossAxisSpacing: 6,
-              childAspectRatio: 0.95,
+              childAspectRatio: 1.0,
             ),
             itemBuilder: (ctx, i) {
               final dayIndex = i - (startWeekday - 1) + 1;
@@ -526,12 +526,12 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                         ),
                       ),
                       if (shifts.isNotEmpty) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Wrap(
                           alignment: WrapAlignment.center,
-                          spacing: 3,
-                          runSpacing: 3,
-                          children: shifts.take(4).map((s) {
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: shifts.take(3).map((s) {
                             final t = _types.firstWhere(
                               (x) => x.id == s.type,
                               orElse: () => ShiftType(
@@ -541,8 +541,8 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                                   color: '#9E9E9E'),
                             );
                             return Container(
-                              width: 6,
-                              height: 6,
+                              width: 5,
+                              height: 5,
                               decoration: BoxDecoration(
                                 color: _parseColor(t.color),
                                 shape: BoxShape.circle,
@@ -557,27 +557,17 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                           }).toList(),
                         ),
                         if (dayTotal > 0)
-                          Container(
-                            margin: const EdgeInsets.only(top: 4),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
+                          Text(
+                            dayTotal >= 1000
+                                ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
+                                : dayTotal.toStringAsFixed(0),
+                            style: TextStyle(
+                              fontSize: 8,
                               color: isToday
-                                  ? cs.onPrimary.withOpacity(0.2)
-                                  : cs.primary.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              dayTotal >= 1000
-                                  ? '${(dayTotal / 1000).toStringAsFixed(1)}к'
-                                  : dayTotal.toStringAsFixed(0),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isToday
-                                    ? cs.onPrimary
-                                    : cs.onSurface,
-                                fontWeight: FontWeight.w700,
-                              ),
+                                  ? cs.onPrimary.withOpacity(0.9)
+                                  : cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                              height: 1.0,
                             ),
                           ),
                       ],
