@@ -525,7 +525,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                         ),
                       ),
                       if (shifts.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Wrap(
                           alignment: WrapAlignment.center,
                           spacing: 2,
@@ -545,12 +545,6 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                               decoration: BoxDecoration(
                                 color: _parseColor(t.color),
                                 shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isToday
-                                      ? cs.onPrimary.withOpacity(0.5)
-                                      : Colors.white.withOpacity(0.7),
-                                  width: 1.5,
-                                ),
                               ),
                             );
                           }).toList(),
