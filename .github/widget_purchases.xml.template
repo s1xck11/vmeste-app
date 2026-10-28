@@ -4,73 +4,32 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
-    android:background="@drawable/widget_bg">
+    android:padding="16dp"
+    android:background="@drawable/widget_bg_glass"
+    android:clickable="true"
+    android:focusable="true">
 
     <TextView
         android:id="@+id/widget_title"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="ПОКУПКИ"
-        android:textSize="11sp"
+        android:text="Покупки"
+        android:textSize="16sp"
         android:textStyle="bold"
-        android:letterSpacing="0.08"
-        android:textColor="#8E8E93"
-        android:maxLines="1"
-        android:ellipsize="end"/>
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="12dp" />
+
+    <TextView android:id="@+id/widget_line0" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#E0E0E0" android:layout_marginBottom="4dp" android:visibility="gone" />
+    <TextView android:id="@+id/widget_line1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#E0E0E0" android:layout_marginBottom="4dp" android:visibility="gone" />
+    <TextView android:id="@+id/widget_line2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#E0E0E0" android:layout_marginBottom="4dp" android:visibility="gone" />
+    <TextView android:id="@+id/widget_line3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" android:textColor="#E0E0E0" android:visibility="gone" />
 
     <TextView
         android:id="@+id/widget_sub"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="всё куплено"
         android:textSize="13sp"
-        android:textColor="#8E8E93"
-        android:visibility="gone"
-        android:paddingTop="6dp"/>
-
-    <TextView
-        android:id="@+id/widget_line0"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:textSize="13sp"
-        android:textColor="#1F1F1F"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:gravity="center_vertical"/>
-
-    <TextView
-        android:id="@+id/widget_line1"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:textSize="13sp"
-        android:textColor="#1F1F1F"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:gravity="center_vertical"/>
-
-    <TextView
-        android:id="@+id/widget_line2"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:textSize="13sp"
-        android:textColor="#1F1F1F"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:gravity="center_vertical"/>
-
-    <TextView
-        android:id="@+id/widget_line3"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:textSize="13sp"
-        android:textColor="#1F1F1F"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:gravity="center_vertical"/>
-
+        android:textColor="#B0B0B0"
+        android:layout_marginTop="8dp"
+        android:visibility="gone" />
 </LinearLayout>
