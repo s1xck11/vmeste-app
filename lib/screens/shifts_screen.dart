@@ -520,8 +520,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                         '$dayIndex',
                         style: TextStyle(
                           fontSize: 15,
-                          fontWeight:
-                              isToday ? FontWeight.w800 : FontWeight.w600,
+                          fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
                           color: isToday ? cs.onPrimary : cs.onSurface,
                         ),
                       ),
