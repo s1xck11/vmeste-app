@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../models/purchase.dart';
 import '../models/purchase_list.dart';
 import '../models/purchase_category.dart';
@@ -39,7 +38,7 @@ class PurchasesScreen extends StatefulWidget {
 class PurchasesScreenState extends State<PurchasesScreen> {
   final _quickController = TextEditingController();
   String _selectedListId = 'common';
-  Set<String> _collapsed = {};
+  String? _selectedCategory;
 
   List<Purchase> _purchases = [];
   List<PurchaseList> _lists = [];
@@ -48,7 +47,6 @@ class PurchasesScreenState extends State<PurchasesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCollapsed();
     _load();
     widget.sync.addListener(_load);
   }
@@ -58,29 +56,6 @@ class PurchasesScreenState extends State<PurchasesScreen> {
     widget.sync.removeListener(_load);
     _quickController.dispose();
     super.dispose();
-  }
-
-  void _loadCollapsed() {
-    final box = Hive.box('vmeste_data');
-    final raw = box.get('collapsed_categories_purchases');
-    if (raw != null) {
-      _collapsed = (raw as List).cast<String>().toSet();
-    }
-  }
-
-  void _saveCollapsed() {
-    Hive.box('vmeste_data').put('collapsed_categories_purchases', _collapsed.toList());
-  }
-
-  void _toggleCollapsed(String id) {
-    setState(() {
-      if (_collapsed.contains(id)) {
-        _collapsed.remove(id);
-      } else {
-        _collapsed.add(id);
-      }
-      _saveCollapsed();
-    });
   }
 
   void _load() {
@@ -266,12 +241,12 @@ class PurchasesScreenState extends State<PurchasesScreen> {
     return list;
   }
 
-  Map<String, List<Purchase>> get _groupedByCategory {
-    final map = <String, List<Purchase>>{};
-    for (final p in _visiblePurchases) {
-      map.putIfAbsent(p.category, () => []).add(p);
+  List<Purchase> get _filteredPurchases {
+    var list = _visiblePurchases;
+    if (_selectedCategory != null) {
+      list = list.where((p) => p.category == _selectedCategory).toList();
     }
-    return map;
+    return list;
   }
 
   PurchaseCategory _categoryOf(String id) {
@@ -284,7 +259,6 @@ class PurchasesScreenState extends State<PurchasesScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final grouped = _groupedByCategory;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -331,20 +305,34 @@ class PurchasesScreenState extends State<PurchasesScreen> {
                 slivers: [
                   SliverToBoxAdapter(child: _buildListSegments(cs)),
                   SliverToBoxAdapter(child: _buildQuickAdd(cs)),
-                  if (_visiblePurchases.isEmpty)
+                  SliverToBoxAdapter(child: _buildCategoryFilter(cs)),
+                  if (_filteredPurchases.isEmpty)
                     const SliverFillRemaining(
                       hasScrollBody: false,
                       child: _EmptyPurchases(),
                     )
                   else
-                    ...grouped.entries.map((entry) {
-                      final cat = _categoryOf(entry.key);
-                      final isCollapsed = _collapsed.contains(entry.key);
-                      return SliverToBoxAdapter(
-                        child: _buildCategorySection(cat, entry.value, isCollapsed, cs),
-                      );
-                    }),
-                  const SliverToBoxAdapter(child: SizedBox(height: 160)),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 160),
+                      sliver: SliverMasonryGrid.count(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        childCount: _filteredPurchases.length,
+                        itemBuilder: (ctx, i) {
+                          final p = _filteredPurchases[i];
+                          return NoteCard(
+                            title: p.text,
+                            subtitle: [
+                              if (p.qty > 1) '${p.qty} ${p.unit}',
+                              if (p.price > 0) '${(p.price * p.qty).toStringAsFixed(0)} ₽',
+                            ].join(' · '),
+                            isDone: p.done,
+                            onTap: () => _openNoteModal(p),
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -354,70 +342,82 @@ class PurchasesScreenState extends State<PurchasesScreen> {
     );
   }
 
-  Widget _buildCategorySection(
-    PurchaseCategory cat,
-    List<Purchase> items,
-    bool isCollapsed,
-    ColorScheme cs,
-  ) {
+  Widget _buildCategoryFilter(ColorScheme cs) {
+    final categories = _categories.where((c) =>
+      _visiblePurchases.any((p) => p.category == c.id)
+    ).toList();
+
+    if (categories.isEmpty) return const SizedBox.shrink();
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => _toggleCollapsed(cat.id),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              child: Row(
-                children: [
-                  Text('${cat.emoji} ', style: const TextStyle(fontSize: 16)),
-                  Text(
-                    cat.label.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: cs.onSurfaceVariant,
-                      letterSpacing: 1,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: SizedBox(
+        height: 44,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: categories.length + 1,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (ctx, i) {
+            if (i == 0) {
+              final selected = _selectedCategory == null;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedCategory = null),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: selected ? cs.primary : cs.surfaceVariant,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: selected ? cs.primary : cs.outline.withOpacity(0.5),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text('· ${items.length}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                  const Spacer(),
-                  Icon(
-                    isCollapsed ? Icons.expand_more : Icons.expand_less,
-                    color: cs.onSurfaceVariant,
-                    size: 22,
+                  child: Text(
+                    'Все',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? cs.onPrimary : cs.onSurface,
+                    ),
                   ),
-                ],
+                ),
+              );
+            }
+            final cat = categories[i - 1];
+            final selected = _selectedCategory == cat.id;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedCategory = cat.id),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: selected ? cs.primary : cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: selected ? cs.primary : cs.outline.withOpacity(0.5),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(cat.emoji, style: const TextStyle(fontSize: 16)),
+                    if (selected) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        cat.label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onPrimary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ),
-          if (!isCollapsed) ...[
-            const SizedBox(height: 8),
-            MasonryGridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: items.length,
-              itemBuilder: (ctx, i) {
-                final p = items[i];
-                return NoteCard(
-                  title: p.text,
-                  subtitle: [
-                    if (p.qty > 1) '${p.qty} ${p.unit}',
-                    if (p.price > 0) '${(p.price * p.qty).toStringAsFixed(0)} ₽',
-                  ].join(' · '),
-                  isDone: p.done,
-                  onTap: () => _openNoteModal(p),
-                );
-              },
-            ),
-          ],
-        ],
+            );
+          },
+        ),
       ),
     );
   }
