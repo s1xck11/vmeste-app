@@ -150,8 +150,18 @@ class TasksScreenState extends State<TasksScreen> {
       builder: (ctx) => NoteModal(
         title: t.text,
         subtitle: t.deadline.isNotEmpty ? '📅 до ${t.deadline}' : null,
-        content: t.createdByName != null || t.takenByName != null || t.doneByName != null
-            ? StatusLine(
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (t.comment.isNotEmpty) ...[
+              Text(
+                t.comment,
+                style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (t.createdByName != null || t.takenByName != null || t.doneByName != null)
+              StatusLine(
                 done: t.done,
                 doneByName: t.doneByName,
                 doneAt: t.doneAt,
@@ -159,8 +169,9 @@ class TasksScreenState extends State<TasksScreen> {
                 takenByAt: t.takenByAt,
                 createdByName: t.createdByName,
                 createdByAt: t.createdByAt,
-              )
-            : null,
+              ),
+          ],
+        ),
         actionButton: t.done
             ? null
             : ElevatedButton.icon(

@@ -148,6 +148,13 @@ class PurchasesScreenState extends State<PurchasesScreen> {
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (p.comment.isNotEmpty) ...[
+              Text(
+                p.comment,
+                style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (p.createdByName != null || p.takenByName != null || p.doneByName != null)
               StatusLine(
                 done: p.done,

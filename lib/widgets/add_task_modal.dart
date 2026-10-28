@@ -22,15 +22,13 @@ class AddTaskModal extends StatefulWidget {
 }
 
 class _AddTaskModalState extends State<AddTaskModal> {
-  final _nameCtrl = TextEditingController();
+  final _titleCtrl = TextEditingController();
   final _commentCtrl = TextEditingController();
   String _priority = 'med';
   String _categoryId = 'home';
   String _assignee = 'any';
   String _repeat = 'none';
   DateTime? _deadline;
-  
-  // ГЛАВНОЕ УЛУЧШЕНИЕ: скрываем второстепенные поля по умолчанию
   bool _showAdvanced = false;
 
   @override
@@ -38,7 +36,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
     super.initState();
     if (widget.initialTask != null) {
       final t = widget.initialTask!;
-      _nameCtrl.text = t.text;
+      _titleCtrl.text = t.text;
       _commentCtrl.text = t.comment;
       _priority = t.priority;
       _categoryId = t.category;
@@ -47,7 +45,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
       if (t.deadline.isNotEmpty) {
         _deadline = DateTime.tryParse(t.deadline);
       }
-      _showAdvanced = true; // При редактировании показываем всё
+      _showAdvanced = true;
     } else if (widget.categories.isNotEmpty) {
       _categoryId = widget.categories.first.id;
     }
@@ -55,16 +53,16 @@ class _AddTaskModalState extends State<AddTaskModal> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _titleCtrl.dispose();
     _commentCtrl.dispose();
     super.dispose();
   }
 
   void _save() {
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) return;
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) return;
     FocusScope.of(context).unfocus();
-    
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final deadlineStr = _deadline == null
         ? ''
@@ -72,14 +70,14 @@ class _AddTaskModalState extends State<AddTaskModal> {
 
     final t = Task(
       id: widget.initialTask?.id ?? now,
-      text: name,
+      text: title,
+      comment: _commentCtrl.text.trim(),
       done: widget.initialTask?.done ?? false,
       priority: _priority,
       category: _categoryId,
       assignee: _assignee,
       deadline: deadlineStr,
       repeat: _repeat,
-      comment: _commentCtrl.text.trim(),
       order: widget.initialTask?.order ?? now,
       archived: widget.initialTask?.archived ?? false,
       doneAt: widget.initialTask?.doneAt,
@@ -112,7 +110,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
-    
+
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
@@ -140,14 +138,32 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 20),
 
-              // 1. Название (всегда видно)
+              // 1. ЗАГОЛОВОК
               TextField(
-                controller: _nameCtrl,
+                controller: _titleCtrl,
                 autofocus: widget.initialTask == null,
                 textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
-                  labelText: 'Что нужно сделать?',
+                  labelText: 'Заголовок',
+                  hintText: 'Сделать после работы',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  filled: true,
+                  fillColor: cs.surfaceVariant,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 2. СОДЕРЖИМОЕ
+              TextField(
+                controller: _commentCtrl,
+                textCapitalization: TextCapitalization.sentences,
+                maxLines: 3,
+                style: const TextStyle(fontSize: 15),
+                decoration: InputDecoration(
+                  labelText: 'Содержимое',
+                  hintText: 'Подробности задачи...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                   filled: true,
                   fillColor: cs.surfaceVariant,
@@ -156,7 +172,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 20),
 
-              // 2. Категория (всегда видно)
+              // Категория
               _sectionLabel(cs, 'Категория'),
               const SizedBox(height: 10),
               SingleChildScrollView(
@@ -197,7 +213,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 20),
 
-              // 3. Приоритет (всегда видно)
+              // Приоритет
               _sectionLabel(cs, 'Приоритет'),
               const SizedBox(height: 10),
               Row(
@@ -211,7 +227,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 20),
 
-              // 4. Переключатель дополнительных настроек
+              // Дополнительные настройки
               InkWell(
                 onTap: () => setState(() => _showAdvanced = !_showAdvanced),
                 borderRadius: BorderRadius.circular(12),
@@ -234,7 +250,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
                 ),
               ),
 
-              // 5. Дополнительные настройки (скрыты по умолчанию)
               if (_showAdvanced) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -257,7 +272,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
                         ],
                       ),
                       const SizedBox(height: 20),
-
                       _sectionLabel(cs, 'Дедлайн'),
                       const SizedBox(height: 8),
                       Row(
@@ -287,7 +301,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
                         ],
                       ),
                       const SizedBox(height: 20),
-
                       _sectionLabel(cs, 'Повторять'),
                       const SizedBox(height: 8),
                       Wrap(
@@ -299,21 +312,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
                           _smallChip(cs, 'monthly', '🔁 Месяц', _repeat),
                         ],
                       ),
-                      const SizedBox(height: 20),
-
-                      _sectionLabel(cs, 'Комментарий'),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _commentCtrl,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Дополнительные детали...',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          filled: true,
-                          fillColor: cs.surface,
-                          contentPadding: const EdgeInsets.all(12),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -321,7 +319,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
 
               const SizedBox(height: 24),
 
-              // 6. Кнопки действий
               Row(
                 children: [
                   Expanded(
@@ -398,7 +395,7 @@ class _AddTaskModalState extends State<AddTaskModal> {
   Widget _smallChip(ColorScheme cs, String value, String label, String current) {
     final sel = value == current;
     return GestureDetector(
-      onTap: () => setState(() => _assignee = value == 'any' || _repeat == value ? value : value),
+      onTap: () => setState(() => _assignee = value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

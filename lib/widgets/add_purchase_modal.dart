@@ -26,7 +26,8 @@ class AddPurchaseModal extends StatefulWidget {
 }
 
 class _AddPurchaseModalState extends State<AddPurchaseModal> {
-  final _nameCtrl = TextEditingController();
+  final _titleCtrl = TextEditingController();
+  final _commentCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController(text: '1');
   final _priceCtrl = TextEditingController();
   String _unit = 'шт';
@@ -40,7 +41,8 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
     _listId = widget.initialListId;
     if (widget.initialPurchase != null) {
       final p = widget.initialPurchase!;
-      _nameCtrl.text = p.text;
+      _titleCtrl.text = p.text;
+      _commentCtrl.text = p.comment;
       _qtyCtrl.text = p.qty.toString();
       _priceCtrl.text = p.price > 0 ? p.price.toString() : '';
       _unit = p.unit;
@@ -48,7 +50,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
       _listId = p.listId;
       _showDetails = true;
     } else {
-      _nameCtrl.text = widget.initialText;
+      _titleCtrl.text = widget.initialText;
       if (widget.categories.isNotEmpty) {
         _categoryId = widget.categories.first.id;
       }
@@ -57,24 +59,26 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _titleCtrl.dispose();
+    _commentCtrl.dispose();
     _qtyCtrl.dispose();
     _priceCtrl.dispose();
     super.dispose();
   }
 
   void _save() {
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) return;
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) return;
     FocusScope.of(context).unfocus();
-    
+
     final qty = double.tryParse(_qtyCtrl.text.replaceAll(',', '.')) ?? 1;
     final price = double.tryParse(_priceCtrl.text.replaceAll(',', '.')) ?? 0;
     final now = DateTime.now().millisecondsSinceEpoch;
 
     final p = Purchase(
       id: widget.initialPurchase?.id ?? now,
-      text: name,
+      text: title,
+      comment: _commentCtrl.text.trim(),
       done: widget.initialPurchase?.done ?? false,
       missing: widget.initialPurchase?.missing ?? false,
       category: _categoryId,
@@ -94,7 +98,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
-    
+
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
@@ -116,19 +120,37 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
               Text(
-                widget.initialPurchase == null ? 'Новая покупка' : 'Редактировать покупку',
+                widget.initialPurchase == null ? 'Новая покупка' : 'Редактировать',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: cs.onSurface),
               ),
               const SizedBox(height: 20),
 
-              // Название
+              // 1. ЗАГОЛОВОК (виден в общей сетке)
               TextField(
-                controller: _nameCtrl,
+                controller: _titleCtrl,
                 autofocus: widget.initialPurchase == null,
                 textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
-                  labelText: 'Что купить?',
+                  labelText: 'Заголовок',
+                  hintText: 'Купить после работы',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  filled: true,
+                  fillColor: cs.surfaceVariant,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 2. СОДЕРЖИМОЕ (видно внутри модалки)
+              TextField(
+                controller: _commentCtrl,
+                textCapitalization: TextCapitalization.sentences,
+                maxLines: 3,
+                style: const TextStyle(fontSize: 15),
+                decoration: InputDecoration(
+                  labelText: 'Содержимое',
+                  hintText: 'Яйца, хлеб, сыр...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                   filled: true,
                   fillColor: cs.surfaceVariant,
@@ -178,7 +200,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
 
-              // Переключатель деталей
+              // Детали (цена, кол-во)
               InkWell(
                 onTap: () => setState(() => _showDetails = !_showDetails),
                 borderRadius: BorderRadius.circular(12),
@@ -201,7 +223,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
                 ),
               ),
 
-              // Блок деталей (стилизованная панель)
               if (_showDetails) ...[
                 const SizedBox(height: 12),
                 Container(
@@ -275,7 +296,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
 
               const SizedBox(height: 24),
 
-              // Кнопки
               Row(
                 children: [
                   Expanded(

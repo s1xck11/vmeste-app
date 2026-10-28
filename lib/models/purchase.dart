@@ -1,9 +1,8 @@
-/// Модель покупки.
-/// 
 /// Один товар в списке покупок. Может быть общим или личным (зависит от listId).
 class Purchase {
   final int id;
   String text;
+  String comment; // <-- ДОБАВЛЕНО: содержимое заметки
   bool done;
   bool missing;
   String category;
@@ -18,20 +17,19 @@ class Purchase {
   String? updatedBy;
   int? deletedAt;
 
-  // НОВОЕ: кто создал / взял / купил
-  String? createdBy;      // 'partner1' | 'partner2'
-  String? createdByName;  // 'Серёжа' | 'Настя'
-  int? createdByAt;       // когда создал (ms)
+  String? createdBy;
+  String? createdByName;
+  int? createdByAt;
   String? takenBy;
   String? takenByName;
-  int? takenByAt;         // когда взял (ms)
+  int? takenByAt;
   String? doneBy;
   String? doneByName;
-  // doneAt — уже есть (boughtAt), используем как "когда купил"
 
   Purchase({
     required this.id,
     required this.text,
+    this.comment = '', // <-- ДОБАВЛЕНО
     this.done = false,
     this.missing = false,
     this.category = 'other',
@@ -58,6 +56,7 @@ class Purchase {
   Map<String, dynamic> toJson() => {
         'id': id,
         'text': text,
+        'comment': comment, // <-- ДОБАВЛЕНО
         'done': done,
         'missing': missing,
         'category': category,
@@ -84,6 +83,7 @@ class Purchase {
   factory Purchase.fromJson(Map<String, dynamic> json) => Purchase(
         id: (json['id'] as num).toInt(),
         text: json['text'] as String? ?? '',
+        comment: json['comment'] as String? ?? '', // <-- ДОБАВЛЕНО
         done: json['done'] as bool? ?? false,
         missing: json['missing'] as bool? ?? false,
         category: json['category'] as String? ?? 'other',
@@ -109,6 +109,7 @@ class Purchase {
 
   Purchase copyWith({
     String? text,
+    String? comment, // <-- ДОБАВЛЕНО
     bool? done,
     bool? missing,
     String? category,
@@ -117,6 +118,7 @@ class Purchase {
     double? price,
     String? listId,
     int? order,
+    int? createdAt,
     int? boughtAt,
     int? updatedAt,
     String? updatedBy,
@@ -135,6 +137,7 @@ class Purchase {
     return Purchase(
       id: id,
       text: text ?? this.text,
+      comment: comment ?? this.comment, // <-- ДОБАВЛЕНО
       done: done ?? this.done,
       missing: missing ?? this.missing,
       category: category ?? this.category,
@@ -143,7 +146,7 @@ class Purchase {
       price: price ?? this.price,
       listId: listId ?? this.listId,
       order: order ?? this.order,
-      createdAt: createdAt,
+      createdAt: createdAt ?? this.createdAt,
       boughtAt: boughtAt ?? this.boughtAt,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
@@ -158,6 +161,4 @@ class Purchase {
       doneByName: clearDoneBy ? null : (doneByName ?? this.doneByName),
     );
   }
-
-  double get total => price * qty;
 }
