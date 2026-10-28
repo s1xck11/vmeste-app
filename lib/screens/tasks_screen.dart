@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../models/task.dart';
 import '../models/task_category.dart';
-import '../models/partner.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -147,51 +146,54 @@ class TasksScreenState extends State<TasksScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => NoteModal(
-        title: t.text,
-        subtitle: t.deadline.isNotEmpty ? '📅 до ${t.deadline}' : null,
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (t.comment.isNotEmpty) ...[
-              Text(
-                t.comment,
-                style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.5),
-              ),
-              const SizedBox(height: 16),
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return NoteModal(
+          title: t.text,
+          subtitle: t.deadline.isNotEmpty ? '📅 до ${t.deadline}' : null,
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (t.comment.isNotEmpty) ...[
+                Text(
+                  t.comment,
+                  style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (t.createdByName != null || t.takenByName != null || t.doneByName != null)
+                StatusLine(
+                  done: t.done,
+                  doneByName: t.doneByName,
+                  doneAt: t.doneAt,
+                  takenByName: t.takenByName,
+                  takenByAt: t.takenByAt,
+                  createdByName: t.createdByName,
+                  createdByAt: t.createdByAt,
+                ),
             ],
-            if (t.createdByName != null || t.takenByName != null || t.doneByName != null)
-              StatusLine(
-                done: t.done,
-                doneByName: t.doneByName,
-                doneAt: t.doneAt,
-                takenByName: t.takenByName,
-                takenByAt: t.takenByAt,
-                createdByName: t.createdByName,
-                createdByAt: t.createdByAt,
-              ),
-          ],
-        ),
-        actionButton: t.done
-            ? null
-            : ElevatedButton.icon(
-                onPressed: () {
-                  _toggleDone(t);
-                  Navigator.pop(ctx);
-                },
-                icon: const Icon(Icons.check),
-                label: const Text('Выполнено'),
-              ),
-        onEdit: () {
-          Navigator.pop(ctx);
-          _openEditModal(t);
-        },
-        onDelete: () {
-          Navigator.pop(ctx);
-          _delete(t);
-        },
-        onClose: () => Navigator.pop(ctx),
-      ),
+          ),
+          actionButton: t.done
+              ? null
+              : ElevatedButton.icon(
+                  onPressed: () {
+                    _toggleDone(t);
+                    Navigator.pop(ctx);
+                  },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Выполнено'),
+                ),
+          onEdit: () {
+            Navigator.pop(ctx);
+            _openEditModal(t);
+          },
+          onDelete: () {
+            Navigator.pop(ctx);
+            _delete(t);
+          },
+          onClose: () => Navigator.pop(ctx),
+        );
+      },
     );
   }
 

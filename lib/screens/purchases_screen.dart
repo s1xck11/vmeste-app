@@ -139,54 +139,57 @@ class PurchasesScreenState extends State<PurchasesScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => NoteModal(
-        title: p.text,
-        subtitle: [
-          if (p.qty > 1) '${p.qty} ${p.unit}',
-          if (p.price > 0) '${(p.price * p.qty).toStringAsFixed(0)} ₽',
-        ].join(' · '),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (p.comment.isNotEmpty) ...[
-              Text(
-                p.comment,
-                style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.5),
-              ),
-              const SizedBox(height: 16),
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return NoteModal(
+          title: p.text,
+          subtitle: [
+            if (p.qty > 1) '${p.qty} ${p.unit}',
+            if (p.price > 0) '${(p.price * p.qty).toStringAsFixed(0)} ₽',
+          ].join(' · '),
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (p.comment.isNotEmpty) ...[
+                Text(
+                  p.comment,
+                  style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (p.createdByName != null || p.takenByName != null || p.doneByName != null)
+                StatusLine(
+                  done: p.done,
+                  doneByName: p.doneByName,
+                  doneAt: p.boughtAt,
+                  takenByName: p.takenByName,
+                  takenByAt: p.takenByAt,
+                  createdByName: p.createdByName,
+                  createdByAt: p.createdByAt,
+                ),
             ],
-            if (p.createdByName != null || p.takenByName != null || p.doneByName != null)
-              StatusLine(
-                done: p.done,
-                doneByName: p.doneByName,
-                doneAt: p.boughtAt,
-                takenByName: p.takenByName,
-                takenByAt: p.takenByAt,
-                createdByName: p.createdByName,
-                createdByAt: p.createdByAt,
-              ),
-          ],
-        ),
-        actionButton: p.done
-            ? null
-            : ElevatedButton.icon(
-                onPressed: () {
-                  _toggleDone(p);
-                  Navigator.pop(ctx);
-                },
-                icon: const Icon(Icons.check),
-                label: const Text('Куплено'),
-              ),
-        onEdit: () {
-          Navigator.pop(ctx);
-          _openEditModal(p);
-        },
-        onDelete: () {
-          Navigator.pop(ctx);
-          _delete(p);
-        },
-        onClose: () => Navigator.pop(ctx),
-      ),
+          ),
+          actionButton: p.done
+              ? null
+              : ElevatedButton.icon(
+                  onPressed: () {
+                    _toggleDone(p);
+                    Navigator.pop(ctx);
+                  },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Куплено'),
+                ),
+          onEdit: () {
+            Navigator.pop(ctx);
+            _openEditModal(p);
+          },
+          onDelete: () {
+            Navigator.pop(ctx);
+            _delete(p);
+          },
+          onClose: () => Navigator.pop(ctx),
+        );
+      },
     );
   }
 
