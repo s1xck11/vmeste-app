@@ -259,7 +259,7 @@ class SyncService {
     storage.myKey = key;
     storage.myPartnerId = myProfile['role'] as String;
     storage.myName = (myProfile['name'] as String?) ?? '';
-    storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map);
+    storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map? ?? {'partner1': 0, 'partner2': 0});
     _isRemoteUpdate = true;
     _applyData(data);
     _isRemoteUpdate = false;
@@ -307,7 +307,7 @@ class SyncService {
 
         storage.myPartnerId = myProfile['role'] as String;
         storage.myName = (myProfile['name'] as String?) ?? '';
-        storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map);
+        storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map? ?? {'partner1': 0, 'partner2': 0});
         _isRemoteUpdate = true;
         _applyData(data);
         _isRemoteUpdate = false;
@@ -521,7 +521,8 @@ class SyncService {
     final remoteTombstones = data['tombstones'] as Map?;
     if (remoteTombstones != null) {
       for (final entry in remoteTombstones.entries) {
-        final tombstoneData = Map<String, dynamic>.from(entry.value as Map);
+        final tombstoneData = Map<String, dynamic>.from(entry.value as Map? ?? {});
+        if (tombstoneData.isEmpty) continue;
         final entityType = tombstoneData['entityType'] as String;
         final entityId = tombstoneData['entityId'] as String;
         final deletedAt = tombstoneData['deletedAt'] as int;
@@ -590,7 +591,8 @@ class SyncService {
       // Проходим по удалённым элементам
       for (final entry in remoteMap.entries) {
         final id = entry.key.toString();
-        final remoteJson = Map<String, dynamic>.from(entry.value as Map);
+        final remoteJson = Map<String, dynamic>.from(entry.value as Map? ?? {});
+        if (remoteJson.isEmpty) continue; // Пропускаем битые null-записи
 
         // ПРОВЕРКА TOMBSTONE: если элемент удалён, пропускаем его
         if (remoteJson['deletedAt'] != null) {
