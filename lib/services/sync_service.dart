@@ -574,7 +574,13 @@ class SyncService {
     }
   }
 
-  void _mergeList<T>(Map<String, dynamic> data, String key, {required List<T> localItems, required T Function(Map<String, dynamic>) fromJson, required Map<String, dynamic> Function(T) toJson, required int Function(T) getUpdatedAt, required void Function(List<T>) onMerged}) {
+  void _mergeList<T>(Map<String, dynamic> data, String key, {
+    required List<T> localItems,
+    required T Function(Map<String, dynamic>) fromJson,
+    required Map<String, dynamic> Function(T) toJson,
+    required int Function(T) getUpdatedAt,
+    required void Function(List<T>) onMerged
+  }) {
     final raw = data[key];
     if (raw == null) return;
     try {
@@ -588,30 +594,31 @@ class SyncService {
 
       final merged = <String, T>{};
 
-      // Проходим по удалённым элементам
+      // 1. Проходим по удалённым элементам
       for (final entry in remoteMap.entries) {
         final id = entry.key.toString();
         final remoteJson = Map<String, dynamic>.from(entry.value as Map? ?? {});
-        if (remoteJson.isEmpty) continue; // Пропускаем битые null-записи
+        if (remoteJson.isEmpty) continue;
 
-        // ПРОВЕРКА TOMBSTONE: если элемент удалён, пропускаем его
+        // ПРОВЕРКА TOMBSTONE: если элемент удалён на сервере, создаём локальный tombstone
         if (remoteJson['deletedAt'] != null) {
-          // Добавляем tombstone локально
           final deletedAt = remoteJson['deletedAt'] as int;
           final deletedBy = remoteJson['deletedBy'] as String? ?? 'unknown';
           storage.addTombstone(key, id, deletedAt, deletedBy);
           continue;  // НЕ добавляем в merged
         }
 
-        // Проверяем, есть ли локальный tombstone
+        // 2. КРИТИЧЕСКИ ВАЖНО: Проверяем, есть ли локальный tombstone
         if (storage.isTombstoned(key, id)) {
           final localTombstone = storage.getTombstone(key, id)!;
           final localDeletedAt = localTombstone['deletedAt'] as int;
           final remoteDeletedAt = remoteJson['deletedAt'] as int? ?? 0;
 
-          // Если локально удалено раньше, чем удалённое изменение — удаляем
-          if (localDeletedAt <= remoteDeletedAt) {
-            continue;  // Tombstone побеждает
+          // Локальный tombstone ПОБЕЖДАЕТ, если:
+          // - На сервере элемент НЕ удален (remoteDeletedAt == 0)
+          // - ИЛИ локальное удаление произошло ПОЗЖЕ или одновременно с удалённым
+          if (remoteDeletedAt == 0 || localDeletedAt >= remoteDeletedAt) {
+            continue;  // ИГНОРИРУЕМ серверные данные, элемент мёртв
           }
         }
 
@@ -630,10 +637,10 @@ class SyncService {
         }
       }
 
-      // Добавляем локальные элементы, которых нет на сервере
+      // 3. Добавляем локальные элементы, которых нет на сервере
       for (final entry in localById.entries) {
         if (!merged.containsKey(entry.key) && remoteMap[entry.key] == null) {
-          // Проверяем tombstone
+          // Проверяем tombstone: если удалено локально, не добавляем
           if (!storage.isTombstoned(key, entry.key)) {
             merged[entry.key] = entry.value;
           }
@@ -641,7 +648,9 @@ class SyncService {
       }
 
       onMerged(merged.values.toList());
-    } catch (e, st) { _log.error('Sync', 'merge $key FAILED', e, st); }
+    } catch (e, st) {
+      _log.error('Sync', 'merge $key FAILED', e, st);
+    }
   }
 
   void _replacePurchaseLists(Map<String, dynamic> data) {
