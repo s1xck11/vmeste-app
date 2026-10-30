@@ -1,5 +1,3 @@
-// lib/services/sync_service.dart
-
 import 'dart:async';
 import 'dart:math';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -15,7 +13,7 @@ import '../models/partner.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
 import '../models/bank.dart';
-import '../models/recurring_payment.dart'; // НОВОЕ
+import '../models/recurring_payment.dart';
 import '../models/purchase_template.dart';
 import '../models/purchase_history_entry.dart';
 import 'storage_service.dart';
@@ -35,6 +33,7 @@ class SyncService {
   Timer? _pushDebounce;
   Timer? _pullTimer;
   Timer? _reconnectTimer;
+  Timer? _antiEntropyTimer;  // НОВОЕ: полная сверка раз в 12 часов
   StreamSubscription<List<ConnectivityResult>>? _netSub;
   bool _isFirstLoad = true;
   bool _isRemoteUpdate = false;
@@ -91,6 +90,7 @@ class SyncService {
       _setStatus('syncing');
       _subscribe();
       _startPullTimer();
+      _startAntiEntropyTimer();  // НОВОЕ
       pullNow().then((_) {
         if (_pendingPush) {
           _pendingPush = false;
@@ -100,8 +100,13 @@ class SyncService {
       });
     } else {
       _setStatus('offline');
+      _antiEntropyTimer?.cancel();
     }
   }
+
+  // ============================================================
+  // АУТЕНТИФИКАЦИЯ И ГРУППЫ
+  // ============================================================
 
   Future<String> signInAnonymously() async {
     final existing = _supabase.auth.currentUser;
@@ -143,15 +148,17 @@ class SyncService {
     } while (attempts < 5);
 
     final profiles = {myKey: {'key': myKey, 'role': 'partner1', 'name': '', 'uids': [uid]}};
+    final initialVectorClock = {'partner1': 0, 'partner2': 0};
+
     await _supabase.from('couples').insert({
       'code': code, 'members': [uid],
-      'data': {...storage.snapshot(), 'profiles': profiles},
+      'data': {...storage.snapshot(), 'profiles': profiles, 'vectorClock': initialVectorClock},
       'version': 1, 'updated_by': uid,
     }).timeout(const Duration(seconds: 30));
 
     storage.coupleCode = code;
     storage.members = [uid];
-    storage.serverVersion = 1;
+    storage.vectorClock = initialVectorClock;
     storage.myKey = myKey;
     storage.myPartnerId = 'partner1';
 
@@ -159,7 +166,9 @@ class SyncService {
     _isFirstLoad = false;
     _subscribe();
     _startPullTimer();
+    _startAntiEntropyTimer();
     _startWatchingNetwork();
+    await migrateToVectorClock();
     return {'code': code, 'myKey': myKey};
   }
 
@@ -200,13 +209,18 @@ class SyncService {
     if (!members.contains(uid)) members.add(uid);
     data['profiles'] = profiles;
 
+    // Инициализация vector clock если его нет
+    if (data['vectorClock'] == null) {
+      data['vectorClock'] = {'partner1': 0, 'partner2': 0};
+    }
+
     await _supabase.from('couples').update({'members': members, 'data': data}).eq('code', code).timeout(const Duration(seconds: 30));
 
     storage.coupleCode = code;
     storage.members = members;
     storage.myKey = myKey;
     storage.myPartnerId = myRole;
-    storage.serverVersion = (group['version'] as int?) ?? 0;
+    storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map);
 
     _isRemoteUpdate = true;
     _applyData(data);
@@ -216,7 +230,9 @@ class SyncService {
     _isFirstLoad = false;
     _subscribe();
     _startPullTimer();
+    _startAntiEntropyTimer();
     _startWatchingNetwork();
+    await migrateToVectorClock();
     return myKey;
   }
 
@@ -243,7 +259,7 @@ class SyncService {
     storage.myKey = key;
     storage.myPartnerId = myProfile['role'] as String;
     storage.myName = (myProfile['name'] as String?) ?? '';
-    storage.serverVersion = (group['version'] as int?) ?? 0;
+    storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map);
     _isRemoteUpdate = true;
     _applyData(data);
     _isRemoteUpdate = false;
@@ -251,8 +267,10 @@ class SyncService {
     _isFirstLoad = false;
     _subscribe();
     _startPullTimer();
+    _startAntiEntropyTimer();
     _startWatchingNetwork();
     _notifyAll();
+    await migrateToVectorClock();
   }
 
   Future<bool> autoConnect() async {
@@ -289,7 +307,7 @@ class SyncService {
 
         storage.myPartnerId = myProfile['role'] as String;
         storage.myName = (myProfile['name'] as String?) ?? '';
-        storage.serverVersion = (group['version'] as int?) ?? 0;
+        storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map);
         _isRemoteUpdate = true;
         _applyData(data);
         _isRemoteUpdate = false;
@@ -297,8 +315,10 @@ class SyncService {
         _isFirstLoad = false;
         _subscribe();
         _startPullTimer();
+        _startAntiEntropyTimer();
         _startWatchingNetwork();
         _notifyAll();
+        await migrateToVectorClock();
         return true;
       } catch (e, st) {
         _log.error('AutoConnect', 'attempt $attempt FAILED', e, st);
@@ -313,6 +333,10 @@ class SyncService {
     }
     return false;
   }
+
+  // ============================================================
+  // REALTIME ПОДПИСКА
+  // ============================================================
 
   void _subscribe() {
     final code = storage.coupleCode;
@@ -329,13 +353,12 @@ class SyncService {
           callback: (payload) {
             final newRecord = payload.newRecord;
             if (newRecord.isEmpty) return;
-            final newVersion = (newRecord['version'] as int?) ?? 0;
-            if (newVersion <= storage.serverVersion) return;
-            _log.info('Realtime', 'обновление v$newVersion');
-            final data = Map<String, dynamic>.from(newRecord['data'] as Map? ?? {});
+            final newData = Map<String, dynamic>.from(newRecord['data'] as Map? ?? {});
+            final remoteClock = Map<String, int>.from(newData['vectorClock'] as Map? ?? {});
+            _log.info('Realtime', 'обновление clock=$remoteClock');
             _isRemoteUpdate = true;
-            _applyData(data);
-            storage.serverVersion = newVersion;
+            _applyData(newData);
+            storage.applyRemoteClock(remoteClock);
             _isRemoteUpdate = false;
             _setStatus('online');
             _notifyAll();
@@ -370,10 +393,24 @@ class SyncService {
     });
   }
 
+  // ============================================================
+  // PULL (получение изменений)
+  // ============================================================
+
   void _startPullTimer() {
     _pullTimer?.cancel();
     _pullTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_isOnline) pullNow();
+    });
+  }
+
+  void _startAntiEntropyTimer() {
+    _antiEntropyTimer?.cancel();
+    _antiEntropyTimer = Timer.periodic(const Duration(hours: 12), (_) {
+      if (_isOnline) {
+        _log.info('AntiEntropy', 'полная сверка данных');
+        _fullSync();
+      }
     });
   }
 
@@ -390,14 +427,14 @@ class SyncService {
           .maybeSingle()
           .timeout(const Duration(seconds: 20));
       if (remote == null) return;
-      final remoteVersion = (remote['version'] as int?) ?? 0;
-      if (remoteVersion <= storage.serverVersion) return;
-
-      _log.info('Pull', 'нашёл обновление v$remoteVersion (было v${storage.serverVersion})');
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
+      final remoteClock = Map<String, int>.from(remoteData['vectorClock'] as Map? ?? {});
+
+      _log.info('Pull', 'remote clock=$remoteClock, local clock=${storage.vectorClock}');
+
       _isRemoteUpdate = true;
       _applyData(remoteData);
-      storage.serverVersion = remoteVersion;
+      storage.applyRemoteClock(remoteClock);
       _isRemoteUpdate = false;
       _setStatus('online');
       _notifyAll();
@@ -422,15 +459,16 @@ class SyncService {
           .maybeSingle()
           .timeout(const Duration(seconds: 20));
       if (remote == null) return;
-      final remoteVersion = (remote['version'] as int?) ?? 0;
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
+      final remoteClock = Map<String, int>.from(remoteData['vectorClock'] as Map? ?? {});
+
       _isRemoteUpdate = true;
       _applyData(remoteData);
-      storage.serverVersion = remoteVersion;
+      storage.applyRemoteClock(remoteClock);
       _isRemoteUpdate = false;
       _setStatus('online');
       _notifyAll();
-      _log.info('Pull', 'force refresh до v$remoteVersion');
+      _log.info('Pull', 'force refresh done');
     } catch (e, st) {
       _log.error('Pull', 'forcePullNow FAILED', e, st);
     } finally {
@@ -438,13 +476,78 @@ class SyncService {
     }
   }
 
+  // Полная сверка (anti-entropy)
+  Future<void> _fullSync() async {
+    if (_isPulling || !_isOnline) return;
+    _isPulling = true;
+    try {
+      _log.info('AntiEntropy', 'начинаю полную сверку');
+      final remote = await _supabase
+          .from('couples')
+          .select('data')
+          .eq('code', storage.coupleCode!)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 30));
+      if (remote == null) return;
+
+      final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
+      final remoteClock = Map<String, int>.from(remoteData['vectorClock'] as Map? ?? {});
+
+      // Применяем все удалённые данные
+      _isRemoteUpdate = true;
+      _applyData(remoteData);
+      storage.applyRemoteClock(remoteClock);
+      _isRemoteUpdate = false;
+
+      // Отправляем свои изменения
+      await _push();
+
+      _log.info('AntiEntropy', 'полная сверка завершена');
+      _setStatus('online');
+      _notifyAll();
+    } catch (e, st) {
+      _log.error('AntiEntropy', 'FAILED', e, st);
+    } finally {
+      _isPulling = false;
+    }
+  }
+
+  // ============================================================
+  // ПРИМЕНЕНИЕ ДАННЫХ (с tombstones)
+  // ============================================================
+
   void _applyData(Map<String, dynamic> data) {
+    // Применяем tombstones из удалённых данных
+    final remoteTombstones = data['tombstones'] as Map?;
+    if (remoteTombstones != null) {
+      for (final entry in remoteTombstones.entries) {
+        final tombstoneData = Map<String, dynamic>.from(entry.value as Map);
+        final entityType = tombstoneData['entityType'] as String;
+        final entityId = tombstoneData['entityId'] as String;
+        final deletedAt = tombstoneData['deletedAt'] as int;
+        final deletedBy = tombstoneData['deletedBy'] as String;
+
+        // Проверяем, есть ли локальный tombstone
+        final localTombstone = storage.getTombstone(entityType, entityId);
+        if (localTombstone != null) {
+          // Если удалённый tombstone новее, используем его
+          if (deletedAt > (localTombstone['deletedAt'] as int)) {
+            storage.addTombstone(entityType, entityId, deletedAt, deletedBy);
+          }
+        } else {
+          // Локального tombstone нет, добавляем удалённый
+          storage.addTombstone(entityType, entityId, deletedAt, deletedBy);
+        }
+      }
+    }
+
+    // Сливаем списки с учётом tombstones
     _mergeList<Purchase>(data, 'purchases', localItems: storage.purchases, fromJson: (j) => Purchase.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.purchases = items);
     _mergeList<Task>(data, 'tasks', localItems: storage.tasks, fromJson: (j) => Task.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.tasks = items);
     _mergeList<Shift>(data, 'shifts', localItems: storage.shifts, fromJson: (j) => Shift.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.shifts = items);
     _mergeList<Transaction>(data, 'transactions', localItems: storage.transactions, fromJson: (j) => Transaction.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.transactions = items);
     _mergeList<PurchaseTemplate>(data, 'purchaseTemplates', localItems: storage.purchaseTemplates, fromJson: (j) => PurchaseTemplate.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.purchaseTemplates = items);
-    _mergeList<RecurringPayment>(data, 'recurringPayments', localItems: storage.recurringPayments, fromJson: (j) => RecurringPayment.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.recurringPayments = items); // НОВОЕ
+    _mergeList<RecurringPayment>(data, 'recurringPayments', localItems: storage.recurringPayments, fromJson: (j) => RecurringPayment.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.recurringPayments = items);
 
     _replacePurchaseLists(data);
     _replacePurchaseCategories(data);
@@ -454,7 +557,6 @@ class SyncService {
     _replaceBudgetCategories(data);
     _replaceHistory(data);
     _replaceBanks(data);
-    _replaceRecurringPayments(data); // НОВОЕ
 
     final profiles = data['profiles'] as Map?;
     if (profiles != null && storage.myKey != null) {
@@ -482,22 +584,60 @@ class SyncService {
         final id = json['id']?.toString();
         if (id != null) localById[id] = item;
       }
+
       final merged = <String, T>{};
+
+      // Проходим по удалённым элементам
       for (final entry in remoteMap.entries) {
         final id = entry.key.toString();
         final remoteJson = Map<String, dynamic>.from(entry.value as Map);
+
+        // ПРОВЕРКА TOMBSTONE: если элемент удалён, пропускаем его
+        if (remoteJson['deletedAt'] != null) {
+          // Добавляем tombstone локально
+          final deletedAt = remoteJson['deletedAt'] as int;
+          final deletedBy = remoteJson['deletedBy'] as String? ?? 'unknown';
+          storage.addTombstone(key, id, deletedAt, deletedBy);
+          continue;  // НЕ добавляем в merged
+        }
+
+        // Проверяем, есть ли локальный tombstone
+        if (storage.isTombstoned(key, id)) {
+          final localTombstone = storage.getTombstone(key, id)!;
+          final localDeletedAt = localTombstone['deletedAt'] as int;
+          final remoteDeletedAt = remoteJson['deletedAt'] as int? ?? 0;
+
+          // Если локально удалено раньше, чем удалённое изменение — удаляем
+          if (localDeletedAt <= remoteDeletedAt) {
+            continue;  // Tombstone побеждает
+          }
+        }
+
         final remoteItem = fromJson(remoteJson);
-        if (remoteJson['deletedAt'] != null) continue;
         final localItem = localById[id];
-        if (localItem == null) merged[id] = remoteItem;
-        else if (getUpdatedAt(remoteItem) > getUpdatedAt(localItem)) merged[id] = remoteItem;
-        else merged[id] = localItem;
-      }
-      for (final entry in localById.entries) {
-        if (!merged.containsKey(entry.key)) {
-          if (remoteMap[entry.key] == null) merged[entry.key] = entry.value;
+
+        if (localItem == null) {
+          merged[id] = remoteItem;
+        } else {
+          // Last-Writer-Wins по updatedAt
+          if (getUpdatedAt(remoteItem) > getUpdatedAt(localItem)) {
+            merged[id] = remoteItem;
+          } else {
+            merged[id] = localItem;
+          }
         }
       }
+
+      // Добавляем локальные элементы, которых нет на сервере
+      for (final entry in localById.entries) {
+        if (!merged.containsKey(entry.key) && remoteMap[entry.key] == null) {
+          // Проверяем tombstone
+          if (!storage.isTombstoned(key, entry.key)) {
+            merged[entry.key] = entry.value;
+          }
+        }
+      }
+
       onMerged(merged.values.toList());
     } catch (e, st) { _log.error('Sync', 'merge $key FAILED', e, st); }
   }
@@ -566,13 +706,9 @@ class SyncService {
     } catch (e) {}
   }
 
-  void _replaceRecurringPayments(Map<String, dynamic> data) {
-    final raw = data['recurringPayments']; if (raw == null) return;
-    try {
-      final list = (raw as Map).values.map((v) => RecurringPayment.fromJson(Map<String, dynamic>.from(v as Map))).toList();
-      if (list.isNotEmpty) storage.recurringPayments = list;
-    } catch (e) {}
-  }
+  // ============================================================
+  // PUSH (отправка изменений)
+  // ============================================================
 
   void schedulePush() {
     if (storage.coupleCode == null) return;
@@ -600,17 +736,20 @@ class SyncService {
     }
     _isPushInProgress = true;
     try {
+      // Получаем текущие данные с сервера
       final remote = await _supabase.from('couples').select('data, version').eq('code', storage.coupleCode!).maybeSingle().timeout(const Duration(seconds: 30));
       if (remote == null) return;
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
-      final remoteVersion = (remote['version'] as int?) ?? 0;
-      if (remoteVersion > storage.serverVersion) {
-        _isRemoteUpdate = true;
-        _applyData(remoteData);
-        storage.serverVersion = remoteVersion;
-        _isRemoteUpdate = false;
-        _notifyAll();
-      }
+      final remoteClock = Map<String, int>.from(remoteData['vectorClock'] as Map? ?? {});
+
+      // Применяем удалённые изменения если они новее
+      _isRemoteUpdate = true;
+      _applyData(remoteData);
+      storage.applyRemoteClock(remoteClock);
+      _isRemoteUpdate = false;
+      _notifyAll();
+
+      // Формируем snapshot с нашими данными
       final myData = storage.snapshot();
       myData['profiles'] = remoteData['profiles'] ?? {};
       if (storage.myKey != null) {
@@ -620,15 +759,26 @@ class SyncService {
         profiles[storage.myKey!] = myProfile;
         myData['profiles'] = profiles;
       }
-      final newVersion = remoteVersion + 1;
+
+      // Инкрементируем vector clock
+      final myPartnerId = storage.myPartnerId ?? 'partner1';
+      final newClock = Map<String, int>.from(storage.vectorClock);
+      newClock[myPartnerId] = (newClock[myPartnerId] ?? 0) + 1;
+      myData['vectorClock'] = newClock;
+
+      final newVersion = (remote['version'] as int? ?? 0) + 1;
       await _supabase.from('couples').update({
         'data': myData, 'version': newVersion,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
         'updated_by': storage.currentUserId,
       }).eq('code', storage.coupleCode!).timeout(const Duration(seconds: 30));
-      storage.serverVersion = newVersion;
+
+      storage.vectorClock = newClock;
       _setStatus('online');
       widgetService?.updateAll();
+
+      // Очищаем отправленные операции из outbox
+      storage.clearSentOperations();
     } catch (e, st) {
       _log.error('Push', 'FAILED', e, st);
       _pendingPush = true;
@@ -636,10 +786,102 @@ class SyncService {
     } finally { _isPushInProgress = false; }
   }
 
+  // ============================================================
+  // УТИЛИТЫ
+  // ============================================================
+  // ============================================================
+  // МИГРАЦИЯ V2: Vector Clock + Tombstones
+  // ============================================================
+
+  Future<void> migrateToVectorClock() async {
+    // Проверяем флаг миграции
+    if (storage.box.get('migration_v2_vector_clock_done') == true) {
+      return; // Уже мигрировано, выходим
+    }
+
+    _log.info('Migration', '🚀 Начало миграции V2 (Vector Clock + Tombstones)...');
+
+    try {
+      // 1. Забираем абсолютную правду с сервера, чтобы синхронизировать состояние
+      _log.info('Migration', 'Шаг 1: Получение актуальных данных с сервера...');
+      await forcePullNow();
+
+      // 2. Безопасная инициализация Vector Clock.
+      // Мы берем старый serverVersion как базовую линию для ОБОИХ партнеров.
+      // Например, если версия была 15, ставим {partner1: 15, partner2: 15}.
+      // Следующее локальное изменение сделает его 16, что строго больше
+      // последнего известного состояния сервера, предотвращая конфликты перезаписи.
+      final baseline = storage.serverVersion > 0 ? storage.serverVersion : 1;
+      final newClock = {
+        'partner1': baseline,
+        'partner2': baseline,
+      };
+      storage.vectorClock = newClock;
+      _log.info('Migration', 'Шаг 2: Vector Clock инициализирован как $newClock');
+
+      // 3. Конвертация старых "мягких удалений" в полноценные tombstones
+      _log.info('Migration', 'Шаг 3: Очистка старых удаленных элементов...');
+      _migrateSoftDeletesToTombstones();
+
+      // 4. Отправляем новую структуру (с vectorClock и tombstones) на сервер
+      _log.info('Migration', 'Шаг 4: Отправка обновленной структуры на сервер...');
+      await _push();
+
+      // 5. Ставим флаг завершения
+      storage.box.put('migration_v2_vector_clock_done', true);
+      _log.info('Migration', '✅ Миграция V2 успешно завершена!');
+
+    } catch (e, st) {
+      _log.error('Migration', '❌ Ошибка миграции. Будет повторена при следующем запуске.', e, st);
+      // Мы НЕ ставим флаг 'migration_v2_vector_clock_done', чтобы миграция
+      // попробовала выполниться снова при следующем запуске приложения.
+    }
+  }
+
+  void _migrateSoftDeletesToTombstones() {
+    final actor = storage.myPartnerId ?? 'unknown';
+
+    // 1. Покупки (Purchase)
+    final activePurchases = <Purchase>[];
+    for (final p in storage.purchases) {
+      if (p.deletedAt != null) {
+        storage.addTombstone('purchases', p.id.toString(), p.deletedAt!, actor);
+      } else {
+        activePurchases.add(p);
+      }
+    }
+    storage.purchases = activePurchases;
+
+    // 2. Задачи (Task) - используем флаг archived как признак удаления для очистки
+    final activeTasks = <Task>[];
+    for (final t in storage.tasks) {
+      if (t.archived) {
+        storage.addTombstone('tasks', t.id.toString(), t.updatedAt, actor);
+      } else {
+        activeTasks.add(t);
+      }
+    }
+    storage.tasks = activeTasks;
+
+    // 3. Транзакции (Transaction) - если у них есть deletedAt
+    final activeTransactions = <Transaction>[];
+    for (final t in storage.transactions) {
+      // Проверяем наличие deletedAt через динамический доступ, если поле есть в модели
+      final deletedAt = (t as dynamic).deletedAt as int?;
+      if (deletedAt != null) {
+        storage.addTombstone('transactions', t.id.toString(), deletedAt, actor);
+      } else {
+        activeTransactions.add(t);
+      }
+    }
+    storage.transactions = activeTransactions;
+  }
+
   Future<void> disconnect() async {
     _channel?.unsubscribe();
     _channel = null;
     _pullTimer?.cancel();
+    _antiEntropyTimer?.cancel();
     _reconnectTimer?.cancel();
     _netSub?.cancel();
     _netSub = null;

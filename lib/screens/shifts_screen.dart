@@ -152,9 +152,14 @@ class ShiftsScreenState extends State<ShiftsScreen> {
           widget.sync.schedulePush();
         },
         onDelete: (id) {
-          final list = List<Shift>.from(_shifts)
-            ..removeWhere((e) => e.id == id);
+          final now = DateTime.now().millisecondsSinceEpoch;
+          // 1. Создаём tombstone (id приходит как int, приводим к String)
+          widget.storage.addTombstone('shifts', id.toString(), now, widget.storage.myPartnerId ?? 'unknown');
+
+          // 2. Удаляем из локального списка
+          final list = List<Shift>.from(_shifts)..removeWhere((e) => e.id == id);
           widget.storage.shifts = list;
+
           _load();
           widget.sync.schedulePush();
         },

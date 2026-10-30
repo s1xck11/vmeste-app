@@ -225,8 +225,14 @@ class PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   void _delete(Purchase p) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    // 1. Создаём tombstone
+    widget.storage.addTombstone('purchases', p.id.toString(), now, widget.storage.myPartnerId ?? 'unknown');
+
+    // 2. Удаляем из локального списка
     final list = List<Purchase>.from(_purchases)..removeWhere((e) => e.id == p.id);
     widget.storage.purchases = list;
+
     _load();
     widget.sync.schedulePush();
   }

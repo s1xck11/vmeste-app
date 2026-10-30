@@ -213,7 +213,14 @@ class TasksScreenState extends State<TasksScreen> {
   }
 
   void _delete(Task t) {
-    widget.storage.tasks = List<Task>.from(_tasks)..removeWhere((e) => e.id == t.id);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    // 1. Создаём tombstone
+    widget.storage.addTombstone('tasks', t.id.toString(), now, widget.storage.myPartnerId ?? 'unknown');
+
+    // 2. Удаляем из локального списка
+    final list = List<Task>.from(_tasks)..removeWhere((e) => e.id == t.id);
+    widget.storage.tasks = list;
+
     _load();
     widget.sync.schedulePush();
   }

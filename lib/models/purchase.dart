@@ -1,8 +1,8 @@
-/// Один товар в списке покупок. Может быть общим или личным (зависит от listId).
+/// Один товар в списке покупок.
 class Purchase {
   final int id;
   String text;
-  String comment; // <-- ДОБАВЛЕНО: содержимое заметки
+  String comment;
   bool done;
   bool missing;
   String category;
@@ -15,7 +15,7 @@ class Purchase {
   int? boughtAt;
   int updatedAt;
   String? updatedBy;
-  int? deletedAt;
+  int? deletedAt;  // Tombstone: когда удалён
 
   String? createdBy;
   String? createdByName;
@@ -29,7 +29,7 @@ class Purchase {
   Purchase({
     required this.id,
     required this.text,
-    this.comment = '', // <-- ДОБАВЛЕНО
+    this.comment = '',
     this.done = false,
     this.missing = false,
     this.category = 'other',
@@ -56,7 +56,7 @@ class Purchase {
   Map<String, dynamic> toJson() => {
         'id': id,
         'text': text,
-        'comment': comment, // <-- ДОБАВЛЕНО
+        'comment': comment,
         'done': done,
         'missing': missing,
         'category': category,
@@ -83,7 +83,7 @@ class Purchase {
   factory Purchase.fromJson(Map<String, dynamic> json) => Purchase(
         id: (json['id'] as num).toInt(),
         text: json['text'] as String? ?? '',
-        comment: json['comment'] as String? ?? '', // <-- ДОБАВЛЕНО
+        comment: json['comment'] as String? ?? '',
         done: json['done'] as bool? ?? false,
         missing: json['missing'] as bool? ?? false,
         category: json['category'] as String? ?? 'other',
@@ -109,7 +109,7 @@ class Purchase {
 
   Purchase copyWith({
     String? text,
-    String? comment, // <-- ДОБАВЛЕНО
+    String? comment,
     bool? done,
     bool? missing,
     String? category,
@@ -123,6 +123,7 @@ class Purchase {
     int? updatedAt,
     String? updatedBy,
     int? deletedAt,
+    bool clearDeletedAt = false,
     String? createdBy,
     String? createdByName,
     int? createdByAt,
@@ -137,7 +138,7 @@ class Purchase {
     return Purchase(
       id: id,
       text: text ?? this.text,
-      comment: comment ?? this.comment, // <-- ДОБАВЛЕНО
+      comment: comment ?? this.comment,
       done: done ?? this.done,
       missing: missing ?? this.missing,
       category: category ?? this.category,
@@ -150,7 +151,7 @@ class Purchase {
       boughtAt: boughtAt ?? this.boughtAt,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
-      deletedAt: deletedAt ?? this.deletedAt,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
       createdBy: createdBy ?? this.createdBy,
       createdByName: createdByName ?? this.createdByName,
       createdByAt: createdByAt ?? this.createdByAt,
