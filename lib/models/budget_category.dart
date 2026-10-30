@@ -6,6 +6,7 @@ class BudgetCategory {
   final String type;
   final String emoji;
   final int colorValue;
+  final double monthlyLimit; // НОВОЕ: месячный лимит (0 = без лимита)
   final DateTime createdAt;
   final int updatedAt;
   final String? updatedBy;
@@ -16,6 +17,7 @@ class BudgetCategory {
     required this.type,
     this.emoji = '📦',
     this.colorValue = 0xFF9E9E9E,
+    this.monthlyLimit = 0, // НОВОЕ
     DateTime? createdAt,
     int? updatedAt,
     this.updatedBy,
@@ -30,6 +32,7 @@ class BudgetCategory {
         'type': type,
         'emoji': emoji,
         'colorValue': colorValue,
+        'monthlyLimit': monthlyLimit, // НОВОЕ
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt,
         'updatedBy': updatedBy,
@@ -42,6 +45,7 @@ class BudgetCategory {
       type: json['type'] ?? 'expense',
       emoji: json['emoji'] ?? '📦',
       colorValue: json['colorValue'] ?? 0xFF9E9E9E,
+      monthlyLimit: (json['monthlyLimit'] as num?)?.toDouble() ?? 0, // НОВОЕ
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       updatedAt: json['updatedAt'] is int
           ? json['updatedAt']
@@ -57,6 +61,7 @@ class BudgetCategory {
     String? type,
     String? emoji,
     int? colorValue,
+    double? monthlyLimit, // НОВОЕ
     int? updatedAt,
     String? updatedBy,
   }) {
@@ -66,6 +71,7 @@ class BudgetCategory {
       type: type ?? this.type,
       emoji: emoji ?? this.emoji,
       colorValue: colorValue ?? this.colorValue,
+      monthlyLimit: monthlyLimit ?? this.monthlyLimit, // НОВОЕ
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,

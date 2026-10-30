@@ -77,7 +77,7 @@ class BudgetScreenState extends State<BudgetScreen> {
   double get _incomes => _monthTransactions
       .where((t) => t.type == 'income')
       .fold(0.0, (s, t) => s + t.amount);
-      
+
   double get _expenses => _monthTransactions
       .where((t) => t.type == 'expense')
       .fold(0.0, (s, t) => s + t.amount);
@@ -638,6 +638,10 @@ class BudgetScreenState extends State<BudgetScreen> {
             ],
           ),
         ),
+        // === НОВОЕ: СЕКЦИЯ ЛИМИТОВ ===
+        const SizedBox(height: 24),
+        _buildLimitsSection(cs),
+        // === КОНЕЦ НОВОГО БЛОКА ===
         const SizedBox(height: 24),
         Text('Расходы по категориям',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
@@ -870,6 +874,345 @@ class BudgetScreenState extends State<BudgetScreen> {
         );
       }).toList(),
     );
+  }
+
+  // ============ ЛИМИТЫ ============
+
+  Map<String, double> get _spentByCategory => _breakdown();
+
+  List<BudgetCategory> get _categoriesWithLimits =>
+      _categories.where((c) => c.type == 'expense' && c.monthlyLimit > 0).toList();
+
+  Widget _buildLimitsSection(ColorScheme cs) {
+    final limits = _categoriesWithLimits;
+    final spent = _spentByCategory;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Лимиты',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
+            const Spacer(),
+            GestureDetector(
+              onTap: _addLimitModal,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, size: 16, color: cs.primary),
+                    const SizedBox(width: 4),
+                    Text('Добавить',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (limits.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cs.surfaceVariant,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: cs.outline.withOpacity(0.5)),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.flag_outlined, size: 36, color: cs.onSurfaceVariant.withOpacity(0.5)),
+                const SizedBox(height: 8),
+                Text('Лимитов пока нет',
+                    style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+                const SizedBox(height: 4),
+                Text('Установите лимиты на категории,\nчтобы контролировать расходы',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withOpacity(0.7))),
+              ],
+            ),
+          )
+        else
+          ...limits.map((cat) {
+            final spentAmount = spent[cat.id] ?? 0;
+            final percent = spentAmount / cat.monthlyLimit;
+            final isOver = percent > 1.0;
+            final isWarning = percent >= 0.7 && percent <= 1.0;
+
+            Color barColor;
+            if (isOver) {
+              barColor = cs.error;
+            } else if (isWarning) {
+              barColor = const Color(0xFFFFA726); // оранжевый
+            } else {
+              barColor = const Color(0xFF4CAF50); // зелёный
+            }
+
+            return GestureDetector(
+              onTap: () => _editLimitModal(cat),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isOver ? cs.error.withOpacity(0.5) : cs.outline.withOpacity(0.5),
+                    width: isOver ? 1.5 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: cs.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(cat.emoji, style: const TextStyle(fontSize: 18)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(cat.name,
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                        ),
+                        if (isOver)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: cs.error.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.warning_amber_rounded, size: 12, color: cs.error),
+                                const SizedBox(width: 4),
+                                Text('Превышен',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.error)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: percent.clamp(0.0, 1.0),
+                        minHeight: 8,
+                        backgroundColor: cs.surface,
+                        color: barColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('${spentAmount.toStringAsFixed(0)} ₽',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: barColor)),
+                        Text('${cat.monthlyLimit.toStringAsFixed(0)} ₽',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  void _editLimitModal(BudgetCategory cat) {
+    final controller = TextEditingController(text: cat.monthlyLimit.toStringAsFixed(0));
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(cat.emoji, style: const TextStyle(fontSize: 24)),
+                    const SizedBox(width: 12),
+                    Text('Лимит: ${cat.name}',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  decoration: InputDecoration(
+                    labelText: 'Сумма в месяц',
+                    hintText: 'Например, 15000',
+                    suffixText: '₽',
+                    suffixStyle: TextStyle(fontSize: 16, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    filled: true,
+                    fillColor: cs.surfaceVariant,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          final updated = cat.copyWith(monthlyLimit: 0, updatedAt: DateTime.now().millisecondsSinceEpoch);
+                          _saveCategory(updated);
+                          Navigator.pop(ctx);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          foregroundColor: cs.error,
+                        ),
+                        child: const Text('Убрать лимит'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final val = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
+                          if (val <= 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Введите сумму больше 0')),
+                            );
+                            return;
+                          }
+                          final updated = cat.copyWith(monthlyLimit: val, updatedAt: DateTime.now().millisecondsSinceEpoch);
+                          _saveCategory(updated);
+                          Navigator.pop(ctx);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Сохранить'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _addLimitModal() {
+    final categoriesWithoutLimit = _categories
+        .where((c) => c.type == 'expense' && c.monthlyLimit == 0)
+        .toList();
+
+    if (categoriesWithoutLimit.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('У всех категорий уже есть лимиты')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Выберите категорию для лимита',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface)),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: categoriesWithoutLimit.map((cat) {
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(cat.emoji, style: const TextStyle(fontSize: 18)),
+                      ),
+                      title: Text(cat.name,
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _editLimitModal(cat);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _saveCategory(BudgetCategory updated) {
+    final list = List<BudgetCategory>.from(_categories);
+    final i = list.indexWhere((e) => e.id == updated.id);
+    if (i >= 0) list[i] = updated;
+    widget.storage.budgetCategories = list;
+    _load();
+    widget.sync.schedulePush();
   }
 
   Widget _buildCategories(ColorScheme cs) {
