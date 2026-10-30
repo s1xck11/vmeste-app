@@ -50,6 +50,21 @@ class StorageService {
 
   String get myAvatar => _box.get('myAvatar', defaultValue: '🐻') as String;
   set myAvatar(String v) => _box.put('myAvatar', v);
+  // ============================================================
+  // НАСТРОЙКИ ФОНА И УВЕДОМЛЕНИЙ (восстановлено)
+  // ============================================================
+
+  String? get bgImagePath => _box.get('bgImagePath') as String?;
+  set bgImagePath(String? v) => _box.put('bgImagePath', v);
+
+  double get bgBlur => (_box.get('bgBlur') as num?)?.toDouble() ?? 0.0;
+  set bgBlur(double v) => _box.put('bgBlur', v);
+
+  bool get notificationsEnabled => _box.get('notificationsEnabled', defaultValue: true) as bool;
+  set notificationsEnabled(bool v) => _box.put('notificationsEnabled', v);
+
+  int get notificationTiming => (_box.get('notificationTiming') as num?)?.toInt() ?? 15;
+  set notificationTiming(int v) => _box.put('notificationTiming', v);
 
   bool get isConfigured => coupleCode != null && myKey != null;
 
