@@ -68,6 +68,6 @@ class BackgroundService {
   double get blur => storage.bgBlur;
   Future<void> setBlur(double v) async {
     storage.bgBlur = v;
-    notifier.value = storage.bgImagePath;
+    notifier.value = storage.bgImagePath ?? '';
   }
 }
