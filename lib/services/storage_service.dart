@@ -17,6 +17,7 @@ import '../models/purchase_history_entry.dart';
 
 class StorageService {
   late Box _box;
+  Box get box => _box;
   late Box _outboxBox;  // НОВОЕ: очередь исходящих операций
   late Box _tombstonesBox;  // НОВОЕ: надгробия удалённых элементов
 

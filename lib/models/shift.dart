@@ -1,6 +1,4 @@
 /// Модель смены.
-/// 
-/// Каждая смена привязана к дате (поле date) и партнёру (partner).
 class Shift {
   final int id;
   String date;           // 'YYYY-MM-DD'
@@ -18,7 +16,7 @@ class Shift {
   int createdAt;
   int updatedAt;
   String? updatedBy;
-  int? deletedAt;
+  int? deletedAt;        // НОВОЕ: надгробие
 
   Shift({
     required this.id,
@@ -57,14 +55,14 @@ class Shift {
         'createdAt': createdAt,
         'updatedAt': updatedAt,
         if (updatedBy != null) 'updatedBy': updatedBy,
-        if (deletedAt != null) 'deletedAt': deletedAt,
+        if (deletedAt != null) 'deletedAt': deletedAt, // ДОБАВЛЕНО
       };
 
   factory Shift.fromJson(Map<String, dynamic> json) => Shift(
         id: (json['id'] as num).toInt(),
         date: json['date'] as String? ?? '',
         partner: json['partner'] as String? ?? 'partner1',
-        type: json['type'] as String? ?? 'day',
+        type: json['type'] as String? ?? '',
         hours: (json['hours'] as num?)?.toDouble() ?? 0,
         startTime: json['startTime'] as String? ?? '10:00',
         endTime: json['endTime'] as String? ?? '22:00',
@@ -77,7 +75,7 @@ class Shift {
         createdAt: (json['createdAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
         updatedAt: (json['updatedAt'] as num?)?.toInt(),
         updatedBy: json['updatedBy'] as String?,
-        deletedAt: (json['deletedAt'] as num?)?.toInt(),
+        deletedAt: (json['deletedAt'] as num?)?.toInt(), // ДОБАВЛЕНО
       );
 
   Shift copyWith({
@@ -95,6 +93,7 @@ class Shift {
     int? updatedAt,
     String? updatedBy,
     int? deletedAt,
+    bool clearDeletedAt = false, // ДОБАВЛЕНО
   }) {
     return Shift(
       id: id,
@@ -113,7 +112,7 @@ class Shift {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
-      deletedAt: deletedAt ?? this.deletedAt,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt), // ИСПРАВЛЕНО
     );
   }
 }

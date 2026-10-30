@@ -1,6 +1,4 @@
 /// Модель задачи.
-/// 
-/// Задачи бывают общие (listId='common') и личные (listId='partner1'/'partner2').
 class Task {
   final int id;
   String text;
@@ -18,7 +16,7 @@ class Task {
   int createdAt;
   int updatedAt;
   String? updatedBy;
-  int? deletedAt;
+  int? deletedAt; // НОВОЕ: надгробие
 
   // НОВОЕ: кто создал / взял / выполнил
   String? createdBy;
@@ -75,7 +73,7 @@ class Task {
         'createdAt': createdAt,
         'updatedAt': updatedAt,
         if (updatedBy != null) 'updatedBy': updatedBy,
-        if (deletedAt != null) 'deletedAt': deletedAt,
+        if (deletedAt != null) 'deletedAt': deletedAt, // ДОБАВЛЕНО
         if (createdBy != null) 'createdBy': createdBy,
         if (createdByName != null) 'createdByName': createdByName,
         if (createdByAt != null) 'createdByAt': createdByAt,
@@ -103,7 +101,7 @@ class Task {
         createdAt: (json['createdAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
         updatedAt: (json['updatedAt'] as num?)?.toInt(),
         updatedBy: json['updatedBy'] as String?,
-        deletedAt: (json['deletedAt'] as num?)?.toInt(),
+        deletedAt: (json['deletedAt'] as num?)?.toInt(), // ДОБАВЛЕНО
         createdBy: json['createdBy'] as String?,
         createdByName: json['createdByName'] as String?,
         createdByAt: (json['createdByAt'] as num?)?.toInt(),
@@ -130,6 +128,7 @@ class Task {
     int? updatedAt,
     String? updatedBy,
     int? deletedAt,
+    bool clearDeletedAt = false, // ДОБАВЛЕНО
     String? createdBy,
     String? createdByName,
     int? createdByAt,
@@ -158,7 +157,7 @@ class Task {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
-      deletedAt: deletedAt ?? this.deletedAt,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt), // ИСПРАВЛЕНО
       createdBy: createdBy ?? this.createdBy,
       createdByName: createdByName ?? this.createdByName,
       createdByAt: createdByAt ?? this.createdByAt,
