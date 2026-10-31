@@ -268,6 +268,21 @@ class BudgetScreenState extends State<BudgetScreen> {
             title: 'Кошелёк',
             onAvatarTap: widget.onAvatarTap,
             avatarEmoji: widget.storage.myAvatar,
+            actions: [
+              IconButton(
+                tooltip: 'Категории',
+                icon: Icon(Icons.tune, color: cs.primary, size: 22),
+                onPressed: () async {
+                  await Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => BudgetCategoriesEditorScreen(
+                      storage: widget.storage,
+                      sync: widget.sync,
+                    ),
+                  ));
+                  _load();
+                },
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
