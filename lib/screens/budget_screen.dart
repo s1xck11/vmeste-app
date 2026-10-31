@@ -13,6 +13,7 @@ import '../widgets/add_income_modal.dart';
 import '../widgets/add_transfer_modal.dart';
 import 'banks_editor_screen.dart';
 import 'recurring_payments_screen.dart';
+import 'budget_categories_editor_screen.dart';
 
 class BudgetScreen extends StatefulWidget {
   final StorageService storage;
