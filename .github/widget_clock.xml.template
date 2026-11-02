@@ -3,28 +3,54 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@drawable/widget_bg_glass"
-    android:clickable="true"
-    android:focusable="true">
+    android:orientation="horizontal"
+    android:padding="10dp"
+    android:background="@drawable/widget_bg_glass">
 
-    <TextView
-        android:id="@+id/widget_weather"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="--°"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF" />
+    <!-- Левый блок: погода (как на фото) -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
 
-    <TextView
-        android:id="@+id/widget_shifts_list"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Смен нет"
-        android:textSize="14sp"
-        android:textColor="#E0E0E0"
-        android:layout_marginTop="8dp"
-        android:lineSpacingExtra="4dp" />
+        <TextView
+            android:id="@+id/weather_condition"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Погода"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#AEB8C2"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/weather_temp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="--°"
+            android:textSize="40sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:layout_marginTop="2dp" />
+
+        <TextView
+            android:id="@+id/weather_city"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#9AA5B1"
+            android:maxLines="1" />
+    </LinearLayout>
+
+    <!-- Правый блок: свайпаемые карточки -->
+    <StackView
+        android:id="@+id/widget_stack"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1.1" />
 </LinearLayout>
