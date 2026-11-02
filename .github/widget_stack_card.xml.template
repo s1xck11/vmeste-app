@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/card_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/widget_card_bg">
+
+    <TextView
+        android:id="@+id/card_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/card_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="10sp"
+        android:textColor="#9AA5B1"
+        android:maxLines="1"
+        android:visibility="gone" />
+
+    <TextClock
+        android:id="@+id/card_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:format24Hour="HH:mm"
+        android:format12Hour="HH:mm"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="4dp"
+        android:visibility="gone" />
+
+    <TextClock
+        android:id="@+id/card_date"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:format24Hour="EEEE, d MMMM"
+        android:format12Hour="EEEE, d MMMM"
+        android:textSize="11sp"
+        android:textColor="#9AA5B1"
+        android:visibility="gone" />
+
+    <TextView android:id="@+id/card_line1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="6dp" android:maxLines="1" android:visibility="gone" />
+    <TextView android:id="@+id/card_line2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="4dp" android:maxLines="1" android:visibility="gone" />
+    <TextView android:id="@+id/card_line3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="4dp" android:maxLines="1" android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/card_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Свайп — листать · Тап — открыть"
+        android:textSize="9sp"
+        android:textColor="#66707A"
+        android:layout_marginTop="6dp" />
+</LinearLayout>
