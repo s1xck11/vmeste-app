@@ -922,3 +922,22 @@ class SyncService {
     }
     return buffer.toString();
   }
+
+  String _generateKey() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final rand = Random.secure();
+    final buffer = StringBuffer();
+    buffer.write(chars.substring(0, 26)[rand.nextInt(26)]);
+    for (int i = 0; i < 8; i++) {
+      if (i == 4) buffer.write('-');
+      buffer.write(chars[rand.nextInt(chars.length)]);
+    }
+    return buffer.toString();
+  }
+
+  void _setStatus(String s) {
+    if (_status == s) return;
+    _status = s;
+    onStatusChanged?.call();
+  }
+}
