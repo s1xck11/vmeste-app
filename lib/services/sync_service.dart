@@ -1,3 +1,5 @@
+// lib/services/sync_service.dart
+
 import 'dart:async';
 import 'dart:math';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -33,7 +35,7 @@ class SyncService {
   Timer? _pushDebounce;
   Timer? _pullTimer;
   Timer? _reconnectTimer;
-  Timer? _antiEntropyTimer;  // НОВОЕ: полная сверка раз в 12 часов
+  Timer? _antiEntropyTimer;
   StreamSubscription<List<ConnectivityResult>>? _netSub;
   bool _isFirstLoad = true;
   bool _isRemoteUpdate = false;
@@ -90,7 +92,7 @@ class SyncService {
       _setStatus('syncing');
       _subscribe();
       _startPullTimer();
-      _startAntiEntropyTimer();  // НОВОЕ
+      _startAntiEntropyTimer();
       pullNow().then((_) {
         if (_pendingPush) {
           _pendingPush = false;
@@ -158,6 +160,7 @@ class SyncService {
 
     storage.coupleCode = code;
     storage.members = [uid];
+    storage.serverVersion = 1;
     storage.vectorClock = initialVectorClock;
     storage.myKey = myKey;
     storage.myPartnerId = 'partner1';
@@ -168,7 +171,6 @@ class SyncService {
     _startPullTimer();
     _startAntiEntropyTimer();
     _startWatchingNetwork();
-    await migrateToVectorClock();
     return {'code': code, 'myKey': myKey};
   }
 
@@ -209,7 +211,6 @@ class SyncService {
     if (!members.contains(uid)) members.add(uid);
     data['profiles'] = profiles;
 
-    // Инициализация vector clock если его нет
     if (data['vectorClock'] == null) {
       data['vectorClock'] = {'partner1': 0, 'partner2': 0};
     }
@@ -220,7 +221,8 @@ class SyncService {
     storage.members = members;
     storage.myKey = myKey;
     storage.myPartnerId = myRole;
-    storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map);
+    storage.serverVersion = (group['version'] as int?) ?? 0;
+    storage.vectorClock = _parseClock(data['vectorClock']);
 
     _isRemoteUpdate = true;
     _applyData(data);
@@ -259,7 +261,8 @@ class SyncService {
     storage.myKey = key;
     storage.myPartnerId = myProfile['role'] as String;
     storage.myName = (myProfile['name'] as String?) ?? '';
-    storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map? ?? {'partner1': 0, 'partner2': 0});
+    storage.serverVersion = (group['version'] as int?) ?? 0;
+    storage.vectorClock = _parseClock(data['vectorClock']);
     _isRemoteUpdate = true;
     _applyData(data);
     _isRemoteUpdate = false;
@@ -307,7 +310,8 @@ class SyncService {
 
         storage.myPartnerId = myProfile['role'] as String;
         storage.myName = (myProfile['name'] as String?) ?? '';
-        storage.vectorClock = Map<String, int>.from(data['vectorClock'] as Map? ?? {'partner1': 0, 'partner2': 0});
+        storage.serverVersion = (group['version'] as int?) ?? 0;
+        storage.vectorClock = _parseClock(data['vectorClock']);
         _isRemoteUpdate = true;
         _applyData(data);
         _isRemoteUpdate = false;
@@ -335,7 +339,7 @@ class SyncService {
   }
 
   // ============================================================
-  // REALTIME ПОДПИСКА
+  // REALTIME
   // ============================================================
 
   void _subscribe() {
@@ -354,7 +358,8 @@ class SyncService {
             final newRecord = payload.newRecord;
             if (newRecord.isEmpty) return;
             final newData = Map<String, dynamic>.from(newRecord['data'] as Map? ?? {});
-            final remoteClock = Map<String, int>.from(newData['vectorClock'] as Map? ?? {});
+            final remoteClock = _parseClock(newData['vectorClock']);
+            if (_clocksEqual(remoteClock, storage.vectorClock)) return;
             _log.info('Realtime', 'обновление clock=$remoteClock');
             _isRemoteUpdate = true;
             _applyData(newData);
@@ -394,7 +399,7 @@ class SyncService {
   }
 
   // ============================================================
-  // PULL (получение изменений)
+  // PULL / ANTI-ENTROPY
   // ============================================================
 
   void _startPullTimer() {
@@ -428,13 +433,14 @@ class SyncService {
           .timeout(const Duration(seconds: 20));
       if (remote == null) return;
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
-      final remoteClock = Map<String, int>.from(remoteData['vectorClock'] as Map? ?? {});
+      final remoteClock = _parseClock(remoteData['vectorClock']);
+      if (_clocksEqual(remoteClock, storage.vectorClock)) return;
 
       _log.info('Pull', 'remote clock=$remoteClock, local clock=${storage.vectorClock}');
-
       _isRemoteUpdate = true;
       _applyData(remoteData);
       storage.applyRemoteClock(remoteClock);
+      storage.serverVersion = (remote['version'] as int?) ?? 0;
       _isRemoteUpdate = false;
       _setStatus('online');
       _notifyAll();
@@ -460,11 +466,12 @@ class SyncService {
           .timeout(const Duration(seconds: 20));
       if (remote == null) return;
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
-      final remoteClock = Map<String, int>.from(remoteData['vectorClock'] as Map? ?? {});
+      final remoteClock = _parseClock(remoteData['vectorClock']);
 
       _isRemoteUpdate = true;
       _applyData(remoteData);
       storage.applyRemoteClock(remoteClock);
+      storage.serverVersion = (remote['version'] as int?) ?? 0;
       _isRemoteUpdate = false;
       _setStatus('online');
       _notifyAll();
@@ -476,7 +483,6 @@ class SyncService {
     }
   }
 
-  // Полная сверка (anti-entropy)
   Future<void> _fullSync() async {
     if (_isPulling || !_isOnline) return;
     _isPulling = true;
@@ -491,15 +497,13 @@ class SyncService {
       if (remote == null) return;
 
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
-      final remoteClock = Map<String, int>.from(remoteData['vectorClock'] as Map? ?? {});
+      final remoteClock = _parseClock(remoteData['vectorClock']);
 
-      // Применяем все удалённые данные
       _isRemoteUpdate = true;
       _applyData(remoteData);
       storage.applyRemoteClock(remoteClock);
       _isRemoteUpdate = false;
 
-      // Отправляем свои изменения
       await _push();
 
       _log.info('AntiEntropy', 'полная сверка завершена');
@@ -517,32 +521,29 @@ class SyncService {
   // ============================================================
 
   void _applyData(Map<String, dynamic> data) {
-    // Применяем tombstones из удалённых данных
     final remoteTombstones = data['tombstones'] as Map?;
     if (remoteTombstones != null) {
       for (final entry in remoteTombstones.entries) {
         final tombstoneData = Map<String, dynamic>.from(entry.value as Map? ?? {});
         if (tombstoneData.isEmpty) continue;
-        final entityType = tombstoneData['entityType'] as String;
-        final entityId = tombstoneData['entityId'] as String;
-        final deletedAt = tombstoneData['deletedAt'] as int;
-        final deletedBy = tombstoneData['deletedBy'] as String;
+        final entityType = tombstoneData['entityType'] as String? ?? '';
+        final entityId = tombstoneData['entityId']?.toString() ?? '';
+        final deletedAt = (tombstoneData['deletedAt'] as num?)?.toInt() ?? 0;
+        final deletedBy = tombstoneData['deletedBy'] as String? ?? 'unknown';
+        if (entityType.isEmpty || entityId.isEmpty) continue;
 
-        // Проверяем, есть ли локальный tombstone
         final localTombstone = storage.getTombstone(entityType, entityId);
         if (localTombstone != null) {
-          // Если удалённый tombstone новее, используем его
-          if (deletedAt > (localTombstone['deletedAt'] as int)) {
+          final localDeletedAt = (localTombstone['deletedAt'] as num?)?.toInt() ?? 0;
+          if (deletedAt > localDeletedAt) {
             storage.addTombstone(entityType, entityId, deletedAt, deletedBy);
           }
         } else {
-          // Локального tombstone нет, добавляем удалённый
           storage.addTombstone(entityType, entityId, deletedAt, deletedBy);
         }
       }
     }
 
-    // Сливаем списки с учётом tombstones
     _mergeList<Purchase>(data, 'purchases', localItems: storage.purchases, fromJson: (j) => Purchase.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.purchases = items);
     _mergeList<Task>(data, 'tasks', localItems: storage.tasks, fromJson: (j) => Task.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.tasks = items);
     _mergeList<Shift>(data, 'shifts', localItems: storage.shifts, fromJson: (j) => Shift.fromJson(j), toJson: (i) => i.toJson(), getUpdatedAt: (i) => i.updatedAt, onMerged: (items) => storage.shifts = items);
@@ -555,7 +556,7 @@ class SyncService {
     _replaceTaskCategories(data);
     _replaceShiftTypes(data);
     _replacePartners(data);
-    _replaceBudgetCategories(data);
+    _mergeBudgetCategories(data);
     _replaceHistory(data);
     _replaceBanks(data);
 
@@ -579,7 +580,7 @@ class SyncService {
     required T Function(Map<String, dynamic>) fromJson,
     required Map<String, dynamic> Function(T) toJson,
     required int Function(T) getUpdatedAt,
-    required void Function(List<T>) onMerged
+    required void Function(List<T>) onMerged,
   }) {
     final raw = data[key];
     if (raw == null) return;
@@ -594,31 +595,26 @@ class SyncService {
 
       final merged = <String, T>{};
 
-      // 1. Проходим по удалённым элементам
       for (final entry in remoteMap.entries) {
         final id = entry.key.toString();
         final remoteJson = Map<String, dynamic>.from(entry.value as Map? ?? {});
         if (remoteJson.isEmpty) continue;
 
-        // ПРОВЕРКА TOMBSTONE: если элемент удалён на сервере, создаём локальный tombstone
+        // Серверный элемент помечен удалённым -> создаём tombstone и пропускаем
         if (remoteJson['deletedAt'] != null) {
-          final deletedAt = remoteJson['deletedAt'] as int;
+          final deletedAt = (remoteJson['deletedAt'] as num?)?.toInt() ?? 0;
           final deletedBy = remoteJson['deletedBy'] as String? ?? 'unknown';
           storage.addTombstone(key, id, deletedAt, deletedBy);
-          continue;  // НЕ добавляем в merged
+          continue;
         }
 
-        // 2. КРИТИЧЕСКИ ВАЖНО: Проверяем, есть ли локальный tombstone
+        // Локальный tombstone побеждает живую серверную версию
         if (storage.isTombstoned(key, id)) {
           final localTombstone = storage.getTombstone(key, id)!;
-          final localDeletedAt = localTombstone['deletedAt'] as int;
-          final remoteDeletedAt = remoteJson['deletedAt'] as int? ?? 0;
-
-          // Локальный tombstone ПОБЕЖДАЕТ, если:
-          // - На сервере элемент НЕ удален (remoteDeletedAt == 0)
-          // - ИЛИ локальное удаление произошло ПОЗЖЕ или одновременно с удалённым
+          final localDeletedAt = (localTombstone['deletedAt'] as num?)?.toInt() ?? 0;
+          final remoteDeletedAt = (remoteJson['deletedAt'] as num?)?.toInt() ?? 0;
           if (remoteDeletedAt == 0 || localDeletedAt >= remoteDeletedAt) {
-            continue;  // ИГНОРИРУЕМ серверные данные, элемент мёртв
+            continue;
           }
         }
 
@@ -628,7 +624,6 @@ class SyncService {
         if (localItem == null) {
           merged[id] = remoteItem;
         } else {
-          // Last-Writer-Wins по updatedAt
           if (getUpdatedAt(remoteItem) > getUpdatedAt(localItem)) {
             merged[id] = remoteItem;
           } else {
@@ -637,10 +632,9 @@ class SyncService {
         }
       }
 
-      // 3. Добавляем локальные элементы, которых нет на сервере
+      // Локальные элементы, которых нет на сервере (созданы офлайн)
       for (final entry in localById.entries) {
         if (!merged.containsKey(entry.key) && remoteMap[entry.key] == null) {
-          // Проверяем tombstone: если удалено локально, не добавляем
           if (!storage.isTombstoned(key, entry.key)) {
             merged[entry.key] = entry.value;
           }
@@ -648,9 +642,40 @@ class SyncService {
       }
 
       onMerged(merged.values.toList());
-    } catch (e, st) {
-      _log.error('Sync', 'merge $key FAILED', e, st);
-    }
+    } catch (e, st) { _log.error('Sync', 'merge $key FAILED', e, st); }
+  }
+
+  void _mergeBudgetCategories(Map<String, dynamic> data) {
+    final raw = data['budgetCategories'];
+    if (raw == null) return;
+    try {
+      final remoteMap = raw as Map;
+      final localById = <String, BudgetCategory>{};
+      for (final c in storage.budgetCategories) {
+        localById[c.id] = c;
+      }
+      final merged = <String, BudgetCategory>{};
+      for (final entry in remoteMap.entries) {
+        final id = entry.key.toString();
+        final remoteJson = Map<String, dynamic>.from(entry.value as Map? ?? {});
+        if (remoteJson.isEmpty) continue;
+        final remoteCat = BudgetCategory.fromJson(remoteJson);
+        final localCat = localById[id];
+        if (localCat == null) {
+          merged[id] = remoteCat;
+        } else if (remoteCat.updatedAt > localCat.updatedAt) {
+          merged[id] = remoteCat;
+        } else {
+          merged[id] = localCat;
+        }
+      }
+      for (final entry in localById.entries) {
+        if (!merged.containsKey(entry.key) && remoteMap[entry.key] == null) {
+          merged[entry.key] = entry.value;
+        }
+      }
+      if (merged.isNotEmpty) storage.budgetCategories = merged.values.toList();
+    } catch (e) {}
   }
 
   void _replacePurchaseLists(Map<String, dynamic> data) {
@@ -693,14 +718,6 @@ class SyncService {
     } catch (e) {}
   }
 
-  void _replaceBudgetCategories(Map<String, dynamic> data) {
-    final raw = data['budgetCategories']; if (raw == null) return;
-    try {
-      final list = (raw as Map).values.map((v) => BudgetCategory.fromJson(Map<String, dynamic>.from(v as Map))).toList();
-      if (list.isNotEmpty) storage.budgetCategories = list;
-    } catch (e) {}
-  }
-
   void _replaceHistory(Map<String, dynamic> data) {
     final raw = data['purchaseHistory']; if (raw == null) return;
     try {
@@ -718,7 +735,7 @@ class SyncService {
   }
 
   // ============================================================
-  // PUSH (отправка изменений)
+  // PUSH
   // ============================================================
 
   void schedulePush() {
@@ -747,20 +764,20 @@ class SyncService {
     }
     _isPushInProgress = true;
     try {
-      // Получаем текущие данные с сервера
       final remote = await _supabase.from('couples').select('data, version').eq('code', storage.coupleCode!).maybeSingle().timeout(const Duration(seconds: 30));
       if (remote == null) return;
       final remoteData = Map<String, dynamic>.from(remote['data'] as Map? ?? {});
-      final remoteClock = Map<String, int>.from(remoteData['vectorClock'] as Map? ?? {});
+      final remoteClock = _parseClock(remoteData['vectorClock']);
 
-      // Применяем удалённые изменения если они новее
-      _isRemoteUpdate = true;
-      _applyData(remoteData);
-      storage.applyRemoteClock(remoteClock);
-      _isRemoteUpdate = false;
-      _notifyAll();
+      // Применяем удалённые изменения, только если часы отличаются
+      if (!_clocksEqual(remoteClock, storage.vectorClock)) {
+        _isRemoteUpdate = true;
+        _applyData(remoteData);
+        storage.applyRemoteClock(remoteClock);
+        _isRemoteUpdate = false;
+        _notifyAll();
+      }
 
-      // Формируем snapshot с нашими данными
       final myData = storage.snapshot();
       myData['profiles'] = remoteData['profiles'] ?? {};
       if (storage.myKey != null) {
@@ -771,7 +788,6 @@ class SyncService {
         myData['profiles'] = profiles;
       }
 
-      // Инкрементируем vector clock
       final myPartnerId = storage.myPartnerId ?? 'partner1';
       final newClock = Map<String, int>.from(storage.vectorClock);
       newClock[myPartnerId] = (newClock[myPartnerId] ?? 0) + 1;
@@ -785,10 +801,9 @@ class SyncService {
       }).eq('code', storage.coupleCode!).timeout(const Duration(seconds: 30));
 
       storage.vectorClock = newClock;
+      storage.serverVersion = newVersion;
       _setStatus('online');
       widgetService?.updateAll();
-
-      // Очищаем отправленные операции из outbox
       storage.clearSentOperations();
     } catch (e, st) {
       _log.error('Push', 'FAILED', e, st);
@@ -798,30 +813,20 @@ class SyncService {
   }
 
   // ============================================================
-  // УТИЛИТЫ
-  // ============================================================
-  // ============================================================
   // МИГРАЦИЯ V2: Vector Clock + Tombstones
   // ============================================================
 
   Future<void> migrateToVectorClock() async {
-    // Проверяем флаг миграции
     if (storage.box.get('migration_v2_vector_clock_done') == true) {
-      return; // Уже мигрировано, выходим
+      return;
     }
 
     _log.info('Migration', '🚀 Начало миграции V2 (Vector Clock + Tombstones)...');
 
     try {
-      // 1. Забираем абсолютную правду с сервера, чтобы синхронизировать состояние
       _log.info('Migration', 'Шаг 1: Получение актуальных данных с сервера...');
       await forcePullNow();
 
-      // 2. Безопасная инициализация Vector Clock.
-      // Мы берем старый serverVersion как базовую линию для ОБОИХ партнеров.
-      // Например, если версия была 15, ставим {partner1: 15, partner2: 15}.
-      // Следующее локальное изменение сделает его 16, что строго больше
-      // последнего известного состояния сервера, предотвращая конфликты перезаписи.
       final baseline = storage.serverVersion > 0 ? storage.serverVersion : 1;
       final newClock = {
         'partner1': baseline,
@@ -830,29 +835,22 @@ class SyncService {
       storage.vectorClock = newClock;
       _log.info('Migration', 'Шаг 2: Vector Clock инициализирован как $newClock');
 
-      // 3. Конвертация старых "мягких удалений" в полноценные tombstones
-      _log.info('Migration', 'Шаг 3: Очистка старых удаленных элементов...');
+      _log.info('Migration', 'Шаг 3: Очистка старых удалённых элементов...');
       _migrateSoftDeletesToTombstones();
 
-      // 4. Отправляем новую структуру (с vectorClock и tombstones) на сервер
-      _log.info('Migration', 'Шаг 4: Отправка обновленной структуры на сервер...');
+      _log.info('Migration', 'Шаг 4: Отправка обновлённой структуры на сервер...');
       await _push();
 
-      // 5. Ставим флаг завершения
       storage.box.put('migration_v2_vector_clock_done', true);
       _log.info('Migration', '✅ Миграция V2 успешно завершена!');
-
     } catch (e, st) {
       _log.error('Migration', '❌ Ошибка миграции. Будет повторена при следующем запуске.', e, st);
-      // Мы НЕ ставим флаг 'migration_v2_vector_clock_done', чтобы миграция
-      // попробовала выполниться снова при следующем запуске приложения.
     }
   }
 
   void _migrateSoftDeletesToTombstones() {
     final actor = storage.myPartnerId ?? 'unknown';
 
-    // 1. Покупки (Purchase)
     final activePurchases = <Purchase>[];
     for (final p in storage.purchases) {
       if (p.deletedAt != null) {
@@ -863,29 +861,42 @@ class SyncService {
     }
     storage.purchases = activePurchases;
 
-    // 2. Задачи (Task) - используем флаг archived как признак удаления для очистки
     final activeTasks = <Task>[];
     for (final t in storage.tasks) {
-      if (t.archived) {
-        storage.addTombstone('tasks', t.id.toString(), t.updatedAt, actor);
+      if (t.deletedAt != null) {
+        storage.addTombstone('tasks', t.id.toString(), t.deletedAt!, actor);
       } else {
         activeTasks.add(t);
       }
     }
     storage.tasks = activeTasks;
 
-    // 3. Транзакции (Transaction) - если у них есть deletedAt
-    final activeTransactions = <Transaction>[];
-    for (final t in storage.transactions) {
-      // Проверяем наличие deletedAt через динамический доступ, если поле есть в модели
-      final deletedAt = (t as dynamic).deletedAt as int?;
-      if (deletedAt != null) {
-        storage.addTombstone('transactions', t.id.toString(), deletedAt, actor);
+    final activeShifts = <Shift>[];
+    for (final s in storage.shifts) {
+      if (s.deletedAt != null) {
+        storage.addTombstone('shifts', s.id.toString(), s.deletedAt!, actor);
       } else {
-        activeTransactions.add(t);
+        activeShifts.add(s);
       }
     }
-    storage.transactions = activeTransactions;
+    storage.shifts = activeShifts;
+  }
+
+  // ============================================================
+  // УТИЛИТЫ
+  // ============================================================
+
+  Map<String, int> _parseClock(dynamic raw) {
+    if (raw is! Map) return {};
+    return raw.map((k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0));
+  }
+
+  bool _clocksEqual(Map<String, int> a, Map<String, int> b) {
+    final keys = {...a.keys, ...b.keys};
+    for (final k in keys) {
+      if ((a[k] ?? 0) != (b[k] ?? 0)) return false;
+    }
+    return true;
   }
 
   Future<void> disconnect() async {
@@ -911,22 +922,3 @@ class SyncService {
     }
     return buffer.toString();
   }
-
-  String _generateKey() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final rand = Random.secure();
-    final buffer = StringBuffer();
-    buffer.write(chars.substring(0, 26)[rand.nextInt(26)]);
-    for (int i = 0; i < 8; i++) {
-      if (i == 4) buffer.write('-');
-      buffer.write(chars[rand.nextInt(chars.length)]);
-    }
-    return buffer.toString();
-  }
-
-  void _setStatus(String s) {
-    if (_status == s) return;
-    _status = s;
-    onStatusChanged?.call();
-  }
-}
