@@ -54,14 +54,20 @@ jobs:
           mkdir -p android/app/src/main/res/drawable
           mkdir -p android/app/src/main/res/xml
 
+          # Layouts
           cp .github/widget_shifts.xml.template android/app/src/main/res/layout/widget_shifts.xml
           cp .github/widget_purchases.xml.template android/app/src/main/res/layout/widget_purchases.xml
           cp .github/widget_tasks.xml.template android/app/src/main/res/layout/widget_tasks.xml
           cp .github/widget_clock.xml.template android/app/src/main/res/layout/widget_clock.xml
+          cp .github/widget_stack_card.xml.template android/app/src/main/res/layout/widget_stack_card.xml
 
+          # Drawables
           cp .github/widget_bg.xml.template android/app/src/main/res/drawable/widget_bg.xml
           cp .github/widget_bg_glass.xml.template android/app/src/main/res/drawable/widget_bg_glass.xml
+          cp .github/widget_card_bg.xml.template android/app/src/main/res/drawable/widget_card_bg.xml
+          cp .github/widget_icon_bg.xml.template android/app/src/main/res/drawable/widget_icon_bg.xml
 
+          # XML metadata
           cp .github/widget_shifts_info.xml.template android/app/src/main/res/xml/widget_shifts_info.xml
           cp .github/widget_purchases_info.xml.template android/app/src/main/res/xml/widget_purchases_info.xml
           cp .github/widget_tasks_info.xml.template android/app/src/main/res/xml/widget_tasks_info.xml
@@ -97,7 +103,16 @@ jobs:
               '''
               s = s.replace('</application>', block + '    </application>')
 
-          # 2. Добавляем 4 виджета
+          # 2. Добавляем сервис уведомлений, если его нет
+          if 'ExpenseNotificationService' not in s:
+              block = '''
+                  <service
+                      android:name=".ExpenseNotificationService"
+                      android:exported="false" />
+              '''
+              s = s.replace('</application>', block + '    </application>')
+
+          # 3. Добавляем 4 виджета + сервис стека
           if 'VmesteClockWidget' not in s:
               block = '''
                   <receiver android:name=".VmesteShiftsWidget" android:exported="true" android:label="Вместе · Смены">
@@ -116,6 +131,10 @@ jobs:
                       <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
                       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_clock_info" />
                   </receiver>
+                  <service
+                      android:name=".VmesteStackService"
+                      android:permission="android.permission.BIND_REMOTEVIEWS"
+                      android:exported="false" />
               '''
               s = s.replace('</application>', block + '    </application>')
 
