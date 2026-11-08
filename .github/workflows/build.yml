@@ -103,16 +103,7 @@ jobs:
               '''
               s = s.replace('</application>', block + '    </application>')
 
-          # 2. Добавляем сервис уведомлений, если его нет
-          if 'ExpenseNotificationService' not in s:
-              block = '''
-                  <service
-                      android:name=".ExpenseNotificationService"
-                      android:exported="false" />
-              '''
-              s = s.replace('</application>', block + '    </application>')
-
-          # 3. Добавляем 4 виджета + сервис стека
+          # 2. Добавляем 4 виджета + сервис стека
           if 'VmesteClockWidget' not in s:
               block = '''
                   <receiver android:name=".VmesteShiftsWidget" android:exported="true" android:label="Вместе · Смены">
