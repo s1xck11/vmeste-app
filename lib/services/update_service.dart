@@ -1,5 +1,8 @@
+// lib/services/update_service.dart
+
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
@@ -39,6 +42,21 @@ class UpdateService {
   static int get currentBuild => _currentBuild;
   static String get currentFull => '$_currentVersion+$_currentBuild';
 
+  /// Архитектура текущего устройства -> суффикс APK в релизе.
+  /// Именно это лечит «ошибку анализа пакета»: качаем ТОЛЬКО свой ABI.
+  static String get abiSuffix {
+    switch (Abi.current()) {
+      case Abi.androidArm64:
+        return 'arm64-v8a';
+      case Abi.androidArm:
+        return 'armeabi-v7a';
+      case Abi.androidX64:
+        return 'x86_64';
+      default:
+        return 'arm64-v8a';
+    }
+  }
+
   static Future<void> loadVersion() async {
     if (_loaded) return;
     try {
@@ -65,9 +83,8 @@ class UpdateService {
     }
 
     try {
-      _log.info('Update', 'проверка обновлений... (текущая ${currentFull})');
-      
-      // Берем список всех релизов (а не latest), чтобы отфильтровать хабы
+      _log.info('Update', 'проверка обновлений... (текущая ${currentFull}, ABI $abiSuffix)');
+
       final uri = Uri.parse('https://api.github.com/repos/$_repo/releases');
       final resp = await http.get(
         uri,
@@ -82,12 +99,11 @@ class UpdateService {
       }
 
       final List<dynamic> releases = jsonDecode(resp.body) as List<dynamic>;
-      
+
       Map<String, dynamic>? mobileRelease;
       for (final r in releases) {
         final rMap = Map<String, dynamic>.from(r as Map);
         final tag = (rMap['tag_name'] as String?) ?? '';
-        // Нас интересуют только мобильные релизы: начинаются на "v" но НЕ на "hub-v"
         if (tag.startsWith('v') && !tag.startsWith('hub-v')) {
           mobileRelease = rMap;
           break;
@@ -103,7 +119,6 @@ class UpdateService {
       final name = (mobileRelease['name'] as String?) ?? tag;
       final body = (mobileRelease['body'] as String?) ?? '';
 
-      // Убираем "v" из тега: "v1.1.221" -> "1.1.221"
       final remoteVersion = tag.replaceAll(RegExp(r'^[vV]'), '');
       _log.info('Update', 'последний мобильный релиз: $tag (версия $remoteVersion)');
 
@@ -122,15 +137,18 @@ class UpdateService {
       final assets = (mobileRelease['assets'] as List?) ?? [];
       String? apkUrl;
       int apkSize = 0;
+
+      // 1) Ищем APK ТОЧНО под нашу архитектуру
       for (final a in assets) {
         final aMap = Map<String, dynamic>.from(a as Map);
         final aName = (aMap['name'] as String?) ?? '';
-        if (aName.contains('arm64-v8a') && aName.endsWith('.apk')) {
+        if (aName.contains(abiSuffix) && aName.endsWith('.apk')) {
           apkUrl = aMap['browser_download_url'] as String?;
           apkSize = (aMap['size'] as int?) ?? 0;
           break;
         }
       }
+      // 2) Фолбэк: любой APK (лучше показать ошибку установки, чем ничего)
       if (apkUrl == null) {
         for (final a in assets) {
           final aMap = Map<String, dynamic>.from(a as Map);
@@ -143,7 +161,7 @@ class UpdateService {
         }
       }
 
-      _log.info('Update', 'найдено обновление: $tag');
+      _log.info('Update', 'найдено обновление: $tag, url=$apkUrl');
       return UpdateInfo(
         tag: tag,
         version: remoteVersion,
@@ -158,12 +176,34 @@ class UpdateService {
     }
   }
 
+  /// Автоудаление старых пакетов обновлений.
+  /// Удаляет все vmeste-*.apk и vmeste-*.apk.part, КРОМЕ файла с keepTag.
+  static Future<void> cleanupOldApks({String? keepTag}) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final files = dir.listSync().whereType<File>().toList();
+      for (final f in files) {
+        final name = f.path.split('/').last;
+        if (!name.startsWith('vmeste-')) continue;
+        if (!name.endsWith('.apk') && !name.endsWith('.apk.part')) continue;
+        if (keepTag != null && name.startsWith('vmeste-$keepTag')) continue;
+        try {
+          await f.delete();
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   Future<File?> downloadApk(
     UpdateInfo info, {
     void Function(int received, int total)? onProgress,
     void Function(String status)? onStatus,
+    bool Function()? isCancelled,
   }) async {
     if (info.apkUrl == null) return null;
+
+    // Чистим старые пакеты перед скачиванием
+    await cleanupOldApks(keepTag: info.tag);
 
     const maxAttempts = 5;
     final dir = await getTemporaryDirectory();
@@ -173,6 +213,7 @@ class UpdateService {
     if (await finalFile.exists()) return finalFile;
 
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (isCancelled?.call() == true) return null;
       try {
         int existingLength = 0;
         if (await partFile.exists()) existingLength = await partFile.length();
@@ -218,6 +259,10 @@ class UpdateService {
           if (onProgress != null) onProgress(received, total);
 
           await for (final chunk in response) {
+            if (isCancelled?.call() == true) {
+              await sink.close();
+              return null;
+            }
             sink.add(chunk);
             received += chunk.length;
             if (onProgress != null) onProgress(received, total);
@@ -234,6 +279,7 @@ class UpdateService {
           client.close(force: true);
         }
       } catch (e, st) {
+        if (isCancelled?.call() == true) return null;
         if (onStatus != null) onStatus('Обрыв, повтор через 3 сек...');
         if (attempt < maxAttempts) await Future.delayed(const Duration(seconds: 3));
       }
