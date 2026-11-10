@@ -18,6 +18,8 @@ import '../services/background_service.dart';
 import '../services/notification_service.dart';
 import '../services/update_service.dart';
 import '../services/tile_service.dart';
+import '../services/weather_service.dart';
+import '../services/widget_service.dart';
 import '../widgets/update_dialog.dart';
 import 'avatar_picker_screen.dart';
 import 'data_management_screen.dart';
@@ -55,6 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _tileService = TileService();
   bool _checkingUpdate = false;
   bool _quickExpenseEnabled = false;
+  bool _refreshingWeather = false;
 
   @override
   void initState() {
@@ -114,6 +117,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
       widget.sync.schedulePush();
       setState(() {});
     }
+  }
+
+  // ============ ПОГОДА ============
+  Future<void> _refreshWeather({bool force = true}) async {
+    if (_refreshingWeather) return;
+    setState(() => _refreshingWeather = true);
+    try {
+      final wx = WeatherService(widget.storage);
+      final ok = await wx.refresh(force: force);
+      if (!mounted) return;
+      if (ok) {
+        await WidgetService(widget.storage).updateAll();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Погода обновлена: ${widget.storage.cachedWeatherTemp} ${widget.storage.cachedWeatherCond}')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось получить погоду. Проверь город или разрешение на геолокацию.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _refreshingWeather = false);
+    }
+  }
+
+  Future<void> _editCity() async {
+    final ctrl = TextEditingController(text: widget.storage.weatherCity);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Город для погоды'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(hintText: 'Например: Москва'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Сохранить')),
+        ],
+      ),
+    );
+    if (result != null) {
+      widget.storage.weatherCity = result;
+      setState(() {});
+      if (result.isNotEmpty && !widget.storage.weatherAutoGeo) {
+        await _refreshWeather();
+      }
+    }
+  }
+
+  Future<void> _toggleAutoGeo(bool v) async {
+    widget.storage.weatherAutoGeo = v;
+    setState(() {});
+    if (v) await _refreshWeather();
   }
 
   Future<void> _pickBackground() async {
@@ -374,7 +433,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // 4. Связь и синхронизация
+          // 4. НОВОЕ: Город и погода (для виджета часов)
+          _sectionTitle('ГОРОД И ПОГОДА', cs),
+          _settingsTile(
+            icon: Icons.location_city_outlined,
+            title: 'Город',
+            subtitle: widget.storage.weatherAutoGeo
+                ? 'Автоопределение по геолокации'
+                : (widget.storage.weatherCity.isEmpty ? 'Не задан' : widget.storage.weatherCity),
+            onTap: widget.storage.weatherAutoGeo ? null : _editCity,
+            cs: cs,
+          ),
+          _settingsTile(
+            icon: Icons.my_location,
+            title: 'Определять автоматически',
+            subtitle: 'Запрашивать геолокацию для погоды',
+            trailing: Switch(
+              value: widget.storage.weatherAutoGeo,
+              onChanged: _toggleAutoGeo,
+            ),
+            cs: cs,
+          ),
+          _settingsTile(
+            icon: _refreshingWeather ? Icons.hourglass_top : Icons.wb_sunny_outlined,
+            title: 'Обновить погоду',
+            subtitle: _refreshingWeather
+                ? 'Обновление...'
+                : '${widget.storage.cachedWeatherTemp} ${widget.storage.cachedWeatherCond}'.trim(),
+            onTap: _refreshingWeather ? null : () => _refreshWeather(),
+            cs: cs,
+          ),
+
+          const SizedBox(height: 24),
+
+          // 5. Связь и синхронизация
           _sectionTitle('СВЯЗЬ', cs),
           _settingsTile(
             icon: Icons.circle, 
@@ -424,7 +516,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // 5. Данные и редакторы
+          // 6. Данные и редакторы
           _sectionTitle('ДАННЫЕ И НАСТРОЙКИ', cs),
           _expandableShiftTypes(cs),
           _expandablePartners(cs),
@@ -465,7 +557,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // 6. Прочее
+          // 7. Прочее
           _sectionTitle('ПРОЧЕЕ', cs),
           _settingsTile(
             icon: Icons.system_update_alt, 
@@ -483,7 +575,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 32),
 
-          // 7. Выход
+          // 8. Выход
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
