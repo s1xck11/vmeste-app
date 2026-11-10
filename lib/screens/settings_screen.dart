@@ -18,6 +18,7 @@ import '../services/background_service.dart';
 import '../services/notification_service.dart';
 import '../services/update_service.dart';
 import '../services/tile_service.dart';
+import '../widgets/update_dialog.dart';
 import 'avatar_picker_screen.dart';
 import 'data_management_screen.dart';
 import 'debug_screen.dart';
@@ -65,6 +66,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final box = Hive.box('vmeste_data');
     _quickExpenseEnabled = box.get('quick_expense_notif_enabled') as bool? ?? false;
+    
+    UpdateService.cleanupOldApks();
   }
 
   @override
@@ -179,25 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showUpdateDialog(UpdateInfo info) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Доступна версия ${info.tag}'),
-        content: Text(info.body.isNotEmpty ? info.body : 'Новая версия приложения'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _updateService.downloadApk(info).then((f) {
-                if (f != null) _updateService.installApk(f);
-              });
-            },
-            child: const Text('Скачать'),
-          ),
-        ],
-      ),
-    );
+    UpdateDialog.show(context, info, _updateService);
   }
 
   Color _syncColor() {
