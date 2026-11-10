@@ -66,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final box = Hive.box('vmeste_data');
     _quickExpenseEnabled = box.get('quick_expense_notif_enabled') as bool? ?? false;
-    
+
     UpdateService.cleanupOldApks();
   }
 
@@ -582,46 +582,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             ...List.generate(types.length, (i) => Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(12)),
-              child: Row(
+              child: Column(
                 children: [
-                  Container(
-                    width: 12, height: 12,
-                    decoration: BoxDecoration(color: _parseColor(types[i].color), shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: types[i].label,
-                      style: TextStyle(color: cs.onSurface, fontSize: 14),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none, 
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
+                  Row(
+                    children: [
+                      Container(
+                        width: 12, height: 12,
+                        decoration: BoxDecoration(color: _parseColor(types[i].color), shape: BoxShape.circle),
                       ),
-                      onFieldSubmitted: (v) {
-                        types[i] = ShiftType(id: types[i].id, label: v, hours: types[i].hours, color: types[i].color);
-                        widget.storage.shiftTypes = types;
-                        widget.sync.schedulePush();
-                      },
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: types[i].label,
+                          style: TextStyle(color: cs.onSurface, fontSize: 14),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none, 
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onFieldSubmitted: (v) {
+                            types[i] = ShiftType(id: types[i].id, label: v, hours: types[i].hours, rate: types[i].rate, color: types[i].color);
+                            widget.storage.shiftTypes = types;
+                            widget.sync.schedulePush();
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
+                        onPressed: () {
+                          types.removeAt(i);
+                          widget.storage.shiftTypes = types;
+                          widget.sync.schedulePush();
+                          setSt();
+                        },
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
-                    onPressed: () {
-                      types.removeAt(i);
-                      widget.storage.shiftTypes = types;
-                      widget.sync.schedulePush();
-                      setSt();
-                    },
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: types[i].hours.toStringAsFixed(0),
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: cs.onSurface, fontSize: 13),
+                          decoration: InputDecoration(
+                            labelText: 'Часов',
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                            suffixText: 'ч',
+                            suffixStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onFieldSubmitted: (v) {
+                            types[i] = ShiftType(id: types[i].id, label: types[i].label, hours: double.tryParse(v.replaceAll(',', '.')) ?? types[i].hours, rate: types[i].rate, color: types[i].color);
+                            widget.storage.shiftTypes = types;
+                            widget.sync.schedulePush();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: types[i].rate.toStringAsFixed(0),
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: cs.onSurface, fontSize: 13),
+                          decoration: InputDecoration(
+                            labelText: 'Ставка',
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                            suffixText: '₽/час',
+                            suffixStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onFieldSubmitted: (v) {
+                            types[i] = ShiftType(id: types[i].id, label: types[i].label, hours: types[i].hours, rate: double.tryParse(v.replaceAll(',', '.')) ?? types[i].rate, color: types[i].color);
+                            widget.storage.shiftTypes = types;
+                            widget.sync.schedulePush();
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             )),
             TextButton.icon(
               onPressed: () {
-                types.add(ShiftType(id: 'st_${DateTime.now().millisecondsSinceEpoch}', label: 'Новая смена', hours: 8, color: '#FF8FAB'));
+                types.add(ShiftType(id: 'st_${DateTime.now().millisecondsSinceEpoch}', label: 'Новая смена', hours: 8, rate: 0, color: '#FF8FAB'));
                 widget.storage.shiftTypes = types;
                 widget.sync.schedulePush();
                 setSt();
