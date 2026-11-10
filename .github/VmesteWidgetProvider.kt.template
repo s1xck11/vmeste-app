@@ -102,7 +102,7 @@ class VmesteTasksWidget : BaseVmesteWidget() {
 }
 
 // ============================================================
-// ВИДЖЕТ ЧАСОВ: погода слева + свайпаемый стек справа
+// ВИДЖЕТ ЧАСОВ: часы + погода слева, свайпаемый стек справа
 // ============================================================
 
 class VmesteClockWidget : AppWidgetProvider() {
@@ -111,9 +111,14 @@ class VmesteClockWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_clock)
             val prefs = HomeWidgetPlugin.getData(context)
 
+            // Погода (из кэша WeatherService)
             views.setTextViewText(R.id.weather_temp, prefs.getString("clock_weather", "--°") ?: "--°")
-            views.setTextViewText(R.id.weather_condition, prefs.getString("clock_condition", "Погода") ?: "Погода")
-            views.setTextViewText(R.id.weather_city, prefs.getString("clock_city", "") ?: "")
+            val cond = prefs.getString("clock_condition", "") ?: ""
+            val city = prefs.getString("clock_city", "") ?: ""
+            views.setTextViewText(R.id.weather_condition, cond)
+            views.setViewVisibility(R.id.weather_condition, if (cond.isNotEmpty()) View.VISIBLE else View.GONE)
+            views.setTextViewText(R.id.weather_city, city)
+            views.setViewVisibility(R.id.weather_city, if (city.isNotEmpty()) View.VISIBLE else View.GONE)
 
             // Адаптер стека
             val adapter = Intent(context, VmesteStackService::class.java).apply {
@@ -121,7 +126,7 @@ class VmesteClockWidget : AppWidgetProvider() {
             }
             views.setRemoteAdapter(R.id.widget_stack, adapter)
 
-            // Шаблон клика по карточке (открывает нужный таб)
+            // Шаблон клика по карточке
             val base = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
@@ -131,8 +136,9 @@ class VmesteClockWidget : AppWidgetProvider() {
             )
             views.setPendingIntentTemplate(R.id.widget_stack, template)
 
+            // Тап по левому блоку (часы/погода) — открыть смены
             val rootIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse("vmeste://open?tab=2"))
-            views.setOnClickPendingIntent(R.id.weather_temp, rootIntent)
+            views.setOnClickPendingIntent(R.id.clock_block, rootIntent)
 
             appWidgetManager.updateAppWidget(widgetId, views)
             appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_stack)
@@ -141,7 +147,7 @@ class VmesteClockWidget : AppWidgetProvider() {
 }
 
 // ============================================================
-// СЕРВИС СТЕКА (карточки: часы / покупки / задачи / смена)
+// СЕРВИС СТЕКА (покупки / задачи / смена сегодня / добавить расход)
 // ============================================================
 
 class VmesteStackService : RemoteViewsService() {
@@ -155,7 +161,7 @@ class StackFactory(private val context: Context) : RemoteViewsService.RemoteView
         val title: String,
         val subtitle: String,
         val lines: List<String>,
-        val isClock: Boolean,
+        val isAddExpense: Boolean,
     )
 
     private val items = mutableListOf<StackCard>()
@@ -169,44 +175,48 @@ class StackFactory(private val context: Context) : RemoteViewsService.RemoteView
         fun lines(key: String): List<String> =
             (prefs.getString(key, "") ?: "").split("\n").filter { it.isNotEmpty() }
 
-        // 1. Часы
-        items.add(StackCard(2, "🕐 Часы", "", emptyList(), true))
-
-        // 2. Покупки
-        val pLines = lines("purchases_lines")
+        // 1. Покупки
         items.add(StackCard(
             0,
             "🛒 ${prefs.getString("purchases_title", "Покупки") ?: "Покупки"}",
             prefs.getString("purchases_sub", "") ?: "",
-            pLines.take(3),
+            lines("purchases_lines").take(3),
             false,
         ))
 
-        // 3. Задачи
-        val tLines = lines("tasks_lines")
+        // 2. Задачи
         items.add(StackCard(
             1,
             "✅ ${prefs.getString("tasks_title", "Задачи") ?: "Задачи"}",
             prefs.getString("tasks_sub", "") ?: "",
-            tLines.take(3),
+            lines("tasks_lines").take(3),
             false,
         ))
 
-        // 4. Смена сегодня
-        val sLines = lines("clock_shifts")
+        // 3. Смена сегодня
         items.add(StackCard(
             2,
             "💼 Смена сегодня",
             "",
-            sLines.take(3),
+            lines("clock_shifts").take(3),
             false,
+        ))
+
+        // 4. Добавить расход
+        items.add(StackCard(
+            0,
+            "➕ Добавить расход",
+            "",
+            emptyList(),
+            true,
         ))
     }
 
-    override fun getCount(): Int = items.size
+    // Бесконечный скролл: счётчик огромный, позиция зациклена по кругу
+    override fun getCount(): Int = if (items.isEmpty()) 0 else Int.MAX_VALUE
 
     override fun getViewAt(position: Int): RemoteViews {
-        val card = items[position]
+        val card = items[position % items.size]
         val views = RemoteViews(context.packageName, R.layout.widget_stack_card)
 
         views.setTextViewText(R.id.card_title, card.title)
@@ -218,8 +228,8 @@ class StackFactory(private val context: Context) : RemoteViewsService.RemoteView
             views.setViewVisibility(R.id.card_subtitle, View.GONE)
         }
 
-        views.setViewVisibility(R.id.card_time, if (card.isClock) View.VISIBLE else View.GONE)
-        views.setViewVisibility(R.id.card_date, if (card.isClock) View.VISIBLE else View.GONE)
+        // Блок «Добавить расход» — только для карточки расхода
+        views.setViewVisibility(R.id.card_add_expense, if (card.isAddExpense) View.VISIBLE else View.GONE)
 
         val lineIds = intArrayOf(R.id.card_line1, R.id.card_line2, R.id.card_line3)
         for (i in lineIds.indices) {
@@ -231,19 +241,24 @@ class StackFactory(private val context: Context) : RemoteViewsService.RemoteView
             }
         }
 
-        if (card.lines.isEmpty() && !card.isClock) {
+        if (card.lines.isEmpty() && !card.isAddExpense) {
             views.setTextViewText(R.id.card_line1, "Пока пусто")
             views.setViewVisibility(R.id.card_line1, View.VISIBLE)
         }
 
-        val fillIn = Intent().apply { data = Uri.parse("vmeste://open?tab=${card.tab}") }
+        // Fill-in intent: заменяет data у template при тапе
+        val fillIn = if (card.isAddExpense) {
+            Intent().apply { data = Uri.parse("vmeste://open?action=addExpense") }
+        } else {
+            Intent().apply { data = Uri.parse("vmeste://open?tab=${card.tab}") }
+        }
         views.setOnClickFillInIntent(R.id.card_root, fillIn)
         return views
     }
 
     override fun getLoadingView(): RemoteViews? = null
     override fun getViewTypeCount(): Int = 1
-    override fun getItemId(position: Int): Long = position.toLong()
+    override fun getItemId(position: Int): Long = (position % items.size).toLong()
     override fun hasStableIds(): Boolean = true
     override fun onDestroy() {}
 }
