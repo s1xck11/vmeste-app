@@ -10,35 +10,12 @@ class MainActivity : FlutterActivity() {
     private val channelName = "com.vmeste.app/deeplink"
     private var channel: MethodChannel? = null
     private var pendingAction: String? = null
-    private var pendingTab: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        parseIntent(intent)
-    }
-
-    private fun parseIntent(intent: Intent?) {
-        if (intent == null) return
-        if (intent.action == "OPEN_EXPENSE") {
+        if (intent?.action == "OPEN_EXPENSE") {
             pendingAction = "openExpense"
-            return
         }
-        val data = intent.data ?: return
-        if (data.scheme == "vmeste" && data.host == "open") {
-            val tab = data.getQueryParameter("tab")?.toIntOrNull()
-            val action = data.getQueryParameter("action")
-            if (tab != null) pendingTab = tab
-            if (action != null) pendingAction = action
-        }
-    }
-
-    private fun buildPayload(): Map<String, Any?> {
-        val map = mutableMapOf<String, Any?>()
-        if (pendingTab != null) map["tab"] = pendingTab
-        if (pendingAction != null) map["action"] = pendingAction
-        pendingTab = null
-        pendingAction = null
-        return map
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -47,8 +24,8 @@ class MainActivity : FlutterActivity() {
         channel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "getInitialAction" -> {
-                    val payload = buildPayload()
-                    result.success(if (payload.isEmpty()) null else payload)
+                    result.success(pendingAction)
+                    pendingAction = null
                 }
                 "showExpenseNotification" -> {
                     ExpenseNotificationService.show(this)
@@ -65,10 +42,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        parseIntent(intent)
-        val payload = buildPayload()
-        if (payload.isNotEmpty()) {
-            channel?.invokeMethod("deepLink", payload)
+        if (intent.action == "OPEN_EXPENSE") {
+            channel?.invokeMethod("openExpense", null)
         }
     }
 }
