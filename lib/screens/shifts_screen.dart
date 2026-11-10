@@ -75,10 +75,31 @@ class ShiftsScreenState extends State<ShiftsScreen> {
     return _shifts.where((s) => s.date == key).toList();
   }
 
+  Color _typeColor(String typeId) {
+    final t = _types.firstWhere(
+      (x) => x.id == typeId,
+      orElse: () => ShiftType(id: typeId, label: '', hours: 0, color: '#9E9E9E'),
+    );
+    return _parseColor(t.color);
+  }
+
   double _calcSalary(Shift s) {
     if (s.importedFrom == 'courier-helper') {
       return (s.income is num) ? (s.income as num).toDouble() : 0.0;
     }
+    // НОВОЕ: если у смены есть компоненты дохода — суммируем их
+    if (s.components.isNotEmpty) {
+      double sum = 0;
+      for (final c in s.components) {
+        if (c.mode == 'piecework') {
+          sum += c.amount;
+        } else {
+          sum += c.hours * c.rate;
+        }
+      }
+      return sum;
+    }
+    // Старая логика для смен без компонентов (обратная совместимость)
     final partner = _partners.firstWhere(
       (p) => p.id == s.partner,
       orElse: () => Partner(id: s.partner, name: '', rate: 0, payType: 'hourly'),
@@ -477,7 +498,7 @@ class ShiftsScreenState extends State<ShiftsScreen> {
               crossAxisCount: 7,
               mainAxisSpacing: 6,
               crossAxisSpacing: 6,
-              childAspectRatio: 0.8, // Сделали ячейки выше, чтобы контент влезал
+              childAspectRatio: 0.8,
             ),
             itemBuilder: (ctx, i) {
               final dayIndex = i - (startWeekday - 1) + 1;
@@ -495,19 +516,26 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                 dayTotal += _calcSalary(s);
               }
 
+              // НОВОЕ: цвет ячейки = цвет типа смены
+              final typeColor = shifts.isNotEmpty ? _typeColor(shifts.first.type) : null;
+
               return GestureDetector(
                 onTap: () => _openAddForDay(day),
                 child: Container(
                   decoration: BoxDecoration(
                     color: isToday
                         ? cs.primary
-                        : (shifts.isNotEmpty
-                            ? cs.primaryContainer.withOpacity(0.25)
+                        : (typeColor != null
+                            ? typeColor.withOpacity(0.18)
                             : cs.surfaceVariant),
                     borderRadius: BorderRadius.circular(14),
                     border: isToday
-                        ? null
-                        : Border.all(color: cs.outline.withOpacity(0.3)),
+                        ? Border.all(color: cs.primary, width: 2)
+                        : Border.all(
+                            color: typeColor != null
+                                ? typeColor.withOpacity(0.5)
+                                : cs.outline.withOpacity(0.3),
+                          ),
                     boxShadow: isToday
                         ? [
                             BoxShadow(
@@ -530,26 +558,18 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                         ),
                       ),
                       if (shifts.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 2,
-                          runSpacing: 2,
+                        const SizedBox(height: 4),
+                        // НОВОЕ: цветные полоски по типу каждой смены
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: shifts.take(3).map((s) {
-                            final t = _types.firstWhere(
-                              (x) => x.id == s.type,
-                              orElse: () => ShiftType(
-                                  id: s.type,
-                                  label: '',
-                                  hours: 0,
-                                  color: '#9E9E9E'),
-                            );
                             return Container(
-                              width: 5,
-                              height: 5,
+                              width: 12,
+                              height: 4,
+                              margin: const EdgeInsets.symmetric(horizontal: 1),
                               decoration: BoxDecoration(
-                                color: _parseColor(t.color),
-                                shape: BoxShape.circle,
+                                color: _typeColor(s.type),
+                                borderRadius: BorderRadius.circular(2),
                               ),
                             );
                           }).toList(),
@@ -574,6 +594,37 @@ class ShiftsScreenState extends State<ShiftsScreen> {
                 ),
               );
             },
+          ),
+          // НОВОЕ: легенда цветов типов смен
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: _types.map((t) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _parseColor(t.color),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    t.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
           ),
         ],
       ),
