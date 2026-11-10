@@ -17,12 +17,12 @@ import '../models/purchase_history_entry.dart';
 
 class StorageService {
   late Box _box;
-  Box get box => _box;
-  late Box _outboxBox;  // НОВОЕ: очередь исходящих операций
-  late Box _tombstonesBox;  // НОВОЕ: надгробия удалённых элементов
+  late Box _outboxBox;
+  late Box _tombstonesBox;
 
-  // Vector clock: {partner1: 5, partner2: 3}
   Map<String, int> _vectorClock = {};
+
+  Box get box => _box;
 
   String? get coupleCode => _box.get('coupleCode') as String?;
   set coupleCode(String? v) => _box.put('coupleCode', v);
@@ -50,10 +50,10 @@ class StorageService {
 
   String get myAvatar => _box.get('myAvatar', defaultValue: '🐻') as String;
   set myAvatar(String v) => _box.put('myAvatar', v);
-  // ============================================================
-  // НАСТРОЙКИ ФОНА И УВЕДОМЛЕНИЙ (восстановлено)
-  // ============================================================
 
+  bool get isConfigured => coupleCode != null && myKey != null;
+
+  // ===== ФОН И УВЕДОМЛЕНИЯ =====
   String? get bgImagePath => _box.get('bgImagePath') as String?;
   set bgImagePath(String? v) => _box.put('bgImagePath', v);
 
@@ -66,9 +66,31 @@ class StorageService {
   int get notificationTiming => (_box.get('notificationTiming') as num?)?.toInt() ?? 15;
   set notificationTiming(int v) => _box.put('notificationTiming', v);
 
-  bool get isConfigured => coupleCode != null && myKey != null;
+  // ===== НОВОЕ: КОШЕЛЁК (локальная настройка просмотра) =====
+  String? get walletDisplayBankId => _box.get('walletDisplayBankId') as String?;
+  set walletDisplayBankId(String? v) => _box.put('walletDisplayBankId', v);
 
-  // Vector clock getters/setters
+  // ===== НОВОЕ: ПОГОДА / ВИДЖЕТ ЧАСОВ =====
+  String get weatherCity => _box.get('weatherCity', defaultValue: '') as String;
+  set weatherCity(String v) => _box.put('weatherCity', v);
+
+  bool get weatherAutoGeo => _box.get('weatherAutoGeo', defaultValue: false) as bool;
+  set weatherAutoGeo(bool v) => _box.put('weatherAutoGeo', v);
+
+  // Кэш погоды (пишет WeatherService, читает WidgetService)
+  String get cachedWeatherTemp => _box.get('wx_temp', defaultValue: '--°') as String;
+  String get cachedWeatherCond => _box.get('wx_cond', defaultValue: '') as String;
+  String get cachedWeatherCity => _box.get('wx_city', defaultValue: '') as String;
+  int get cachedWeatherTs => (_box.get('wx_ts', defaultValue: 0) as num).toInt();
+
+  void cacheWeather({required String temp, required String cond, required String city}) {
+    _box.put('wx_temp', temp);
+    _box.put('wx_cond', cond);
+    _box.put('wx_city', city);
+    _box.put('wx_ts', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  // ===== VECTOR CLOCK =====
   Map<String, int> get vectorClock => Map<String, int>.from(_vectorClock);
   set vectorClock(Map<String, int> v) {
     _vectorClock = Map<String, int>.from(v);
@@ -95,8 +117,8 @@ class StorageService {
   Future<void> init() async {
     await Hive.initFlutter();
     _box = await Hive.openBox('vmeste_data');
-    _outboxBox = await Hive.openBox('vmeste_outbox');  // НОВОЕ
-    _tombstonesBox = await Hive.openBox('vmeste_tombstones');  // НОВОЕ
+    _outboxBox = await Hive.openBox('vmeste_outbox');
+    _tombstonesBox = await Hive.openBox('vmeste_tombstones');
 
     final savedClock = _box.get('vectorClock');
     if (savedClock != null) {
@@ -104,17 +126,14 @@ class StorageService {
     }
   }
 
-  // ============================================================
-  // OUTBOX (очередь исходящих операций)
-  // ============================================================
-
+  // ===== OUTBOX =====
   void addToOutbox(String type, String entityId, String operation, Map<String, dynamic>? data) {
-    final id = '${DateTime.now().millisecondsSinceEpoch}_${entityId}';
+    final id = '${DateTime.now().millisecondsSinceEpoch}_$entityId';
     _outboxBox.put(id, {
       'id': id,
       'type': type,
       'entityId': entityId,
-      'operation': operation,  // create, update, delete
+      'operation': operation,
       'data': data,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
       'status': 'pending',
@@ -158,10 +177,7 @@ class StorageService {
     }
   }
 
-  // ============================================================
-  // TOMBSTONES (надгробия удалённых элементов)
-  // ============================================================
-
+  // ===== TOMBSTONES =====
   void addTombstone(String entityType, String entityId, int deletedAt, String deletedBy) {
     _tombstonesBox.put('${entityType}_$entityId', {
       'entityType': entityType,
@@ -196,7 +212,6 @@ class StorageService {
     _tombstonesBox.delete('${entityType}_$entityId');
   }
 
-  // Очистка старых tombstones (старше 90 дней)
   void cleanupOldTombstones() {
     final cutoff = DateTime.now().millisecondsSinceEpoch - (90 * 24 * 60 * 60 * 1000);
     final keysToDelete = <String>[];
@@ -214,149 +229,104 @@ class StorageService {
     }
   }
 
-  // ============================================================
-  // ДАННЫЕ
-  // ============================================================
-
+  // ===== ДАННЫЕ =====
   List<Purchase> get purchases {
     final raw = _box.get('purchases');
     if (raw == null) return [];
     return (raw as List).map((e) => Purchase.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set purchases(List<Purchase> v) {
-    _box.put('purchases', v.map((e) => e.toJson()).toList());
-  }
+  set purchases(List<Purchase> v) => _box.put('purchases', v.map((e) => e.toJson()).toList());
 
   List<PurchaseList> get purchaseLists {
     final raw = _box.get('purchaseLists');
     if (raw == null) return [];
     return (raw as List).map((e) => PurchaseList.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set purchaseLists(List<PurchaseList> v) {
-    _box.put('purchaseLists', v.map((e) => e.toJson()).toList());
-  }
+  set purchaseLists(List<PurchaseList> v) => _box.put('purchaseLists', v.map((e) => e.toJson()).toList());
 
   List<PurchaseCategory> get purchaseCategories {
     final raw = _box.get('purchaseCategories');
     if (raw == null) return [];
     return (raw as List).map((e) => PurchaseCategory.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set purchaseCategories(List<PurchaseCategory> v) {
-    _box.put('purchaseCategories', v.map((e) => e.toJson()).toList());
-  }
+  set purchaseCategories(List<PurchaseCategory> v) => _box.put('purchaseCategories', v.map((e) => e.toJson()).toList());
 
   List<Task> get tasks {
     final raw = _box.get('tasks');
     if (raw == null) return [];
     return (raw as List).map((e) => Task.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set tasks(List<Task> v) {
-    _box.put('tasks', v.map((e) => e.toJson()).toList());
-  }
+  set tasks(List<Task> v) => _box.put('tasks', v.map((e) => e.toJson()).toList());
 
   List<TaskCategory> get taskCategories {
     final raw = _box.get('taskCategories');
     if (raw == null) return [];
     return (raw as List).map((e) => TaskCategory.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set taskCategories(List<TaskCategory> v) {
-    _box.put('taskCategories', v.map((e) => e.toJson()).toList());
-  }
+  set taskCategories(List<TaskCategory> v) => _box.put('taskCategories', v.map((e) => e.toJson()).toList());
 
   List<Shift> get shifts {
     final raw = _box.get('shifts');
     if (raw == null) return [];
     return (raw as List).map((e) => Shift.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set shifts(List<Shift> v) {
-    _box.put('shifts', v.map((e) => e.toJson()).toList());
-  }
+  set shifts(List<Shift> v) => _box.put('shifts', v.map((e) => e.toJson()).toList());
 
   List<ShiftType> get shiftTypes {
     final raw = _box.get('shiftTypes');
     if (raw == null) return [];
     return (raw as List).map((e) => ShiftType.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set shiftTypes(List<ShiftType> v) {
-    _box.put('shiftTypes', v.map((e) => e.toJson()).toList());
-  }
+  set shiftTypes(List<ShiftType> v) => _box.put('shiftTypes', v.map((e) => e.toJson()).toList());
 
   List<Partner> get partners {
     final raw = _box.get('partners');
     if (raw == null) return [];
     return (raw as List).map((e) => Partner.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set partners(List<Partner> v) {
-    _box.put('partners', v.map((e) => e.toJson()).toList());
-  }
+  set partners(List<Partner> v) => _box.put('partners', v.map((e) => e.toJson()).toList());
 
   List<Transaction> get transactions {
     final raw = _box.get('transactions');
     if (raw == null) return [];
     return (raw as List).map((e) => Transaction.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set transactions(List<Transaction> v) {
-    _box.put('transactions', v.map((e) => e.toJson()).toList());
-  }
+  set transactions(List<Transaction> v) => _box.put('transactions', v.map((e) => e.toJson()).toList());
 
   List<BudgetCategory> get budgetCategories {
     final raw = _box.get('budgetCategories');
     if (raw == null) return [];
     return (raw as List).map((e) => BudgetCategory.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set budgetCategories(List<BudgetCategory> v) {
-    _box.put('budgetCategories', v.map((e) => e.toJson()).toList());
-  }
+  set budgetCategories(List<BudgetCategory> v) => _box.put('budgetCategories', v.map((e) => e.toJson()).toList());
 
   List<Bank> get banks {
     final raw = _box.get('banks');
     if (raw == null) return [];
     return (raw as List).map((e) => Bank.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set banks(List<Bank> v) {
-    _box.put('banks', v.map((e) => e.toJson()).toList());
-  }
+  set banks(List<Bank> v) => _box.put('banks', v.map((e) => e.toJson()).toList());
 
   List<RecurringPayment> get recurringPayments {
     final raw = _box.get('recurringPayments');
     if (raw == null) return [];
     return (raw as List).map((e) => RecurringPayment.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set recurringPayments(List<RecurringPayment> v) {
-    _box.put('recurringPayments', v.map((e) => e.toJson()).toList());
-  }
+  set recurringPayments(List<RecurringPayment> v) => _box.put('recurringPayments', v.map((e) => e.toJson()).toList());
 
   List<PurchaseTemplate> get purchaseTemplates {
     final raw = _box.get('purchaseTemplates');
     if (raw == null) return [];
     return (raw as List).map((e) => PurchaseTemplate.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set purchaseTemplates(List<PurchaseTemplate> v) {
-    _box.put('purchaseTemplates', v.map((e) => e.toJson()).toList());
-  }
+  set purchaseTemplates(List<PurchaseTemplate> v) => _box.put('purchaseTemplates', v.map((e) => e.toJson()).toList());
 
   List<PurchaseHistoryEntry> get purchaseHistory {
     final raw = _box.get('purchaseHistory');
     if (raw == null) return [];
     return (raw as List).map((e) => PurchaseHistoryEntry.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
-
-  set purchaseHistory(List<PurchaseHistoryEntry> v) {
-    _box.put('purchaseHistory', v.map((e) => e.toJson()).toList());
-  }
+  set purchaseHistory(List<PurchaseHistoryEntry> v) => _box.put('purchaseHistory', v.map((e) => e.toJson()).toList());
 
   Map<String, dynamic> snapshot() {
     return {
@@ -374,8 +344,8 @@ class StorageService {
       'recurringPayments': {for (final r in recurringPayments) r.id.toString(): r.toJson()},
       'purchaseTemplates': {for (final t in purchaseTemplates) t.id.toString(): t.toJson()},
       'purchaseHistory': purchaseHistory.map((e) => e.toJson()).toList(),
-      'tombstones': getAllTombstones(),  // НОВОЕ
-      'vectorClock': vectorClock,  // НОВОЕ
+      'tombstones': getAllTombstones(),
+      'vectorClock': vectorClock,
     };
   }
 
