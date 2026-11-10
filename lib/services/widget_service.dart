@@ -51,9 +51,13 @@ class WidgetService {
 
   Future<void> updateShifts() async {
     try {
-      final lines = _buildShiftLines();
-      final sub = lines.isEmpty ? 'нет смен' : '';
-      await HomeWidget.saveWidgetData<String>(_keyShiftsTitle, 'СМЕНЫ');
+      final now = DateTime.now();
+      final todayKey = _dateKey(now);
+      final all = List<Shift>.from(storage.shifts)..sort((a, b) => a.date.compareTo(b.date));
+      final future = all.where((s) => s.date.compareTo(todayKey) >= 0).toList();
+      final lines = _buildShiftLines(future);
+      final sub = future.isEmpty ? 'нет смен впереди' : '${future.length} впереди';
+      await HomeWidget.saveWidgetData<String>(_keyShiftsTitle, 'Смены');
       await HomeWidget.saveWidgetData<String>(_keyShiftsLines, lines.join('\n'));
       await HomeWidget.saveWidgetData<String>(_keyShiftsSub, sub);
       await HomeWidget.updateWidget(androidName: androidShiftsName);
@@ -62,18 +66,10 @@ class WidgetService {
     }
   }
 
-  List<String> _buildShiftLines() {
+  List<String> _buildShiftLines(List<Shift> future) {
     final now = DateTime.now();
-    final todayKey = _dateKey(now);
-    final all = List<Shift>.from(storage.shifts)..sort((a, b) => a.date.compareTo(b.date));
     final types = storage.shiftTypes;
     final partners = storage.partners;
-    final future = <Shift>[];
-    for (final s in all) {
-      if (s.date.compareTo(todayKey) < 0) continue;
-      future.add(s);
-    }
-
     final result = <String>[];
     for (final s in future.take(4)) {
       final t = types.firstWhere(
@@ -91,9 +87,22 @@ class WidgetService {
 
   Future<void> updatePurchases() async {
     try {
-      final lines = _buildPurchaseLines();
-      final sub = lines.isEmpty ? 'всё куплено' : '';
-      await HomeWidget.saveWidgetData<String>(_keyPurchasesTitle, 'ПОКУПКИ');
+      final all = storage.purchases.where((p) => !p.done && !p.missing).toList()
+        ..sort((a, b) {
+          int prio(Purchase p) {
+            switch (p.priority) {
+              case 'high': return 0;
+              case 'low': return 2;
+              default: return 1;
+            }
+          }
+          final pa = prio(a), pb = prio(b);
+          if (pa != pb) return pa.compareTo(pb);
+          return a.order.compareTo(b.order);
+        });
+      final lines = _buildPurchaseLines(all);
+      final sub = all.isEmpty ? 'всё куплено' : '${all.length} осталось';
+      await HomeWidget.saveWidgetData<String>(_keyPurchasesTitle, 'Покупки');
       await HomeWidget.saveWidgetData<String>(_keyPurchasesLines, lines.join('\n'));
       await HomeWidget.saveWidgetData<String>(_keyPurchasesSub, sub);
       await HomeWidget.updateWidget(androidName: androidPurchasesName);
@@ -102,20 +111,7 @@ class WidgetService {
     }
   }
 
-  List<String> _buildPurchaseLines() {
-    final all = storage.purchases.where((p) => !p.done && !p.missing).toList()
-      ..sort((a, b) {
-        int prio(Purchase p) {
-          switch (p.priority) {
-            case 'high': return 0;
-            case 'low': return 2;
-            default: return 1;
-          }
-        }
-        final pa = prio(a), pb = prio(b);
-        if (pa != pb) return pa.compareTo(pb);
-        return a.order.compareTo(b.order);
-      });
+  List<String> _buildPurchaseLines(List<Purchase> all) {
     final result = <String>[];
     for (final p in all.take(4)) {
       final qty = p.qty > 1 ? '${_trimNum(p.qty)} ${p.unit} · ' : '';
@@ -127,9 +123,20 @@ class WidgetService {
 
   Future<void> updateTasks() async {
     try {
-      final lines = _buildTaskLines();
-      final sub = lines.isEmpty ? 'всё сделано' : '';
-      await HomeWidget.saveWidgetData<String>(_keyTasksTitle, 'ЗАДАЧИ');
+      final all = storage.tasks.where((t) => !t.done && !t.archived).toList()
+        ..sort((a, b) {
+          int rank(String p) {
+            if (p == 'high') return 0;
+            if (p == 'med') return 1;
+            return 2;
+          }
+          final ra = rank(a.priority), rb = rank(b.priority);
+          if (ra != rb) return ra.compareTo(rb);
+          return a.order.compareTo(b.order);
+        });
+      final lines = _buildTaskLines(all);
+      final sub = all.isEmpty ? 'всё сделано' : '${all.length} активно';
+      await HomeWidget.saveWidgetData<String>(_keyTasksTitle, 'Задачи');
       await HomeWidget.saveWidgetData<String>(_keyTasksLines, lines.join('\n'));
       await HomeWidget.saveWidgetData<String>(_keyTasksSub, sub);
       await HomeWidget.updateWidget(androidName: androidTasksName);
@@ -138,19 +145,7 @@ class WidgetService {
     }
   }
 
-  List<String> _buildTaskLines() {
-    final all = storage.tasks.where((t) => !t.done && !t.archived).toList()
-      ..sort((a, b) {
-        int rank(String p) {
-          if (p == 'high') return 0;
-          if (p == 'med') return 1;
-          return 2;
-        }
-        final ra = rank(a.priority), rb = rank(b.priority);
-        if (ra != rb) return ra.compareTo(rb);
-        return a.order.compareTo(b.order);
-      });
-
+  List<String> _buildTaskLines(List<Task> all) {
     final result = <String>[];
     for (final t in all.take(4)) {
       final mark = t.priority == 'high' ? '🔴 ' : '';
@@ -161,12 +156,10 @@ class WidgetService {
 
   Future<void> updateClock() async {
     try {
-      // 1. Погода из кэша WeatherService
       await HomeWidget.saveWidgetData<String>(_keyClockWeather, storage.cachedWeatherTemp);
       await HomeWidget.saveWidgetData<String>(_keyClockCondition, storage.cachedWeatherCond);
       await HomeWidget.saveWidgetData<String>(_keyClockCity, storage.cachedWeatherCity);
 
-      // 2. Смены на сегодня
       final now = DateTime.now();
       final todayKey = _dateKey(now);
       final todayShifts = storage.shifts.where((s) => s.date == todayKey).toList();
@@ -179,8 +172,6 @@ class WidgetService {
       }
 
       await HomeWidget.saveWidgetData<String>(_keyClockShifts, shiftLines.isEmpty ? 'Смен нет' : shiftLines.join('\n'));
-
-      // Обновляем нативный виджет
       await HomeWidget.updateWidget(androidName: androidClockName);
     } catch (e, st) {
       _log.error('Widget', 'updateClock FAILED', e, st);
