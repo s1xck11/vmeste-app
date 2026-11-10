@@ -66,6 +66,7 @@ jobs:
           cp .github/widget_bg_glass.xml.template android/app/src/main/res/drawable/widget_bg_glass.xml
           cp .github/widget_card_bg.xml.template android/app/src/main/res/drawable/widget_card_bg.xml
           cp .github/widget_icon_bg.xml.template android/app/src/main/res/drawable/widget_icon_bg.xml
+          cp .github/dot.xml.template android/app/src/main/res/drawable/dot.xml
 
           # XML metadata
           cp .github/widget_shifts_info.xml.template android/app/src/main/res/xml/widget_shifts_info.xml
@@ -87,7 +88,7 @@ jobs:
           p = pathlib.Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text()
 
-          # 1. Добавляем сервис плитки, если его нет
+          # 1. Сервис плитки
           if 'ExpenseTileService' not in s:
               block = '''
                   <service
@@ -103,7 +104,7 @@ jobs:
               '''
               s = s.replace('</application>', block + '    </application>')
 
-          # 2. Добавляем 4 виджета + сервис стека
+          # 2. 4 виджета (без сервиса стека — он отдельным блоком ниже)
           if 'VmesteClockWidget' not in s:
               block = '''
                   <receiver android:name=".VmesteShiftsWidget" android:exported="true" android:label="Вместе · Смены">
@@ -122,6 +123,12 @@ jobs:
                       <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
                       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_clock_info" />
                   </receiver>
+              '''
+              s = s.replace('</application>', block + '    </application>')
+
+          # 3. Сервис стека — НЕЗАВИСИМОЕ условие (фикс: раньше был внутри блока виджетов)
+          if 'VmesteStackService' not in s:
+              block = '''
                   <service
                       android:name=".VmesteStackService"
                       android:permission="android.permission.BIND_REMOTEVIEWS"
@@ -139,7 +146,6 @@ jobs:
       - name: Add androidx.core dependency
         run: |
           GRADLE="android/app/build.gradle"
-          # Добавляем зависимость в существующий блок dependencies
           sed -i "/^dependencies {/a\    implementation 'androidx.core:core-ktx:1.12.0'" "$GRADLE"
 
       - name: Restore keystore
