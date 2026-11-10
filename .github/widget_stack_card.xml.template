@@ -25,37 +25,41 @@
         android:maxLines="1"
         android:visibility="gone" />
 
-    <TextClock
-        android:id="@+id/card_time"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:format24Hour="HH:mm"
-        android:format12Hour="HH:mm"
-        android:textSize="30sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:layout_marginTop="4dp"
-        android:visibility="gone" />
-
-    <TextClock
-        android:id="@+id/card_date"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:format24Hour="EEEE, d MMMM"
-        android:format12Hour="EEEE, d MMMM"
-        android:textSize="11sp"
-        android:textColor="#9AA5B1"
-        android:visibility="gone" />
-
     <TextView android:id="@+id/card_line1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="6dp" android:maxLines="1" android:visibility="gone" />
     <TextView android:id="@+id/card_line2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="4dp" android:maxLines="1" android:visibility="gone" />
     <TextView android:id="@+id/card_line3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="4dp" android:maxLines="1" android:visibility="gone" />
+
+    <!-- Блок карточки «Добавить расход» -->
+    <LinearLayout
+        android:id="@+id/card_add_expense"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💸"
+            android:textSize="30sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Быстрый расход"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#89CFF0"
+            android:layout_marginTop="6dp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/card_hint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Свайп — листать · Тап — открыть"
+        android:text="Свайп — по кругу · Тап — открыть"
         android:textSize="9sp"
         android:textColor="#66707A"
         android:layout_marginTop="6dp" />
