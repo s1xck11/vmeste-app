@@ -27,7 +27,7 @@ class WidgetService {
   static const String _keyTasksLines = 'tasks_lines';
   static const String _keyTasksTitle = 'tasks_title';
   static const String _keyTasksSub = 'tasks_sub';
-  
+
   static const String _keyClockWeather = 'clock_weather';
   static const String _keyClockShifts = 'clock_shifts';
 
@@ -102,11 +102,23 @@ class WidgetService {
 
   List<String> _buildPurchaseLines() {
     final all = storage.purchases.where((p) => !p.done && !p.missing).toList()
-      ..sort((a, b) => a.order.compareTo(b.order));
+      ..sort((a, b) {
+        int prio(Purchase p) {
+          switch (p.priority) {
+            case 'high': return 0;
+            case 'low': return 2;
+            default: return 1;
+          }
+        }
+        final pa = prio(a), pb = prio(b);
+        if (pa != pb) return pa.compareTo(pb);
+        return a.order.compareTo(b.order);
+      });
     final result = <String>[];
     for (final p in all.take(4)) {
       final qty = p.qty > 1 ? '${_trimNum(p.qty)} ${p.unit} · ' : '';
-      result.add('$qty${p.text}');
+      final mark = p.priority == 'high' ? '🔴 ' : '';
+      result.add('$mark$qty${p.text}');
     }
     return result;
   }
@@ -149,9 +161,6 @@ class WidgetService {
     try {
       // 1. Погода (если есть)
       String weather = '--°';
-      // В идеале тут нужно дернуть WeatherService, но чтобы не плодить зависимости, 
-      // предположим, что мы просто передаем заглушку или берем из кэша, если он есть.
-      // Для простоты оставим так, погоду обновим отдельно, если нужно.
       await HomeWidget.saveWidgetData<String>(_keyClockWeather, weather);
 
       // 2. Смены на сегодня
@@ -159,15 +168,15 @@ class WidgetService {
       final todayKey = _dateKey(now);
       final todayShifts = storage.shifts.where((s) => s.date == todayKey).toList();
       final partners = storage.partners;
-      
+
       final shiftLines = <String>[];
       for (final s in todayShifts) {
         final p = partners.firstWhere((x) => x.id == s.partner, orElse: () => Partner(id: s.partner, name: ''));
         shiftLines.add('${p.name}: ${s.startTime}–${s.endTime}');
       }
-      
+
       await HomeWidget.saveWidgetData<String>(_keyClockShifts, shiftLines.isEmpty ? 'Смен нет' : shiftLines.join('\n'));
-      
+
       // Обновляем нативный виджет
       await HomeWidget.updateWidget(androidName: androidClockName);
     } catch (e, st) {
