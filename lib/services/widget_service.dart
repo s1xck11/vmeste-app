@@ -29,6 +29,8 @@ class WidgetService {
   static const String _keyTasksSub = 'tasks_sub';
 
   static const String _keyClockWeather = 'clock_weather';
+  static const String _keyClockCondition = 'clock_condition';
+  static const String _keyClockCity = 'clock_city';
   static const String _keyClockShifts = 'clock_shifts';
 
   final StorageService storage;
@@ -159,9 +161,10 @@ class WidgetService {
 
   Future<void> updateClock() async {
     try {
-      // 1. Погода (если есть)
-      String weather = '--°';
-      await HomeWidget.saveWidgetData<String>(_keyClockWeather, weather);
+      // 1. Погода из кэша WeatherService
+      await HomeWidget.saveWidgetData<String>(_keyClockWeather, storage.cachedWeatherTemp);
+      await HomeWidget.saveWidgetData<String>(_keyClockCondition, storage.cachedWeatherCond);
+      await HomeWidget.saveWidgetData<String>(_keyClockCity, storage.cachedWeatherCity);
 
       // 2. Смены на сегодня
       final now = DateTime.now();
