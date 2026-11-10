@@ -1,8 +1,9 @@
-/// Один товар в списке покупок.
+/// Один товар в списке покупок. Может быть общим или личным (зависит от listId).
 class Purchase {
   final int id;
   String text;
   String comment;
+  String priority; // НОВОЕ: 'low' | 'med' | 'high'
   bool done;
   bool missing;
   String category;
@@ -15,7 +16,7 @@ class Purchase {
   int? boughtAt;
   int updatedAt;
   String? updatedBy;
-  int? deletedAt;  // Tombstone: когда удалён
+  int? deletedAt;
 
   String? createdBy;
   String? createdByName;
@@ -30,6 +31,7 @@ class Purchase {
     required this.id,
     required this.text,
     this.comment = '',
+    this.priority = 'med', // НОВОЕ
     this.done = false,
     this.missing = false,
     this.category = 'other',
@@ -57,6 +59,7 @@ class Purchase {
         'id': id,
         'text': text,
         'comment': comment,
+        'priority': priority, // НОВОЕ
         'done': done,
         'missing': missing,
         'category': category,
@@ -84,6 +87,7 @@ class Purchase {
         id: (json['id'] as num).toInt(),
         text: json['text'] as String? ?? '',
         comment: json['comment'] as String? ?? '',
+        priority: json['priority'] as String? ?? 'med', // НОВОЕ
         done: json['done'] as bool? ?? false,
         missing: json['missing'] as bool? ?? false,
         category: json['category'] as String? ?? 'other',
@@ -110,6 +114,7 @@ class Purchase {
   Purchase copyWith({
     String? text,
     String? comment,
+    String? priority, // НОВОЕ
     bool? done,
     bool? missing,
     String? category,
@@ -139,6 +144,7 @@ class Purchase {
       id: id,
       text: text ?? this.text,
       comment: comment ?? this.comment,
+      priority: priority ?? this.priority, // НОВОЕ
       done: done ?? this.done,
       missing: missing ?? this.missing,
       category: category ?? this.category,
