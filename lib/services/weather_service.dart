@@ -68,11 +68,10 @@ class WeatherService {
       if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
         return null;
       }
+      // ИСПРАВЛЕНО: API geolocator 12.0.0 — desiredAccuracy + timeLimit напрямую
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.low,
-          timeLimit: Duration(seconds: 15),
-        ),
+        desiredAccuracy: LocationAccuracy.low,
+        timeLimit: const Duration(seconds: 15),
       );
     } catch (e) {
       return null;
