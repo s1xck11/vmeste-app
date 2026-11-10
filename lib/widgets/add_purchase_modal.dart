@@ -32,6 +32,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
   final _priceCtrl = TextEditingController();
   String _unit = 'шт';
   String _categoryId = 'other';
+  String _priority = 'med'; // НОВОЕ
   late String _listId;
   bool _showDetails = false;
 
@@ -43,6 +44,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
       final p = widget.initialPurchase!;
       _titleCtrl.text = p.text;
       _commentCtrl.text = p.comment;
+      _priority = p.priority; // НОВОЕ
       _qtyCtrl.text = p.qty.toString();
       _priceCtrl.text = p.price > 0 ? p.price.toString() : '';
       _unit = p.unit;
@@ -79,6 +81,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
       id: widget.initialPurchase?.id ?? now,
       text: title,
       comment: _commentCtrl.text.trim(),
+      priority: _priority, // НОВОЕ
       done: widget.initialPurchase?.done ?? false,
       missing: widget.initialPurchase?.missing ?? false,
       category: _categoryId,
@@ -125,7 +128,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
 
-              // 1. ЗАГОЛОВОК (виден в общей сетке)
+              // Заголовок
               TextField(
                 controller: _titleCtrl,
                 autofocus: widget.initialPurchase == null,
@@ -142,7 +145,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 16),
 
-              // 2. СОДЕРЖИМОЕ (видно внутри модалки)
+              // Содержимое
               TextField(
                 controller: _commentCtrl,
                 textCapitalization: TextCapitalization.sentences,
@@ -156,6 +159,20 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
                   fillColor: cs.surfaceVariant,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
+              ),
+              const SizedBox(height: 20),
+
+              // НОВОЕ: Приоритет
+              _sectionLabel(cs, 'Приоритет'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _priorityChip(cs, 'low', '🟢 Низкий'),
+                  const SizedBox(width: 8),
+                  _priorityChip(cs, 'med', '🟡 Средний'),
+                  const SizedBox(width: 8),
+                  _priorityChip(cs, 'high', '🔴 Высокий'),
+                ],
               ),
               const SizedBox(height: 20),
 
@@ -200,7 +217,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
 
-              // Детали (цена, кол-во)
+              // Детали
               InkWell(
                 onTap: () => setState(() => _showDetails = !_showDetails),
                 borderRadius: BorderRadius.circular(12),
@@ -328,6 +345,34 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               SizedBox(height: MediaQuery.of(context).padding.bottom),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _priorityChip(ColorScheme cs, String value, String label) {
+    final sel = _priority == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _priority = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: sel ? cs.primaryContainer : cs.surfaceVariant,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: sel ? cs.primary : Colors.transparent, width: 1.5),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                color: sel ? cs.onPrimaryContainer : cs.onSurface,
+              ),
+            ),
           ),
         ),
       ),
