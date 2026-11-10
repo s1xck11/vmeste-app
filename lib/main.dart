@@ -16,11 +16,13 @@ import 'services/background_service.dart';
 import 'services/update_service.dart';
 import 'services/widget_service.dart';
 import 'services/tile_service.dart';
+import 'services/weather_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_config.dart';
 import 'widgets/app_background.dart';
 import 'widgets/add_fab.dart';
 import 'widgets/curved_nav_bar.dart';
+import 'widgets/update_dialog.dart';
 import 'screens/setup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/purchases_screen.dart';
@@ -84,21 +86,27 @@ void main() async {
   final tileService = TileService();
 
   int? initialTab;
+  String? initialAction;
+
+  // 1. Виджет (HomeWidget перехватывает vmeste://open?...)
   try {
     final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
     initialTab = _tabFromUri(uri);
-    if (initialTab != null) {
-      logger.info('Widget', 'запущено из виджета, tab=$initialTab');
+    final act = _actionFromUri(uri);
+    if (act != null) initialAction = act;
+    if (initialTab != null || initialAction != null) {
+      logger.info('Widget', 'запущено из виджета, tab=$initialTab action=$initialAction');
     }
   } catch (e, st) {
     logger.error('Widget', 'initiallyLaunchedFromHomeWidget FAILED', e, st);
   }
 
-  String? initialAction;
+  // 2. Плитка быстрых настроек (отдельный канал)
   try {
-    initialAction = await tileService.getInitialAction();
-    if (initialAction != null) {
-      logger.info('Tile', 'запущено из плитки: $initialAction');
+    final tileAction = await tileService.getInitialAction();
+    if (tileAction != null && initialAction == null) {
+      initialAction = tileAction;
+      logger.info('Tile', 'запущено из плитки: $tileAction');
     }
   } catch (e, st) {
     logger.error('Tile', 'initial action FAILED', e, st);
@@ -313,6 +321,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final List<Widget> _screens;
   final _updateService = UpdateService();
+  final _weatherService = WeatherService(StorageService());
   StreamSubscription<dynamic>? _widgetClickSub;
 
   final _purchasesKey = GlobalKey<PurchasesScreenState>();
@@ -340,10 +349,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     Future.delayed(const Duration(milliseconds: 500), () {
       widget.sync.pullNow();
       widget.widgetService.updateAll();
+      _refreshWeather();
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.initialAction == 'openExpense') {
+      // Плитка ИЛИ виджет «Добавить расход»
+      if (widget.initialAction == 'openExpense' || widget.initialAction == 'addExpense') {
         _openQuickExpense();
       }
       Future.delayed(const Duration(milliseconds: 800), () {
@@ -360,37 +371,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     try {
       _widgetClickSub = HomeWidget.widgetClicked.listen((uri) {
+        if (!mounted) return;
         final tab = _tabFromUri(uri);
-        if (tab != null && mounted) {
+        final action = _actionFromUri(uri);
+        if (action == 'addExpense') {
+          _openQuickExpense();
+        } else if (tab != null) {
           setState(() => _currentIndex = tab);
         }
       });
     } catch (_) {}
   }
 
+  Future<void> _refreshWeather() async {
+    try {
+      // Используем storage текущего экземпляра
+      final wx = WeatherService(widget.storage);
+      await wx.refresh();
+      await widget.widgetService.updateAll();
+    } catch (_) {}
+  }
+
   Future<void> _autoCheckUpdate() async {
     final info = await _updateService.checkForUpdate();
     if (info != null && mounted) {
-      showDialog(
-        context: context,
-        useRootNavigator: true,
-        builder: (ctx) => AlertDialog(
-          title: Text('Доступно обновление ${info.tag}'),
-          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия приложения'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _updateService.downloadApk(info).then((f) {
-                  if (f != null) _updateService.installApk(f);
-                });
-              },
-              child: const Text('Обновить'),
-            ),
-          ],
-        ),
-      );
+      UpdateDialog.show(context, info, _updateService);
     }
   }
 
@@ -417,6 +422,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       widget.sync.pullNow();
+      _refreshWeather();
       _checkUpdateOnResume();
     }
   }
@@ -424,26 +430,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void> _checkUpdateOnResume() async {
     final info = await _updateService.checkForUpdate();
     if (info != null && mounted) {
-      showDialog(
-        context: context,
-        useRootNavigator: true,
-        builder: (ctx) => AlertDialog(
-          title: Text('Доступно обновление ${info.tag}'),
-          content: Text(info.body.isNotEmpty ? info.body : 'Вышла новая версия приложения'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Позже')),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _updateService.downloadApk(info).then((f) {
-                  if (f != null) _updateService.installApk(f);
-                });
-              },
-              child: const Text('Обновить'),
-            ),
-          ],
-        ),
-      );
+      UpdateDialog.show(context, info, _updateService);
     }
   }
 
@@ -574,4 +561,11 @@ int? _tabFromUri(Uri? uri) {
   final v = int.tryParse(t);
   if (v == null || v < 0 || v > 3) return null;
   return v;
+}
+
+String? _actionFromUri(Uri? uri) {
+  if (uri == null) return null;
+  final a = uri.queryParameters['action'];
+  if (a == null) return null;
+  return a;
 }
