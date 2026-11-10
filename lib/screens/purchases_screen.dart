@@ -150,6 +150,13 @@ class PurchasesScreenState extends State<PurchasesScreen> {
           content: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (p.priority == 'high') ...[
+                Text(
+                  '🔴 Высокий приоритет',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.error),
+                ),
+                const SizedBox(height: 8),
+              ],
               if (p.comment.isNotEmpty) ...[
                 Text(
                   p.comment,
@@ -250,8 +257,17 @@ class PurchasesScreenState extends State<PurchasesScreen> {
     final list = _purchases.where((p) => p.listId == _selectedListId).toList();
     list.sort((a, b) {
       int rank(Purchase p) => p.done ? 2 : (p.missing ? 1 : 0);
+      int prio(Purchase p) {
+        switch (p.priority) {
+          case 'high': return 0;
+          case 'low': return 2;
+          default: return 1;
+        }
+      }
       final ra = rank(a), rb = rank(b);
       if (ra != rb) return ra.compareTo(rb);
+      final pa = prio(a), pb = prio(b);
+      if (pa != pb) return pa.compareTo(pb);
       return (a.order).compareTo(b.order);
     });
     return list;
@@ -344,6 +360,7 @@ class PurchasesScreenState extends State<PurchasesScreen> {
                               if (p.price > 0) '${(p.price * p.qty).toStringAsFixed(0)} ₽',
                             ].join(' · '),
                             isDone: p.done,
+                            isHighPriority: p.priority == 'high',
                             onTap: () => _openNoteModal(p),
                           );
                         },
