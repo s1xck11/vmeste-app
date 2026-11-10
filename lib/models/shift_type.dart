@@ -3,13 +3,15 @@ class ShiftType {
   final String id;
   String label;
   double hours;
-  String color;    // hex '#4CAF50'
+  double rate;    // НОВОЕ: ставка за час для этого типа, ₽/час
+  String color;   // hex '#4CAF50'
   int updatedAt;
 
   ShiftType({
     required this.id,
     required this.label,
     this.hours = 12,
+    this.rate = 0, // НОВОЕ
     this.color = '#4CAF50',
     int? updatedAt,
   }) : updatedAt = updatedAt ?? DateTime.now().millisecondsSinceEpoch;
@@ -18,6 +20,7 @@ class ShiftType {
         'id': id,
         'label': label,
         'hours': hours,
+        'rate': rate, // НОВОЕ
         'color': color,
         'updatedAt': updatedAt,
       };
@@ -26,6 +29,7 @@ class ShiftType {
         id: json['id'] as String,
         label: json['label'] as String? ?? 'Смена',
         hours: (json['hours'] as num?)?.toDouble() ?? 12,
+        rate: (json['rate'] as num?)?.toDouble() ?? 0, // НОВОЕ
         color: json['color'] as String? ?? '#4CAF50',
         updatedAt: (json['updatedAt'] as num?)?.toInt(),
       );
