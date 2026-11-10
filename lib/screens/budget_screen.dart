@@ -39,10 +39,12 @@ class BudgetScreenState extends State<BudgetScreen> {
   List<Transaction> _transactions = [];
   List<BudgetCategory> _categories = [];
   List<Bank> _banks = [];
+  String? _displayBankId; // НОВОЕ: null = общий баланс
 
   @override
   void initState() {
     super.initState();
+    _displayBankId = widget.storage.walletDisplayBankId;
     _load();
     widget.sync.addListener(_load);
   }
@@ -59,6 +61,11 @@ class BudgetScreenState extends State<BudgetScreen> {
       _transactions = widget.storage.transactions;
       _categories = widget.storage.budgetCategories;
       _banks = widget.storage.banks;
+      // Если выбранный банк удалили — сбрасываем на общий
+      if (_displayBankId != null && !_banks.any((b) => b.id == _displayBankId)) {
+        _displayBankId = null;
+        widget.storage.walletDisplayBankId = null;
+      }
     });
   }
 
@@ -89,6 +96,16 @@ class BudgetScreenState extends State<BudgetScreen> {
       total += _bankBalance(b.id);
     }
     return total;
+  }
+
+  // НОВОЕ: какая цифра показывается крупной
+  double get _displayBalance =>
+      _displayBankId == null ? _totalBanksBalance : _bankBalance(_displayBankId!);
+
+  String get _displayLabel {
+    if (_displayBankId == null) return 'Общий баланс';
+    final b = _banks.firstWhere((x) => x.id == _displayBankId, orElse: () => Bank(id: '', name: 'Банк'));
+    return b.name;
   }
 
   double _bankBalance(String bankId) {
@@ -251,6 +268,18 @@ class BudgetScreenState extends State<BudgetScreen> {
     )).then((_) => _load());
   }
 
+  void _openCategoriesEditor() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => BudgetCategoriesEditorScreen(storage: widget.storage, sync: widget.sync),
+    )).then((_) => _load());
+  }
+
+  // НОВОЕ: переключение источника баланса
+  void _setDisplayBank(String? id) {
+    setState(() => _displayBankId = id);
+    widget.storage.walletDisplayBankId = id;
+  }
+
   String _monthName(int m) {
     const names = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
       'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
@@ -272,15 +301,7 @@ class BudgetScreenState extends State<BudgetScreen> {
               IconButton(
                 tooltip: 'Категории',
                 icon: Icon(Icons.tune, color: cs.primary, size: 22),
-                onPressed: () async {
-                  await Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => BudgetCategoriesEditorScreen(
-                      storage: widget.storage,
-                      sync: widget.sync,
-                    ),
-                  ));
-                  _load();
-                },
+                onPressed: _openCategoriesEditor,
               ),
             ],
           ),
@@ -323,7 +344,6 @@ class BudgetScreenState extends State<BudgetScreen> {
           ),
         ],
       ),
-      // УБРАНА floatingActionButton - дублирует FAB в навбаре
     );
   }
 
@@ -350,7 +370,7 @@ class BudgetScreenState extends State<BudgetScreen> {
         children: [
           Row(
             children: [
-              Text('Общий баланс', style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.9), fontWeight: FontWeight.w500)),
+              Text(_displayLabel, style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.9), fontWeight: FontWeight.w500)),
               const Spacer(),
               GestureDetector(
                 onTap: _openBanksEditor,
@@ -371,13 +391,26 @@ class BudgetScreenState extends State<BudgetScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Text('${_totalBanksBalance.toStringAsFixed(0)} ₽',
+          Text('${_displayBalance.toStringAsFixed(0)} ₽',
               style: TextStyle(
                 fontSize: 40,
                 fontWeight: FontWeight.w800,
                 color: cs.onPrimary,
                 letterSpacing: -1,
               )),
+          const SizedBox(height: 16),
+          // НОВОЕ: чипсы переключения источника баланса
+          SizedBox(
+            height: 34,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _balanceChip(cs, null, 'Общий'),
+                const SizedBox(width: 8),
+                ..._banks.map((b) => _balanceChip(cs, b.id, '${b.emoji} ${b.name}')),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -387,6 +420,29 @@ class BudgetScreenState extends State<BudgetScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _balanceChip(ColorScheme cs, String? id, String label) {
+    final sel = _displayBankId == id;
+    return GestureDetector(
+      onTap: () => _setDisplayBank(id),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: sel ? cs.onPrimary.withOpacity(0.25) : cs.onPrimary.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: sel ? cs.onPrimary : cs.onPrimary.withOpacity(0.3)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+            color: cs.onPrimary,
+          ),
+        ),
       ),
     );
   }
@@ -414,60 +470,53 @@ class BudgetScreenState extends State<BudgetScreen> {
         itemBuilder: (ctx, i) {
           final b = _banks[i];
           final balance = _bankBalance(b.id);
-          return Container(
-            width: 160,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  cs.surfaceVariant,
-                  cs.surfaceVariant.withOpacity(0.7),
+          final sel = _displayBankId == b.id;
+          return GestureDetector(
+            onTap: () => _setDisplayBank(b.id),
+            child: Container(
+              width: 160,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [cs.surfaceVariant, cs.surfaceVariant.withOpacity(0.7)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: sel ? cs.primary : cs.outline.withOpacity(0.5), width: sel ? 2 : 1),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: cs.outline.withOpacity(0.5)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(b.emoji, style: const TextStyle(fontSize: 16)),
                       ),
-                      child: Text(b.emoji, style: const TextStyle(fontSize: 16)),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(b.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Баланс', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
-                    const SizedBox(height: 2),
-                    Text('${balance.toStringAsFixed(0)} ₽',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: balance >= 0 ? cs.primary : cs.error,
-                        )),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(b.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Баланс', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                      const SizedBox(height: 2),
+                      Text('${balance.toStringAsFixed(0)} ₽',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: balance >= 0 ? cs.primary : cs.error)),
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -501,13 +550,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                 decoration: BoxDecoration(
                   color: sel ? cs.surface : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
-                  boxShadow: sel ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ] : null,
+                  boxShadow: sel ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))] : null,
                 ),
                 child: Center(
                   child: Text(t.$2, style: TextStyle(
@@ -637,11 +680,7 @@ class BudgetScreenState extends State<BudgetScreen> {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: cs.outline.withOpacity(0.5)),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
+              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
             ],
           ),
           child: Column(
@@ -654,10 +693,8 @@ class BudgetScreenState extends State<BudgetScreen> {
             ],
           ),
         ),
-        // === НОВОЕ: СЕКЦИЯ ЛИМИТОВ ===
         const SizedBox(height: 24),
         _buildLimitsSection(cs),
-        // === КОНЕЦ НОВОГО БЛОКА ===
         const SizedBox(height: 24),
         Text('Расходы по категориям',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface)),
@@ -685,8 +722,7 @@ class BudgetScreenState extends State<BudgetScreen> {
           ...(_breakdown().entries.map((e) {
             final cat = _categories.firstWhere(
               (c) => c.id == e.key,
-              orElse: () =>
-                  BudgetCategory(id: e.key, name: 'Другое', emoji: '📦', type: 'expense'),
+              orElse: () => BudgetCategory(id: e.key, name: 'Другое', emoji: '📦', type: 'expense'),
             );
             final percent = _expenses > 0 ? e.value / _expenses * 100 : 0;
             return Container(
@@ -716,15 +752,9 @@ class BudgetScreenState extends State<BudgetScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(cat.name,
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: cs.onSurface)),
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
                             Text('${e.value.toStringAsFixed(0)} ₽',
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: cs.onSurface)),
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -751,149 +781,7 @@ class BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
-  Widget _healthBar(String label, double percent, Color color, ColorScheme cs) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(label,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface)),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: percent / 100,
-              minHeight: 10,
-              backgroundColor: cs.surface,
-              color: color,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 50,
-          child: Text('${percent.toStringAsFixed(0)}%',
-              textAlign: TextAlign.right,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTransactions(ColorScheme cs) {
-    final list = List<Transaction>.from(_monthTransactions)..sort((a, b) => b.date.compareTo(a.date));
-    if (list.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(40),
-        decoration: BoxDecoration(
-          color: cs.surfaceVariant,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.outline.withOpacity(0.5)),
-        ),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.receipt_long_outlined, size: 48, color: cs.onSurfaceVariant.withOpacity(0.5)),
-              const SizedBox(height: 12),
-              Text('Нет транзакций за этот месяц',
-                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
-            ],
-          ),
-        ),
-      );
-    }
-    return Column(
-      children: list.map((t) {
-        final cat = _categories.firstWhere(
-          (c) => c.id == t.categoryId,
-          orElse: () =>
-              BudgetCategory(id: t.categoryId, name: 'Другое', emoji: '📦', type: t.type),
-        );
-        final isExpense = t.type == 'expense';
-        final isIncome = t.type == 'income';
-        final isTransfer = t.type == 'transfer';
-
-        final bank = t.bankId != null
-            ? _banks.firstWhere((b) => b.id == t.bankId,
-                orElse: () => Bank(id: t.bankId!, name: 'Банк'))
-            : null;
-        final toBank = t.toBankId != null
-            ? _banks.firstWhere((b) => b.id == t.toBankId,
-                orElse: () => Bank(id: t.toBankId!, name: 'Банк'))
-            : null;
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => _openEditModal(t),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cs.surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: cs.outline.withOpacity(0.5)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isTransfer
-                            ? cs.secondary.withOpacity(0.1)
-                            : (isIncome ? cs.tertiary.withOpacity(0.1) : cs.primary.withOpacity(0.1)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(isTransfer ? '🔄' : cat.emoji,
-                          style: const TextStyle(fontSize: 20)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isTransfer
-                                ? 'Перевод: ${bank?.name} → ${toBank?.name}'
-                                : (t.comment.isEmpty ? cat.name : t.comment),
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: cs.onSurface),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${t.date.day}.${t.date.month}.${t.date.year}${!isTransfer && bank != null ? " · ${bank.name}" : ""}',
-                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      '${isExpense ? '−' : (isIncome ? '+' : '')}${t.amount.toStringAsFixed(0)} ₽',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: isExpense
-                            ? cs.error
-                            : (isIncome ? cs.tertiary : cs.onSurfaceVariant),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   // ============ ЛИМИТЫ ============
-
   Map<String, double> get _spentByCategory => _breakdown();
 
   List<BudgetCategory> get _categoriesWithLimits =>
@@ -966,9 +854,9 @@ class BudgetScreenState extends State<BudgetScreen> {
             if (isOver) {
               barColor = cs.error;
             } else if (isWarning) {
-              barColor = const Color(0xFFFFA726); // оранжевый
+              barColor = const Color(0xFFFFA726);
             } else {
-              barColor = const Color(0xFF4CAF50); // зелёный
+              barColor = const Color(0xFF4CAF50);
             }
 
             return GestureDetector(
@@ -1231,10 +1119,141 @@ class BudgetScreenState extends State<BudgetScreen> {
     widget.sync.schedulePush();
   }
 
+  Widget _healthBar(String label, double percent, Color color, ColorScheme cs) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(label,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface)),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: percent / 100,
+              minHeight: 10,
+              backgroundColor: cs.surface,
+              color: color,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 50,
+          child: Text('${percent.toStringAsFixed(0)}%',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactions(ColorScheme cs) {
+    final list = List<Transaction>.from(_monthTransactions)..sort((a, b) => b.date.compareTo(a.date));
+    if (list.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          color: cs.surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outline.withOpacity(0.5)),
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(Icons.receipt_long_outlined, size: 48, color: cs.onSurfaceVariant.withOpacity(0.5)),
+              const SizedBox(height: 12),
+              Text('Нет транзакций за этот месяц',
+                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14)),
+            ],
+          ),
+        ),
+      );
+    }
+    return Column(
+      children: list.map((t) {
+        final cat = _categories.firstWhere(
+          (c) => c.id == t.categoryId,
+          orElse: () => BudgetCategory(id: t.categoryId, name: 'Другое', emoji: '📦', type: t.type),
+        );
+        final isExpense = t.type == 'expense';
+        final isIncome = t.type == 'income';
+        final isTransfer = t.type == 'transfer';
+
+        final bank = t.bankId != null
+            ? _banks.firstWhere((b) => b.id == t.bankId, orElse: () => Bank(id: t.bankId!, name: 'Банк'))
+            : null;
+        final toBank = t.toBankId != null
+            ? _banks.firstWhere((b) => b.id == t.toBankId, orElse: () => Bank(id: t.toBankId!, name: 'Банк'))
+            : null;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => _openEditModal(t),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cs.surfaceVariant,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: cs.outline.withOpacity(0.5)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isTransfer
+                            ? cs.secondary.withOpacity(0.1)
+                            : (isIncome ? cs.tertiary.withOpacity(0.1) : cs.primary.withOpacity(0.1)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(isTransfer ? '🔄' : cat.emoji, style: const TextStyle(fontSize: 20)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isTransfer
+                                ? 'Перевод: ${bank?.name} → ${toBank?.name}'
+                                : (t.comment.isEmpty ? cat.name : t.comment),
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${t.date.day}.${t.date.month}.${t.date.year}${!isTransfer && bank != null ? " · ${bank.name}" : ""}',
+                            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${isExpense ? '−' : (isIncome ? '+' : '')}${t.amount.toStringAsFixed(0)} ₽',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isExpense ? cs.error : (isIncome ? cs.tertiary : cs.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildCategories(ColorScheme cs) {
     final expenses = _categories.where((c) => c.type == 'expense').toList();
-    final incomes =
-        _categories.where((c) => c.type == 'income' && c.id.startsWith('income_')).toList();
+    final incomes = _categories.where((c) => c.type == 'income' && c.id.startsWith('income_')).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1273,6 +1292,9 @@ class BudgetScreenState extends State<BudgetScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(child: Text(c.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface))),
+          if (c.monthlyLimit > 0)
+            Text('${c.monthlyLimit.toStringAsFixed(0)} ₽/мес',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
         ],
       ),
     );
