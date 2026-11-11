@@ -28,6 +28,8 @@ class WidgetService {
   static const String _keyTasksTitle = 'tasks_title';
   static const String _keyTasksSub = 'tasks_sub';
 
+  static const String _keyClockTime = 'clock_time';
+  static const String _keyClockDate = 'clock_date';
   static const String _keyClockWeather = 'clock_weather';
   static const String _keyClockCondition = 'clock_condition';
   static const String _keyClockCity = 'clock_city';
@@ -156,26 +158,48 @@ class WidgetService {
 
   Future<void> updateClock() async {
     try {
+      final now = DateTime.now();
+      await HomeWidget.saveWidgetData<String>(_keyClockTime, _fmtTime(now));
+      await HomeWidget.saveWidgetData<String>(_keyClockDate, _fmtDate(now));
       await HomeWidget.saveWidgetData<String>(_keyClockWeather, storage.cachedWeatherTemp);
       await HomeWidget.saveWidgetData<String>(_keyClockCondition, storage.cachedWeatherCond);
       await HomeWidget.saveWidgetData<String>(_keyClockCity, storage.cachedWeatherCity);
 
-      final now = DateTime.now();
       final todayKey = _dateKey(now);
       final todayShifts = storage.shifts.where((s) => s.date == todayKey).toList();
       final partners = storage.partners;
-
       final shiftLines = <String>[];
       for (final s in todayShifts) {
         final p = partners.firstWhere((x) => x.id == s.partner, orElse: () => Partner(id: s.partner, name: ''));
         shiftLines.add('${p.name}: ${s.startTime}–${s.endTime}');
       }
-
       await HomeWidget.saveWidgetData<String>(_keyClockShifts, shiftLines.isEmpty ? 'Смен нет' : shiftLines.join('\n'));
       await HomeWidget.updateWidget(androidName: androidClockName);
     } catch (e, st) {
       _log.error('Widget', 'updateClock FAILED', e, st);
     }
+  }
+
+  /// Только время/дата — вызывается таймером раз в минуту, пока приложение живо.
+  Future<void> updateClockTime() async {
+    try {
+      final now = DateTime.now();
+      await HomeWidget.saveWidgetData<String>(_keyClockTime, _fmtTime(now));
+      await HomeWidget.saveWidgetData<String>(_keyClockDate, _fmtDate(now));
+      await HomeWidget.updateWidget(androidName: androidClockName);
+    } catch (_) {}
+  }
+
+  String _fmtTime(DateTime d) {
+    final h = d.hour.toString().padLeft(2, '0');
+    final m = d.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  String _fmtDate(DateTime d) {
+    const wd = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+    const mn = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    return '${wd[d.weekday - 1]}, ${d.day} ${mn[d.month - 1]}';
   }
 
   String _dateKey(DateTime d) {
