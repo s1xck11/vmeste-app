@@ -32,7 +32,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
   final _priceCtrl = TextEditingController();
   String _unit = 'шт';
   String _categoryId = 'other';
-  String _priority = 'med'; // НОВОЕ
+  String _priority = 'med';
   late String _listId;
   bool _showDetails = false;
 
@@ -44,7 +44,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
       final p = widget.initialPurchase!;
       _titleCtrl.text = p.text;
       _commentCtrl.text = p.comment;
-      _priority = p.priority; // НОВОЕ
+      _priority = p.priority;
       _qtyCtrl.text = p.qty.toString();
       _priceCtrl.text = p.price > 0 ? p.price.toString() : '';
       _unit = p.unit;
@@ -81,7 +81,7 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
       id: widget.initialPurchase?.id ?? now,
       text: title,
       comment: _commentCtrl.text.trim(),
-      priority: _priority, // НОВОЕ
+      priority: _priority,
       done: widget.initialPurchase?.done ?? false,
       missing: widget.initialPurchase?.missing ?? false,
       category: _categoryId,
@@ -128,7 +128,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
 
-              // Заголовок
               TextField(
                 controller: _titleCtrl,
                 autofocus: widget.initialPurchase == null,
@@ -145,7 +144,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 16),
 
-              // Содержимое
               TextField(
                 controller: _commentCtrl,
                 textCapitalization: TextCapitalization.sentences,
@@ -162,7 +160,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
 
-              // НОВОЕ: Приоритет
               _sectionLabel(cs, 'Приоритет'),
               const SizedBox(height: 10),
               Row(
@@ -176,39 +173,51 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
 
-              // Категория
               _sectionLabel(cs, 'Категория'),
               const SizedBox(height: 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: widget.categories.map((c) {
                     final sel = c.id == _categoryId;
-                    return GestureDetector(
-                      onTap: () => setState(() => _categoryId = c.id),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          color: sel ? cs.primaryContainer : cs.surfaceVariant,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: sel ? cs.primary : Colors.transparent, width: 1.5),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(c.emoji, style: const TextStyle(fontSize: 16)),
-                            const SizedBox(width: 6),
-                            Text(
-                              c.label,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                color: sel ? cs.onPrimaryContainer : cs.onSurface,
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _categoryId = c.id),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: sel ? cs.primaryContainer : cs.surfaceVariant,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: sel ? cs.primary : Colors.transparent, width: 1.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                child: Text(c.emoji, style: const TextStyle(fontSize: 16, height: 1.0), textAlign: TextAlign.center),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 120),
+                                child: Text(
+                                  c.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.2,
+                                    fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                    color: sel ? cs.onPrimaryContainer : cs.onSurface,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -217,7 +226,6 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
               ),
               const SizedBox(height: 20),
 
-              // Детали
               InkWell(
                 onTap: () => setState(() => _showDetails = !_showDetails),
                 borderRadius: BorderRadius.circular(12),
@@ -367,8 +375,11 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
           child: Center(
             child: Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 13,
+                height: 1.2,
                 fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
                 color: sel ? cs.onPrimaryContainer : cs.onSurface,
               ),
