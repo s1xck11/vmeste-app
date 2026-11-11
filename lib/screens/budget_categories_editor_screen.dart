@@ -76,18 +76,24 @@ class _BudgetCategoriesEditorScreenState extends State<BudgetCategoriesEditorScr
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface)),
                     const SizedBox(height: 16),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        SizedBox(
-                          width: 60,
+                        Container(
+                          width: 56,
+                          height: 52,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: cs.surfaceVariant,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: TextField(
                             controller: emojiCtrl,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 24),
-                            decoration: InputDecoration(
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              filled: true,
-                              fillColor: cs.surfaceVariant,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            style: const TextStyle(fontSize: 22, height: 1.0),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
                         ),
@@ -96,7 +102,8 @@ class _BudgetCategoriesEditorScreenState extends State<BudgetCategoriesEditorScr
                           child: TextField(
                             controller: nameCtrl,
                             autofocus: true,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.2),
                             decoration: InputDecoration(
                               labelText: 'Название',
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -126,8 +133,11 @@ class _BudgetCategoriesEditorScreenState extends State<BudgetCategoriesEditorScr
                               ),
                               child: Center(
                                 child: Text('Расход',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 14,
+                                      height: 1.2,
                                       fontWeight: FontWeight.w600,
                                       color: type == 'expense' ? cs.error : cs.onSurfaceVariant,
                                     )),
@@ -151,8 +161,11 @@ class _BudgetCategoriesEditorScreenState extends State<BudgetCategoriesEditorScr
                               ),
                               child: Center(
                                 child: Text('Доход',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 14,
+                                      height: 1.2,
                                       fontWeight: FontWeight.w600,
                                       color: type == 'income' ? cs.tertiary : cs.onSurfaceVariant,
                                     )),
@@ -168,7 +181,10 @@ class _BudgetCategoriesEditorScreenState extends State<BudgetCategoriesEditorScr
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(ctx),
-                            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
                             child: const Text('Отмена'),
                           ),
                         ),
@@ -273,12 +289,12 @@ class _BudgetCategoriesEditorScreenState extends State<BudgetCategoriesEditorScr
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
               children: [
-                Text('Расходы', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-                const SizedBox(height: 8),
+                Text('Расходы', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.4)),
+                const SizedBox(height: 10),
                 ...expenses.map((c) => _tile(c, cs)),
                 const SizedBox(height: 20),
-                Text('Доходы', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
-                const SizedBox(height: 8),
+                Text('Доходы', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.4)),
+                const SizedBox(height: 10),
                 ...incomes.map((c) => _tile(c, cs)),
               ],
             ),
@@ -295,24 +311,32 @@ class _BudgetCategoriesEditorScreenState extends State<BudgetCategoriesEditorScr
 
   Widget _tile(BudgetCategory c, ColorScheme cs) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: cs.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: cs.outline.withOpacity(0.5)),
       ),
       child: ListTile(
         onTap: () => _openEditModal(c),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: Container(
-          padding: const EdgeInsets.all(8),
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: c.type == 'income' ? cs.tertiary.withOpacity(0.1) : cs.primary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Text(c.emoji, style: const TextStyle(fontSize: 18)),
+          child: Text(c.emoji, style: const TextStyle(fontSize: 18, height: 1.0)),
         ),
-        title: Text(c.name, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
+        title: Text(
+          c.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2),
+        ),
         trailing: IconButton(
           icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
           onPressed: () => _confirmDelete(c),
