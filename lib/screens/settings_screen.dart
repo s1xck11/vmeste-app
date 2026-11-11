@@ -59,6 +59,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _quickExpenseEnabled = false;
   bool _refreshingWeather = false;
 
+  static const List<String> _shiftPalette = [
+    '#4CAF50', '#EF5350', '#7E57C2', '#FFB74D',
+    '#42A5F5', '#26C6DA', '#EC407A', '#9CCC65',
+    '#FF7043', '#8D6E63', '#78909C', '#FFEE58',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -676,6 +682,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ==================== РЕДАКТОР: ТИПЫ СМЕН ====================
+
   Widget _expandableShiftTypes(ColorScheme cs) {
     return _ExpandableSection(
       title: 'Типы смен',
@@ -683,115 +691,156 @@ class _SettingsScreenState extends State<SettingsScreen> {
       cs: cs,
       builder: (setSt) {
         final types = List<ShiftType>.from(widget.storage.shiftTypes);
+
+        void persist() {
+          widget.storage.shiftTypes = types;
+          widget.sync.schedulePush();
+        }
+
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ...List.generate(types.length, (i) => Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 12, height: 12,
-                        decoration: BoxDecoration(color: _parseColor(types[i].color), shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: types[i].label,
-                          maxLines: 1,
-                          style: TextStyle(color: cs.onSurface, fontSize: 14, height: 1.2),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          onFieldSubmitted: (v) {
-                            types[i] = ShiftType(id: types[i].id, label: v, hours: types[i].hours, rate: types[i].rate, color: types[i].color);
-                            widget.storage.shiftTypes = types;
-                            widget.sync.schedulePush();
+            ...List.generate(types.length, (i) {
+              final t = types[i];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: cs.outline.withOpacity(0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _colorDotButton(
+                          cs: cs,
+                          color: _parseColor(t.color),
+                          onTap: () async {
+                            final picked = await _pickShiftColor(t.color);
+                            if (picked == null) return;
+                            types[i] = ShiftType(
+                              id: t.id,
+                              label: types[i].label,
+                              hours: types[i].hours,
+                              rate: types[i].rate,
+                              color: picked,
+                            );
+                            persist();
+                            setSt();
                           },
                         ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
-                        onPressed: () {
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _inputShell(
+                            cs: cs,
+                            child: TextFormField(
+                              initialValue: t.label,
+                              maxLines: 1,
+                              textInputAction: TextInputAction.done,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: TextStyle(color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w600, height: 1.2),
+                              decoration: _plainDecoration(cs, hint: 'Название типа'),
+                              onFieldSubmitted: (v) {
+                                final name = v.trim().isEmpty ? t.label : v.trim();
+                                types[i] = ShiftType(id: t.id, label: name, hours: types[i].hours, rate: types[i].rate, color: types[i].color);
+                                persist();
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        _deleteButton(cs, () {
                           types.removeAt(i);
-                          widget.storage.shiftTypes = types;
-                          widget.sync.schedulePush();
+                          persist();
                           setSt();
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: types[i].hours.toStringAsFixed(0),
-                          keyboardType: TextInputType.number,
-                          style: TextStyle(color: cs.onSurface, fontSize: 13, height: 1.2),
-                          decoration: InputDecoration(
-                            labelText: 'Часов',
-                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
-                            suffixText: 'ч',
-                            suffixStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _labeledInput(
+                            cs: cs,
+                            caption: 'Часов',
+                            child: TextFormField(
+                              initialValue: _num(t.hours),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              textInputAction: TextInputAction.done,
+                              style: TextStyle(color: cs.onSurface, fontSize: 15, height: 1.2),
+                              decoration: _plainDecoration(cs, suffix: 'ч'),
+                              onFieldSubmitted: (v) {
+                                types[i] = ShiftType(
+                                  id: t.id,
+                                  label: types[i].label,
+                                  hours: double.tryParse(v.replaceAll(',', '.')) ?? types[i].hours,
+                                  rate: types[i].rate,
+                                  color: types[i].color,
+                                );
+                                persist();
+                              },
+                            ),
                           ),
-                          onFieldSubmitted: (v) {
-                            types[i] = ShiftType(id: types[i].id, label: types[i].label, hours: double.tryParse(v.replaceAll(',', '.')) ?? types[i].hours, rate: types[i].rate, color: types[i].color);
-                            widget.storage.shiftTypes = types;
-                            widget.sync.schedulePush();
-                          },
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: types[i].rate.toStringAsFixed(0),
-                          keyboardType: TextInputType.number,
-                          style: TextStyle(color: cs.onSurface, fontSize: 13, height: 1.2),
-                          decoration: InputDecoration(
-                            labelText: 'Ставка',
-                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
-                            suffixText: '₽/час',
-                            suffixStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _labeledInput(
+                            cs: cs,
+                            caption: 'Ставка',
+                            child: TextFormField(
+                              initialValue: _num(t.rate),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              textInputAction: TextInputAction.done,
+                              style: TextStyle(color: cs.onSurface, fontSize: 15, height: 1.2),
+                              decoration: _plainDecoration(cs, suffix: '₽/час'),
+                              onFieldSubmitted: (v) {
+                                types[i] = ShiftType(
+                                  id: t.id,
+                                  label: types[i].label,
+                                  hours: types[i].hours,
+                                  rate: double.tryParse(v.replaceAll(',', '.')) ?? types[i].rate,
+                                  color: types[i].color,
+                                );
+                                persist();
+                              },
+                            ),
                           ),
-                          onFieldSubmitted: (v) {
-                            types[i] = ShiftType(id: types[i].id, label: types[i].label, hours: types[i].hours, rate: double.tryParse(v.replaceAll(',', '.')) ?? types[i].rate, color: types[i].color);
-                            widget.storage.shiftTypes = types;
-                            widget.sync.schedulePush();
-                          },
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
+            Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  types.add(ShiftType(
+                    id: 'st_${DateTime.now().millisecondsSinceEpoch}',
+                    label: 'Новая смена',
+                    hours: 8,
+                    rate: 0,
+                    color: '#FF8FAB',
+                  ));
+                  persist();
+                  setSt();
+                },
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Добавить тип', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
-            )),
-            TextButton.icon(
-              onPressed: () {
-                types.add(ShiftType(id: 'st_${DateTime.now().millisecondsSinceEpoch}', label: 'Новая смена', hours: 8, rate: 0, color: '#FF8FAB'));
-                widget.storage.shiftTypes = types;
-                widget.sync.schedulePush();
-                setSt();
-              },
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Добавить тип'),
             ),
           ],
         );
       },
     );
   }
+
+  // ==================== РЕДАКТОР: ПАРТНЁРЫ ====================
 
   Widget _expandablePartners(ColorScheme cs) {
     return _ExpandableSection(
@@ -800,80 +849,95 @@ class _SettingsScreenState extends State<SettingsScreen> {
       cs: cs,
       builder: (setSt) {
         final partners = List<Partner>.from(widget.storage.partners);
+
+        void persist() {
+          widget.storage.partners = partners;
+          widget.sync.schedulePush();
+        }
+
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: List.generate(partners.length, (i) {
             final p = partners[i];
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cs.outline.withOpacity(0.35)),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextFormField(
-                    initialValue: p.name,
-                    maxLines: 1,
-                    style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600, fontSize: 15, height: 1.2),
-                    decoration: InputDecoration(
-                      labelText: 'Имя партнёра',
-                      labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
+                  _labeledInput(
+                    cs: cs,
+                    caption: 'Имя партнёра',
+                    child: TextFormField(
+                      initialValue: p.name,
+                      maxLines: 1,
+                      textInputAction: TextInputAction.done,
+                      textCapitalization: TextCapitalization.words,
+                      style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w700, fontSize: 16, height: 1.2),
+                      decoration: _plainDecoration(cs, hint: 'Имя'),
+                      onFieldSubmitted: (v) {
+                        final name = v.trim().isEmpty ? p.name : v.trim();
+                        partners[i] = Partner(id: p.id, name: name, rate: partners[i].rate, payType: partners[i].payType);
+                        persist();
+                      },
                     ),
-                    onFieldSubmitted: (v) {
-                      partners[i] = Partner(id: p.id, name: v, rate: p.rate, payType: p.payType);
-                      widget.storage.partners = partners;
-                      widget.sync.schedulePush();
-                    },
                   ),
                   const SizedBox(height: 12),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: TextFormField(
-                          initialValue: p.rate.toStringAsFixed(0),
-                          keyboardType: TextInputType.number,
-                          style: TextStyle(color: cs.onSurface, fontSize: 14, height: 1.2),
-                          decoration: InputDecoration(
-                            labelText: 'Ставка',
-                            suffixText: '₽',
-                            suffixStyle: TextStyle(color: cs.onSurfaceVariant),
-                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
+                        child: _labeledInput(
+                          cs: cs,
+                          caption: 'Ставка',
+                          child: TextFormField(
+                            initialValue: _num(p.rate),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            textInputAction: TextInputAction.done,
+                            style: TextStyle(color: cs.onSurface, fontSize: 15, height: 1.2),
+                            decoration: _plainDecoration(cs, suffix: '₽'),
+                            onFieldSubmitted: (v) {
+                              partners[i] = Partner(
+                                id: p.id,
+                                name: partners[i].name,
+                                rate: double.tryParse(v.replaceAll(',', '.')) ?? partners[i].rate,
+                                payType: partners[i].payType,
+                              );
+                              persist();
+                            },
                           ),
-                          onFieldSubmitted: (v) {
-                            partners[i] = Partner(id: p.id, name: p.name, rate: double.tryParse(v) ?? 0, payType: p.payType);
-                            widget.storage.partners = partners;
-                            widget.sync.schedulePush();
-                          },
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: p.payType,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: 'Тип оплаты',
-                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-                            border: InputBorder.none,
+                        child: _labeledInput(
+                          cs: cs,
+                          caption: 'Тип оплаты',
+                          child: DropdownButtonFormField<String>(
+                            value: p.payType,
+                            isExpanded: true,
                             isDense: true,
-                            contentPadding: EdgeInsets.zero,
+                            icon: Icon(Icons.expand_more, size: 20, color: cs.onSurfaceVariant),
+                            dropdownColor: cs.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            style: TextStyle(color: cs.onSurface, fontSize: 15, fontWeight: FontWeight.w600, height: 1.2),
+                            decoration: _plainDecoration(cs),
+                            items: const [
+                              DropdownMenuItem(value: 'hourly', child: Text('Почасовая', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'fixed', child: Text('Фиксированная', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: 'piecework', child: Text('Сдельная', overflow: TextOverflow.ellipsis)),
+                            ],
+                            onChanged: (v) {
+                              partners[i] = Partner(id: p.id, name: partners[i].name, rate: partners[i].rate, payType: v ?? 'hourly');
+                              persist();
+                              setSt();
+                            },
                           ),
-                          items: const [
-                            DropdownMenuItem(value: 'hourly', child: Text('Почасовая', overflow: TextOverflow.ellipsis)),
-                            DropdownMenuItem(value: 'fixed', child: Text('Фиксированная', overflow: TextOverflow.ellipsis)),
-                            DropdownMenuItem(value: 'piecework', child: Text('Сдельная', overflow: TextOverflow.ellipsis)),
-                          ],
-                          onChanged: (v) {
-                            partners[i] = Partner(id: p.id, name: p.name, rate: p.rate, payType: v ?? 'hourly');
-                            widget.storage.partners = partners;
-                            widget.sync.schedulePush();
-                            setSt();
-                          },
                         ),
                       ),
                     ],
@@ -882,6 +946,146 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             );
           }),
+        );
+      },
+    );
+  }
+
+  // ==================== ХЕЛПЕРЫ ПОЛЕЙ ====================
+
+  String _num(double v) {
+    if (v == v.roundToDouble()) return v.toStringAsFixed(0);
+    return v.toString();
+  }
+
+  InputDecoration _plainDecoration(ColorScheme cs, {String? suffix, String? hint}) {
+    return InputDecoration(
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      errorBorder: InputBorder.none,
+      focusedErrorBorder: InputBorder.none,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+      hintText: hint,
+      hintStyle: TextStyle(color: cs.onSurfaceVariant.withOpacity(0.6), fontSize: 15, height: 1.2),
+      suffixText: suffix,
+      suffixStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w600, height: 1.2),
+    );
+  }
+
+  Widget _inputShell({required ColorScheme cs, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline.withOpacity(0.3)),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _labeledInput({
+    required ColorScheme cs,
+    required String caption,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 6),
+          child: Text(
+            caption,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.4, height: 1.2),
+          ),
+        ),
+        _inputShell(cs: cs, child: child),
+      ],
+    );
+  }
+
+  Widget _deleteButton(ColorScheme cs, VoidCallback onTap) {
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: IconButton(
+        onPressed: onTap,
+        padding: EdgeInsets.zero,
+        icon: Icon(Icons.delete_outline, color: cs.error, size: 22),
+      ),
+    );
+  }
+
+  Widget _colorDotButton({
+    required ColorScheme cs,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: cs.surfaceVariant.withOpacity(0.55),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outline.withOpacity(0.3)),
+        ),
+        child: Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _pickShiftColor(String current) {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          backgroundColor: cs.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Цвет типа смены', style: TextStyle(color: cs.onSurface, fontSize: 18, fontWeight: FontWeight.w700)),
+          content: SizedBox(
+            width: 280,
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _shiftPalette.map((hex) {
+                final sel = hex.toLowerCase() == current.toLowerCase();
+                return GestureDetector(
+                  onTap: () => Navigator.pop(ctx, hex),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _parseColor(hex),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: sel ? cs.onSurface : Colors.white.withOpacity(0.2),
+                        width: sel ? 3 : 1,
+                      ),
+                    ),
+                    child: sel ? Icon(Icons.check, size: 20, color: Colors.white.withOpacity(0.95)) : null,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          ],
         );
       },
     );
@@ -1077,7 +1281,7 @@ class _ExpandableSectionState extends State<_ExpandableSection> {
           if (_expanded)
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
               child: widget.builder(() => setState(() {})),
             ),
         ],
