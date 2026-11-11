@@ -12,10 +12,6 @@ import android.widget.RemoteViewsService
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetPlugin
 
-// ============================================================
-// БАЗОВЫЙ ВИДЖЕТ СПИСКА (смены / покупки / задачи)
-// ============================================================
-
 abstract class BaseVmesteWidget : AppWidgetProvider() {
     abstract val layoutId: Int
     abstract val iconEmoji: String
@@ -25,15 +21,12 @@ abstract class BaseVmesteWidget : AppWidgetProvider() {
     abstract val tabIndex: Int
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        for (widgetId in appWidgetIds) {
-            updateWidget(context, appWidgetManager, widgetId)
-        }
+        for (widgetId in appWidgetIds) updateWidget(context, appWidgetManager, widgetId)
     }
 
     private fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int) {
         val views = RemoteViews(context.packageName, layoutId)
         val prefs = HomeWidgetPlugin.getData(context)
-
         val title = prefs.getString(prefTitle, "") ?: ""
         val linesRaw = prefs.getString(prefLines, "") ?: ""
         val sub = prefs.getString(prefSub, "") ?: ""
@@ -42,27 +35,23 @@ abstract class BaseVmesteWidget : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_icon, iconEmoji)
         views.setTextViewText(R.id.widget_title, title)
         views.setTextViewText(R.id.widget_subtitle, sub)
-        views.setViewVisibility(R.id.widget_subtitle, View.VISIBLE)
 
-        val rowIds = intArrayOf(R.id.widget_row0, R.id.widget_row1, R.id.widget_row2, R.id.widget_row3)
         val lineIds = intArrayOf(R.id.widget_line0, R.id.widget_line1, R.id.widget_line2, R.id.widget_line3)
-        for (i in rowIds.indices) {
+        for (i in lineIds.indices) {
             if (i < lines.size) {
                 views.setTextViewText(lineIds[i], lines[i])
-                views.setViewVisibility(rowIds[i], View.VISIBLE)
+                views.setViewVisibility(lineIds[i], View.VISIBLE)
             } else {
                 views.setTextViewText(lineIds[i], "")
-                views.setViewVisibility(rowIds[i], View.GONE)
+                views.setViewVisibility(lineIds[i], View.GONE)
             }
         }
-
         if (lines.isEmpty()) {
             views.setTextViewText(R.id.widget_sub, "Пока пусто")
             views.setViewVisibility(R.id.widget_sub, View.VISIBLE)
         } else {
             views.setViewVisibility(R.id.widget_sub, View.GONE)
         }
-
         val intent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse("vmeste://open?tab=$tabIndex"))
         views.setOnClickPendingIntent(R.id.widget_root, intent)
         appWidgetManager.updateAppWidget(widgetId, views)
@@ -71,40 +60,29 @@ abstract class BaseVmesteWidget : AppWidgetProvider() {
 
 class VmesteShiftsWidget : BaseVmesteWidget() {
     override val layoutId = R.layout.widget_shifts
-    override val iconEmoji = "💼"
-    override val prefTitle = "shifts_title"
-    override val prefLines = "shifts_lines"
-    override val prefSub = "shifts_sub"
-    override val tabIndex = 2
+    override val iconEmoji = "💼"; override val prefTitle = "shifts_title"
+    override val prefLines = "shifts_lines"; override val prefSub = "shifts_sub"; override val tabIndex = 2
 }
-
 class VmestePurchasesWidget : BaseVmesteWidget() {
     override val layoutId = R.layout.widget_purchases
-    override val iconEmoji = "🛒"
-    override val prefTitle = "purchases_title"
-    override val prefLines = "purchases_lines"
-    override val prefSub = "purchases_sub"
-    override val tabIndex = 0
+    override val iconEmoji = "🛒"; override val prefTitle = "purchases_title"
+    override val prefLines = "purchases_lines"; override val prefSub = "purchases_sub"; override val tabIndex = 0
 }
-
 class VmesteTasksWidget : BaseVmesteWidget() {
     override val layoutId = R.layout.widget_tasks
-    override val iconEmoji = "✅"
-    override val prefTitle = "tasks_title"
-    override val prefLines = "tasks_lines"
-    override val prefSub = "tasks_sub"
-    override val tabIndex = 1
+    override val iconEmoji = "✅"; override val prefTitle = "tasks_title"
+    override val prefLines = "tasks_lines"; override val prefSub = "tasks_sub"; override val tabIndex = 1
 }
-
-// ============================================================
-// ВИДЖЕТ ЧАСОВ: часы + погода слева, свайпаемый стек справа
-// ============================================================
 
 class VmesteClockWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         for (widgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.widget_clock)
             val prefs = HomeWidgetPlugin.getData(context)
+
+            // Часы/дата как ТЕКСТ (TextClock запрещён в RemoteViews) — обновляет Flutter-таймер
+            views.setTextViewText(R.id.clock_time, prefs.getString("clock_time", "--:--") ?: "--:--")
+            views.setTextViewText(R.id.clock_date, prefs.getString("clock_date", "") ?: "")
 
             views.setTextViewText(R.id.weather_temp, prefs.getString("clock_weather", "--°") ?: "--°")
             val cond = prefs.getString("clock_condition", "") ?: ""
@@ -117,114 +95,64 @@ class VmesteClockWidget : AppWidgetProvider() {
             val adapter = Intent(context, VmesteStackService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
             }
-            views.setRemoteAdapter(R.id.widget_stack, adapter)
+            views.setRemoteAdapter(R.id.widget_list, adapter)
 
             val base = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
-            val template = PendingIntent.getActivity(
-                context, widgetId, base,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-            views.setPendingIntentTemplate(R.id.widget_stack, template)
+            val template = PendingIntent.getActivity(context, widgetId, base,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
+            views.setPendingIntentTemplate(R.id.widget_list, template)
 
             val rootIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java, Uri.parse("vmeste://open?tab=2"))
             views.setOnClickPendingIntent(R.id.clock_block, rootIntent)
 
             appWidgetManager.updateAppWidget(widgetId, views)
-            appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_stack)
+            appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_list)
         }
     }
 }
-
-// ============================================================
-// СЕРВИС СТЕКА (покупки / задачи / смена сегодня / добавить расход)
-// ============================================================
 
 class VmesteStackService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory = StackFactory(applicationContext)
 }
 
 class StackFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
-
-    private data class StackCard(
-        val tab: Int,
-        val title: String,
-        val subtitle: String,
-        val lines: List<String>,
-        val isAddExpense: Boolean,
-    )
-
+    private data class StackCard(val tab: Int, val title: String, val subtitle: String, val lines: List<String>, val isAddExpense: Boolean)
     private val items = mutableListOf<StackCard>()
 
     override fun onCreate() {}
-
     override fun onDataSetChanged() {
         items.clear()
         val prefs = HomeWidgetPlugin.getData(context)
-
-        fun lines(key: String): List<String> =
-            (prefs.getString(key, "") ?: "").split("\n").filter { it.isNotEmpty() }
-
-        items.add(StackCard(0, "🛒 ${prefs.getString("purchases_title", "Покупки") ?: "Покупки"}",
-            prefs.getString("purchases_sub", "") ?: "", lines("purchases_lines").take(3), false))
-        items.add(StackCard(1, "✅ ${prefs.getString("tasks_title", "Задачи") ?: "Задачи"}",
-            prefs.getString("tasks_sub", "") ?: "", lines("tasks_lines").take(3), false))
+        fun lines(key: String): List<String> = (prefs.getString(key, "") ?: "").split("\n").filter { it.isNotEmpty() }
+        items.add(StackCard(0, "🛒 ${prefs.getString("purchases_title", "Покупки") ?: "Покупки"}", prefs.getString("purchases_sub", "") ?: "", lines("purchases_lines").take(3), false))
+        items.add(StackCard(1, "✅ ${prefs.getString("tasks_title", "Задачи") ?: "Задачи"}", prefs.getString("tasks_sub", "") ?: "", lines("tasks_lines").take(3), false))
         items.add(StackCard(2, "💼 Смена сегодня", "", lines("clock_shifts").take(3), false))
         items.add(StackCard(0, "➕ Добавить расход", "", emptyList(), true))
     }
-
-    // ФИКС MIUI: конечный счётчик вместо Int.MAX_VALUE (листается по кругу, но не падает)
-    override fun getCount(): Int = if (items.isEmpty()) 0 else items.size * 2000
-
+    override fun getCount(): Int = items.size
     override fun getViewAt(position: Int): RemoteViews {
-        val card = items[position % items.size]
+        val card = items[position]
         val views = RemoteViews(context.packageName, R.layout.widget_stack_card)
-
         views.setTextViewText(R.id.card_title, card.title)
-
-        if (card.subtitle.isNotEmpty()) {
-            views.setTextViewText(R.id.card_subtitle, card.subtitle)
-            views.setViewVisibility(R.id.card_subtitle, View.VISIBLE)
-        } else {
-            views.setViewVisibility(R.id.card_subtitle, View.GONE)
-        }
-
+        if (card.subtitle.isNotEmpty()) { views.setTextViewText(R.id.card_subtitle, card.subtitle); views.setViewVisibility(R.id.card_subtitle, View.VISIBLE) }
+        else views.setViewVisibility(R.id.card_subtitle, View.GONE)
         views.setViewVisibility(R.id.card_add_expense, if (card.isAddExpense) View.VISIBLE else View.GONE)
-
         val lineIds = intArrayOf(R.id.card_line1, R.id.card_line2, R.id.card_line3)
         for (i in lineIds.indices) {
-            if (i < card.lines.size) {
-                views.setTextViewText(lineIds[i], card.lines[i])
-                views.setViewVisibility(lineIds[i], View.VISIBLE)
-            } else {
-                views.setViewVisibility(lineIds[i], View.GONE)
-            }
+            if (i < card.lines.size) { views.setTextViewText(lineIds[i], card.lines[i]); views.setViewVisibility(lineIds[i], View.VISIBLE) }
+            else views.setViewVisibility(lineIds[i], View.GONE)
         }
-
-        if (card.lines.isEmpty() && !card.isAddExpense) {
-            views.setTextViewText(R.id.card_line1, "Пока пусто")
-            views.setViewVisibility(R.id.card_line1, View.VISIBLE)
-        }
-
-        val fillIn = if (card.isAddExpense) {
-            Intent().apply { data = Uri.parse("vmeste://open?action=addExpense") }
-        } else {
-            Intent().apply { data = Uri.parse("vmeste://open?tab=${card.tab}") }
-        }
+        if (card.lines.isEmpty() && !card.isAddExpense) { views.setTextViewText(R.id.card_line1, "Пока пусто"); views.setViewVisibility(R.id.card_line1, View.VISIBLE) }
+        val fillIn = if (card.isAddExpense) Intent().apply { data = Uri.parse("vmeste://open?action=addExpense") }
+                     else Intent().apply { data = Uri.parse("vmeste://open?tab=${card.tab}") }
         views.setOnClickFillInIntent(R.id.card_root, fillIn)
         return views
     }
-
-    // ФИКС MIUI: валидная заглушка вместо null (убирает «не удалось загрузить»)
-    override fun getLoadingView(): RemoteViews {
-        val v = RemoteViews(context.packageName, R.layout.widget_stack_card)
-        v.setTextViewText(R.id.card_title, "Загрузка…")
-        return v
-    }
-
+    override fun getLoadingView(): RemoteViews { val v = RemoteViews(context.packageName, R.layout.widget_stack_card); v.setTextViewText(R.id.card_title, "Загрузка…"); return v }
     override fun getViewTypeCount(): Int = 1
-    override fun getItemId(position: Int): Long = (position % items.size).toLong()
+    override fun getItemId(position: Int): Long = position.toLong()
     override fun hasStableIds(): Boolean = true
     override fun onDestroy() {}
 }
