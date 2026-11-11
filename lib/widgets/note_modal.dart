@@ -40,7 +40,6 @@ class NoteModal extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Ручка свайпа
             Padding(
               padding: const EdgeInsets.only(top: 16),
               child: Center(
@@ -54,8 +53,6 @@ class NoteModal extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Прокручиваемая область контента
             Expanded(
               child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(24, 16, 24, bottomInset + 24),
@@ -63,69 +60,46 @@ class NoteModal extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Кнопки действий сверху справа
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        _circleButton(
-                          icon: Icons.edit_outlined,
-                          onTap: onEdit,
-                          cs: cs,
-                        ),
+                        _circleButton(icon: Icons.edit_outlined, onTap: onEdit, cs: cs),
                         const SizedBox(width: 8),
-                        _circleButton(
-                          icon: Icons.delete_outline,
-                          color: cs.error,
-                          onTap: onDelete,
-                          cs: cs,
-                        ),
+                        _circleButton(icon: Icons.delete_outline, color: cs.error, onTap: onDelete, cs: cs),
                         const SizedBox(width: 8),
-                        _circleButton(
-                          icon: Icons.close,
-                          onTap: onClose,
-                          cs: cs,
-                        ),
+                        _circleButton(icon: Icons.close, onTap: onClose, cs: cs),
                       ],
                     ),
-                    const SizedBox(height: 8),
-
-                    // Заголовок
+                    const SizedBox(height: 12),
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: cs.onSurface,
-                        letterSpacing: -0.5,
-                        height: 1.2,
+                        letterSpacing: -0.4,
+                        height: 1.25,
                       ),
                     ),
-
                     if (subtitle != null && subtitle!.isNotEmpty) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Text(
                         subtitle!,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: cs.onSurfaceVariant,
                           height: 1.4,
                         ),
                       ),
                     ],
-
                     if (content != null) ...[
                       const SizedBox(height: 20),
                       content!,
                     ],
-
-                    // Кнопка действия (Куплено / Выполнено) растягивается на всю ширину
                     if (actionButton != null) ...[
                       const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: actionButton!,
-                      ),
+                      SizedBox(width: double.infinity, child: actionButton!),
                     ],
                   ],
                 ),
