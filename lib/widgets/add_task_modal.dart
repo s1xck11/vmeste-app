@@ -138,7 +138,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 20),
 
-              // 1. ЗАГОЛОВОК
               TextField(
                 controller: _titleCtrl,
                 autofocus: widget.initialTask == null,
@@ -155,7 +154,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 16),
 
-              // 2. СОДЕРЖИМОЕ
               TextField(
                 controller: _commentCtrl,
                 textCapitalization: TextCapitalization.sentences,
@@ -172,39 +170,51 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 20),
 
-              // Категория
               _sectionLabel(cs, 'Категория'),
               const SizedBox(height: 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: widget.categories.map((c) {
                     final sel = c.id == _categoryId;
-                    return GestureDetector(
-                      onTap: () => setState(() => _categoryId = c.id),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          color: sel ? cs.primaryContainer : cs.surfaceVariant,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: sel ? cs.primary : Colors.transparent, width: 1.5),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(c.emoji, style: const TextStyle(fontSize: 16)),
-                            const SizedBox(width: 6),
-                            Text(
-                              c.label,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                color: sel ? cs.onPrimaryContainer : cs.onSurface,
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _categoryId = c.id),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: sel ? cs.primaryContainer : cs.surfaceVariant,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: sel ? cs.primary : Colors.transparent, width: 1.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                child: Text(c.emoji, style: const TextStyle(fontSize: 16, height: 1.0), textAlign: TextAlign.center),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 120),
+                                child: Text(
+                                  c.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    height: 1.2,
+                                    fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                    color: sel ? cs.onPrimaryContainer : cs.onSurface,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -213,7 +223,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 20),
 
-              // Приоритет
               _sectionLabel(cs, 'Приоритет'),
               const SizedBox(height: 10),
               Row(
@@ -227,7 +236,6 @@ class _AddTaskModalState extends State<AddTaskModal> {
               ),
               const SizedBox(height: 20),
 
-              // Дополнительные настройки
               InkWell(
                 onTap: () => setState(() => _showAdvanced = !_showAdvanced),
                 borderRadius: BorderRadius.circular(12),
@@ -266,9 +274,10 @@ class _AddTaskModalState extends State<AddTaskModal> {
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          _smallChip(cs, 'any', '👥 Любой', _assignee),
-                          ...widget.partners.map((p) => _smallChip(cs, p.id, p.name, _assignee)),
+                          _smallChip(cs, 'any', '👥 Любой', _assignee, (v) => setState(() => _assignee = v)),
+                          ...widget.partners.map((p) => _smallChip(cs, p.id, p.name, _assignee, (v) => setState(() => _assignee = v))),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -305,11 +314,12 @@ class _AddTaskModalState extends State<AddTaskModal> {
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          _smallChip(cs, 'none', 'Не повторять', _repeat),
-                          _smallChip(cs, 'daily', '🔁 День', _repeat),
-                          _smallChip(cs, 'weekly', '🔁 Неделя', _repeat),
-                          _smallChip(cs, 'monthly', '🔁 Месяц', _repeat),
+                          _smallChip(cs, 'none', 'Не повторять', _repeat, (v) => setState(() => _repeat = v)),
+                          _smallChip(cs, 'daily', '🔁 День', _repeat, (v) => setState(() => _repeat = v)),
+                          _smallChip(cs, 'weekly', '🔁 Неделя', _repeat, (v) => setState(() => _repeat = v)),
+                          _smallChip(cs, 'monthly', '🔁 Месяц', _repeat, (v) => setState(() => _repeat = v)),
                         ],
                       ),
                     ],
@@ -380,8 +390,11 @@ class _AddTaskModalState extends State<AddTaskModal> {
           child: Center(
             child: Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 13,
+                height: 1.2,
                 fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
                 color: sel ? cs.onPrimaryContainer : cs.onSurface,
               ),
@@ -392,10 +405,10 @@ class _AddTaskModalState extends State<AddTaskModal> {
     );
   }
 
-  Widget _smallChip(ColorScheme cs, String value, String label, String current) {
+  Widget _smallChip(ColorScheme cs, String value, String label, String current, ValueChanged<String> onSelect) {
     final sel = value == current;
     return GestureDetector(
-      onTap: () => setState(() => _assignee = value),
+      onTap: () => onSelect(value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -406,8 +419,11 @@ class _AddTaskModalState extends State<AddTaskModal> {
         ),
         child: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 12,
+            height: 1.2,
             fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
             color: sel ? cs.onPrimaryContainer : cs.onSurface,
           ),
