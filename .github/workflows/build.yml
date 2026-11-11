@@ -66,7 +66,10 @@ jobs:
           cp .github/widget_bg_glass.xml.template android/app/src/main/res/drawable/widget_bg_glass.xml
           cp .github/widget_card_bg.xml.template android/app/src/main/res/drawable/widget_card_bg.xml
           cp .github/widget_icon_bg.xml.template android/app/src/main/res/drawable/widget_icon_bg.xml
-          cp .github/dot.xml.template android/app/src/main/res/drawable/dot.xml
+          cp .github/ic_w_cart.xml.template android/app/src/main/res/drawable/ic_w_cart.xml
+          cp .github/ic_w_tasks.xml.template android/app/src/main/res/drawable/ic_w_tasks.xml
+          cp .github/ic_w_shift.xml.template android/app/src/main/res/drawable/ic_w_shift.xml
+          cp .github/ic_w_plus.xml.template android/app/src/main/res/drawable/ic_w_plus.xml
 
           # XML metadata
           cp .github/widget_shifts_info.xml.template android/app/src/main/res/xml/widget_shifts_info.xml
@@ -104,7 +107,7 @@ jobs:
               '''
               s = s.replace('</application>', block + '    </application>')
 
-          # 2. 4 виджета (без сервиса стека — он отдельным блоком ниже)
+          # 2. 4 виджета
           if 'VmesteClockWidget' not in s:
               block = '''
                   <receiver android:name=".VmesteShiftsWidget" android:exported="true" android:label="Вместе · Смены">
@@ -126,7 +129,7 @@ jobs:
               '''
               s = s.replace('</application>', block + '    </application>')
 
-          # 3. Сервис стека — НЕЗАВИСИМОЕ условие (фикс: раньше был внутри блока виджетов)
+          # 3. Сервис списка — независимое условие
           if 'VmesteStackService' not in s:
               block = '''
                   <service
