@@ -24,7 +24,6 @@ class CategoriesEditorScreen extends StatefulWidget {
 }
 
 class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
-  // Работаем с копией, сохраняем только по кнопке
   late List<PurchaseCategory> _purchaseCats;
   late List<TaskCategory> _taskCats;
   late List<ShiftType> _shiftTypes;
@@ -117,6 +116,15 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
     });
   }
 
+  Color _parseColor(String hex) {
+    try {
+      final h = hex.replaceAll('#', '');
+      return Color(int.parse('FF$h', radix: 16));
+    } catch (_) {
+      return const Color(0xFF9E9E9E);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -137,6 +145,7 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 18),
               minimumSize: const Size(double.infinity, 0),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
             child: const Text('Сохранить', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ),
@@ -229,13 +238,14 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
           final t = _shiftTypes[i];
           return _row(
             cs: cs,
-            emoji: '🎨',
+            emoji: '',
             label: t.label,
             showEmoji: false,
+            colorHex: t.color,
             onLabel: (v) {
               setState(() {
                 _shiftTypes[i] = ShiftType(
-                  id: t.id, label: v, hours: t.hours, color: t.color,
+                  id: t.id, label: v, hours: t.hours, rate: t.rate, color: t.color,
                 );
               });
             },
@@ -254,41 +264,77 @@ class _CategoriesEditorScreenState extends State<CategoriesEditorScreen> {
     required void Function(String) onLabel,
     required void Function(String)? onEmoji,
     required VoidCallback onDelete,
+    String? colorHex,
   }) {
     final labelCtrl = TextEditingController(text: label);
     final emojiCtrl = TextEditingController(text: emoji);
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: cs.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outline.withOpacity(0.5)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           if (showEmoji && onEmoji != null)
-            SizedBox(
-              width: 48,
+            Container(
+              width: 52,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: TextField(
                 controller: emojiCtrl,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 22),
+                style: const TextStyle(fontSize: 20, height: 1.0),
                 onSubmitted: onEmoji,
-                decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
             ),
+          if (!showEmoji && colorHex != null)
+            Container(
+              width: 52,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cs.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: _parseColor(colorHex),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: labelCtrl,
               onSubmitted: onLabel,
-              style: TextStyle(color: cs.onSurface),
-              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+              maxLines: 1,
+              style: TextStyle(color: cs.onSurface, fontSize: 14, height: 1.2),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
           ),
           IconButton(
             onPressed: onDelete,
-            icon: Icon(Icons.delete_outline, color: cs.error),
+            icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
           ),
         ],
       ),
