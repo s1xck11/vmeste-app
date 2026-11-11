@@ -2,48 +2,84 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/card_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:padding="14dp"
+    android:layout_marginBottom="8dp"
     android:background="@drawable/widget_card_bg">
 
-    <TextView
-        android:id="@+id/card_title"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:maxLines="1" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-    <TextView
-        android:id="@+id/card_subtitle"
+        <ImageView
+            android:id="@+id/card_icon"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:padding="6dp"
+            android:background="@drawable/widget_icon_bg"
+            android:scaleType="centerInside"
+            android:contentDescription="@null" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="10dp">
+
+            <TextView
+                android:id="@+id/card_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/card_subtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="#8A94A0"
+                android:maxLines="1"
+                android:layout_marginTop="1dp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ImageView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="10sp"
-        android:textColor="#9AA5B1"
-        android:maxLines="1"
-        android:visibility="gone" />
+        android:layout_height="1dp"
+        android:background="#1AFFFFFF"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="@null" />
 
-    <TextView android:id="@+id/card_line1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="6dp" android:maxLines="1" android:visibility="gone" />
-    <TextView android:id="@+id/card_line2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="4dp" android:maxLines="1" android:visibility="gone" />
-    <TextView android:id="@+id/card_line3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#E6E6E6" android:layout_marginTop="4dp" android:maxLines="1" android:visibility="gone" />
+    <TextView android:id="@+id/card_line1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="#E8EAED" android:maxLines="1" android:ellipsize="end" android:layout_marginBottom="6dp" android:visibility="gone" />
+    <TextView android:id="@+id/card_line2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="#E8EAED" android:maxLines="1" android:ellipsize="end" android:layout_marginBottom="6dp" android:visibility="gone" />
+    <TextView android:id="@+id/card_line3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="#E8EAED" android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
 
-    <!-- Блок карточки «Добавить расход» -->
     <LinearLayout
         android:id="@+id/card_add_expense"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
         android:visibility="gone">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="💸"
-            android:textSize="30sp" />
+        <ImageView
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:src="@drawable/ic_w_plus"
+            android:scaleType="centerInside"
+            android:contentDescription="@null" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -51,16 +87,7 @@
             android:text="Быстрый расход"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:textColor="#89CFF0"
+            android:textColor="#FF8FAB"
             android:layout_marginTop="6dp" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/card_hint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Свайп — по кругу · Тап — открыть"
-        android:textSize="9sp"
-        android:textColor="#66707A"
-        android:layout_marginTop="6dp" />
 </LinearLayout>
