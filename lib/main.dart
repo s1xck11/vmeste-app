@@ -321,8 +321,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final List<Widget> _screens;
   final _updateService = UpdateService();
-  final _weatherService = WeatherService(StorageService());
   StreamSubscription<dynamic>? _widgetClickSub;
+  Timer? _clockTimer;
 
   final _purchasesKey = GlobalKey<PurchasesScreenState>();
   final _tasksKey = GlobalKey<TasksScreenState>();
@@ -381,11 +381,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         }
       });
     } catch (_) {}
+
+    // Таймер часов: раз в минуту пишем время/дату в виджет (пока приложение живо)
+    _clockTimer?.cancel();
+    _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      widget.widgetService.updateClockTime();
+    });
   }
 
   Future<void> _refreshWeather() async {
     try {
-      // Используем storage текущего экземпляра
       final wx = WeatherService(widget.storage);
       await wx.refresh();
       await widget.widgetService.updateAll();
@@ -413,6 +418,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _widgetClickSub?.cancel();
+    _clockTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.sync.onStatusChanged = null;
     super.dispose();
@@ -421,6 +427,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      widget.widgetService.updateClockTime();
       widget.sync.pullNow();
       _refreshWeather();
       _checkUpdateOnResume();
