@@ -35,7 +35,10 @@ class NoteCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: cs.surfaceVariant,
             borderRadius: BorderRadius.circular(20),
-            // Внутренняя тень для эффекта глубины
+            border: Border.all(
+              color: isHighPriority ? cs.error.withOpacity(0.45) : cs.outline.withOpacity(0.35),
+              width: isHighPriority ? 1.4 : 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.15),
@@ -43,7 +46,6 @@ class NoteCard extends StatelessWidget {
                 spreadRadius: -1,
                 offset: const Offset(0, 2),
               ),
-              // Для высокого приоритета добавляем красноватое свечение
               if (isHighPriority)
                 BoxShadow(
                   color: cs.error.withOpacity(0.2),
@@ -57,7 +59,22 @@ class NoteCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Заголовок
+              if (isHighPriority) ...[
+                Row(
+                  children: [
+                    Container(
+                      width: 8, height: 8,
+                      decoration: BoxDecoration(color: cs.error, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Важно',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: cs.error, letterSpacing: 0.4),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
               Text(
                 title,
                 style: TextStyle(
@@ -67,6 +84,7 @@ class NoteCard extends StatelessWidget {
                   decoration: isDone ? TextDecoration.lineThrough : null,
                   decorationColor: cs.onSurfaceVariant,
                   height: 1.3,
+                  letterSpacing: -0.1,
                 ),
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
@@ -79,8 +97,9 @@ class NoteCard extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: cs.onSurfaceVariant,
+                    height: 1.35,
                   ),
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
