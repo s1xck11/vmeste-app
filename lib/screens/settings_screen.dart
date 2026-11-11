@@ -303,7 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Профиль', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.5)),
+                      Text('Профиль', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.5, height: 1.2)),
                       const SizedBox(height: 4),
                       InkWell(
                         onTap: _editName,
@@ -331,7 +331,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           // 2. О приложении
           Container(
@@ -354,9 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text('Сяо Чэн 小程', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.primary, height: 1.2)),
                       const SizedBox(height: 2),
-                      Text('Сделано с любовью для Серёжи и Насти',
-                          style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.3),
-                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Text('Сделано с любовью для Серёжи и Насти', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.3)),
                     ],
                   ),
                 ),
@@ -374,14 +372,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ThemePickerScreen(themeService: widget.themeService)
             )),
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.wallpaper,
             title: 'Фон приложения',
             subtitle: _bgService.hasImage ? 'Изображение задано' : 'Стандартный фон',
             onTap: () => _showBackgroundSheet(cs),
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.receipt_long_outlined,
@@ -408,10 +406,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           if (_notifService.enabled)
             Padding(
-              padding: const EdgeInsets.only(left: 66, top: 0, bottom: 8),
+              padding: const EdgeInsets.only(left: 56, top: 0, bottom: 8),
               child: Row(
                 children: [
-                  Text('Напомнить за: ', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  Text('Напомнить за: ', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.2)),
                   DropdownButton<int>(
                     value: _notifService.timing,
                     underline: const SizedBox(),
@@ -474,28 +472,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             iconColor: _syncColor(),
             title: 'Статус синхронизации',
             subtitle: _syncText(),
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.copy,
             title: 'Код группы',
             subtitle: widget.storage.coupleCode ?? 'Не задан',
             onTap: () => _copy(widget.storage.coupleCode ?? '', 'Код'),
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.key,
             title: 'Мой ключ доступа',
             subtitle: widget.storage.myKey ?? 'Не задан',
             onTap: () => _copy(widget.storage.myKey ?? '', 'Ключ'),
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.people_outline,
             title: 'Участники группы',
             subtitle: '${widget.storage.members.length} устройств',
             onTap: () => _showMembers(cs),
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.sync,
@@ -505,14 +503,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               widget.sync.schedulePush();
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Отправлено')));
             },
-            cs: cs,
+            cs: cs
           ),
           if (widget.sync.status != 'online')
             _settingsTile(
               icon: Icons.refresh,
               title: 'Подключиться заново',
               onTap: widget.onReconnect,
-              cs: cs,
+              cs: cs
             ),
 
           const SizedBox(height: 16),
@@ -537,7 +535,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => CourierImportScreen(storage: widget.storage, sync: widget.sync)
             )),
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.history,
@@ -545,7 +543,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => PurchaseHistoryScreen(storage: widget.storage, sync: widget.sync)
             )),
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.folder_outlined,
@@ -553,7 +551,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => DataManagementScreen(storage: widget.storage, sync: widget.sync)
             )),
-            cs: cs,
+            cs: cs
           ),
 
           const SizedBox(height: 16),
@@ -565,9 +563,525 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: 'Проверить обновления',
             subtitle: _checkingUpdate ? 'Проверяю...' : 'Версия ${UpdateService.currentFull}',
             onTap: _checkingUpdate ? null : _checkUpdates,
-            cs: cs,
+            cs: cs
           ),
           _settingsTile(
             icon: Icons.bug_report_outlined,
             title: 'Экран отладки',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DebugScreen())),
+            cs: cs
+          ),
+
+          const SizedBox(height: 24),
+
+          // 8. Выход
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Отключиться от группы?'),
+                    content: const Text('Локальные данные останутся на устройстве, но синхронизация с партнером прекратится.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+                      ElevatedButton(
+                        onPressed: () { Navigator.pop(ctx); widget.onDisconnect(); },
+                        style: ElevatedButton.styleFrom(backgroundColor: cs.error),
+                        child: const Text('Отключиться'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.logout, size: 18),
+              label: const Text('Отключиться'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: cs.error,
+                side: BorderSide(color: cs.error),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _settingsTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    VoidCallback? onTap,
+    Color? iconColor,
+    Widget? trailing,
+    required ColorScheme cs,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: cs.surfaceVariant.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: (iconColor ?? cs.primary).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor ?? cs.primary, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.25),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.3),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing else if (onTap != null) Icon(Icons.chevron_right, color: cs.onSurfaceVariant, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _expandableShiftTypes(ColorScheme cs) {
+    return _ExpandableSection(
+      title: 'Типы смен',
+      icon: Icons.calendar_today_outlined,
+      cs: cs,
+      builder: (setSt) {
+        final types = List<ShiftType>.from(widget.storage.shiftTypes);
+        return Column(
+          children: [
+            ...List.generate(types.length, (i) => Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 12, height: 12,
+                        decoration: BoxDecoration(color: _parseColor(types[i].color), shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: types[i].label,
+                          maxLines: 1,
+                          style: TextStyle(color: cs.onSurface, fontSize: 14, height: 1.2),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onFieldSubmitted: (v) {
+                            types[i] = ShiftType(id: types[i].id, label: v, hours: types[i].hours, rate: types[i].rate, color: types[i].color);
+                            widget.storage.shiftTypes = types;
+                            widget.sync.schedulePush();
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
+                        onPressed: () {
+                          types.removeAt(i);
+                          widget.storage.shiftTypes = types;
+                          widget.sync.schedulePush();
+                          setSt();
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: types[i].hours.toStringAsFixed(0),
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: cs.onSurface, fontSize: 13, height: 1.2),
+                          decoration: InputDecoration(
+                            labelText: 'Часов',
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                            suffixText: 'ч',
+                            suffixStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onFieldSubmitted: (v) {
+                            types[i] = ShiftType(id: types[i].id, label: types[i].label, hours: double.tryParse(v.replaceAll(',', '.')) ?? types[i].hours, rate: types[i].rate, color: types[i].color);
+                            widget.storage.shiftTypes = types;
+                            widget.sync.schedulePush();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: types[i].rate.toStringAsFixed(0),
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: cs.onSurface, fontSize: 13, height: 1.2),
+                          decoration: InputDecoration(
+                            labelText: 'Ставка',
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                            suffixText: '₽/час',
+                            suffixStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onFieldSubmitted: (v) {
+                            types[i] = ShiftType(id: types[i].id, label: types[i].label, hours: types[i].hours, rate: double.tryParse(v.replaceAll(',', '.')) ?? types[i].rate, color: types[i].color);
+                            widget.storage.shiftTypes = types;
+                            widget.sync.schedulePush();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )),
+            TextButton.icon(
+              onPressed: () {
+                types.add(ShiftType(id: 'st_${DateTime.now().millisecondsSinceEpoch}', label: 'Новая смена', hours: 8, rate: 0, color: '#FF8FAB'));
+                widget.storage.shiftTypes = types;
+                widget.sync.schedulePush();
+                setSt();
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Добавить тип'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _expandablePartners(ColorScheme cs) {
+    return _ExpandableSection(
+      title: 'Партнёры и зарплата',
+      icon: Icons.people,
+      cs: cs,
+      builder: (setSt) {
+        final partners = List<Partner>.from(widget.storage.partners);
+        return Column(
+          children: List.generate(partners.length, (i) {
+            final p = partners[i];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(14)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    initialValue: p.name,
+                    maxLines: 1,
+                    style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600, fontSize: 15, height: 1.2),
+                    decoration: InputDecoration(
+                      labelText: 'Имя партнёра',
+                      labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onFieldSubmitted: (v) {
+                      partners[i] = Partner(id: p.id, name: v, rate: p.rate, payType: p.payType);
+                      widget.storage.partners = partners;
+                      widget.sync.schedulePush();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: p.rate.toStringAsFixed(0),
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: cs.onSurface, fontSize: 14, height: 1.2),
+                          decoration: InputDecoration(
+                            labelText: 'Ставка',
+                            suffixText: '₽',
+                            suffixStyle: TextStyle(color: cs.onSurfaceVariant),
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onFieldSubmitted: (v) {
+                            partners[i] = Partner(id: p.id, name: p.name, rate: double.tryParse(v) ?? 0, payType: p.payType);
+                            widget.storage.partners = partners;
+                            widget.sync.schedulePush();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: p.payType,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: 'Тип оплаты',
+                            labelStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'hourly', child: Text('Почасовая', overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(value: 'fixed', child: Text('Фиксированная', overflow: TextOverflow.ellipsis)),
+                            DropdownMenuItem(value: 'piecework', child: Text('Сдельная', overflow: TextOverflow.ellipsis)),
+                          ],
+                          onChanged: (v) {
+                            partners[i] = Partner(id: p.id, name: p.name, rate: p.rate, payType: v ?? 'hourly');
+                            widget.storage.partners = partners;
+                            widget.sync.schedulePush();
+                            setSt();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  Color _parseColor(String hex) {
+    try {
+      final h = hex.replaceAll('#', '');
+      return Color(int.parse('FF$h', radix: 16));
+    } catch (_) {
+      return const Color(0xFF9E9E9E);
+    }
+  }
+
+  Future<void> _showBackgroundSheet(ColorScheme cs) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setSt) => Container(
+          padding: EdgeInsets.only(
+            left: 24, right: 24, top: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2))),
+              ),
+              const SizedBox(height: 20),
+              Text('Фон приложения', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.2)),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () { _pickBackground(); Navigator.pop(ctx); },
+                      icon: const Icon(Icons.upload, size: 20),
+                      label: const Text('Загрузить', style: TextStyle(fontWeight: FontWeight.w600)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () { _clearBackground(); Navigator.pop(ctx); },
+                      icon: const Icon(Icons.clear, size: 20),
+                      label: const Text('Убрать', style: TextStyle(fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: cs.error,
+                        side: BorderSide(color: cs.error),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text('Степень размытия: ${_bgService.blur.toStringAsFixed(0)}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2)),
+              const SizedBox(height: 8),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 6,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                ),
+                child: Slider(
+                  value: _bgService.blur, min: 0, max: 30,
+                  onChanged: (v) async {
+                    await _setBlur(v);
+                    setSt(() {});
+                    setState(() {});
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMembers(ColorScheme cs) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Участники группы'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: widget.storage.members.map((uid) {
+            final isMe = uid == widget.storage.currentUserId;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Icon(isMe ? Icons.phone_android : Icons.devices, size: 18, color: isMe ? cs.primary : cs.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${isMe ? "Это вы" : "Устройство"}: ${uid.length > 8 ? uid.substring(0, 8) : uid}…',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: isMe ? cs.primary : cs.onSurface, fontWeight: isMe ? FontWeight.w600 : FontWeight.normal, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String text, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+      child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.8, height: 1.2)),
+    );
+  }
+}
+
+class _ExpandableSection extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final ColorScheme cs;
+  final Widget Function(VoidCallback) builder;
+
+  const _ExpandableSection({
+    required this.title,
+    required this.icon,
+    required this.cs,
+    required this.builder,
+  });
+
+  @override
+  State<_ExpandableSection> createState() => _ExpandableSectionState();
+}
+
+class _ExpandableSectionState extends State<_ExpandableSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(widget.icon, color: cs.primary, size: 20),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface, fontSize: 15, height: 1.25)),
+                  ),
+                  Icon(_expanded ? Icons.expand_less : Icons.expand_more, color: cs.onSurfaceVariant, size: 20),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: widget.builder(() => setState(() {})),
+            ),
+        ],
+      ),
+    );
+  }
+}
