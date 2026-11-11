@@ -233,13 +233,9 @@ class PurchasesScreenState extends State<PurchasesScreen> {
 
   void _delete(Purchase p) {
     final now = DateTime.now().millisecondsSinceEpoch;
-    // 1. Создаём tombstone
     widget.storage.addTombstone('purchases', p.id.toString(), now, widget.storage.myPartnerId ?? 'unknown');
-
-    // 2. Удаляем из локального списка
     final list = List<Purchase>.from(_purchases)..removeWhere((e) => e.id == p.id);
     widget.storage.purchases = list;
-
     _load();
     widget.sync.schedulePush();
   }
@@ -398,6 +394,7 @@ class PurchasesScreenState extends State<PurchasesScreen> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: selected ? cs.primary : cs.surfaceVariant,
                     borderRadius: BorderRadius.circular(22),
@@ -407,8 +404,11 @@ class PurchasesScreenState extends State<PurchasesScreen> {
                   ),
                   child: Text(
                     'Все',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
+                      height: 1.2,
                       fontWeight: FontWeight.w600,
                       color: selected ? cs.onPrimary : cs.onSurface,
                     ),
@@ -423,6 +423,7 @@ class PurchasesScreenState extends State<PurchasesScreen> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected ? cs.primary : cs.surfaceVariant,
                   borderRadius: BorderRadius.circular(22),
@@ -432,16 +433,26 @@ class PurchasesScreenState extends State<PurchasesScreen> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(cat.emoji, style: const TextStyle(fontSize: 16)),
+                    SizedBox(
+                      width: 20,
+                      child: Text(cat.emoji, style: const TextStyle(fontSize: 16, height: 1.0), textAlign: TextAlign.center),
+                    ),
                     if (selected) ...[
                       const SizedBox(width: 6),
-                      Text(
-                        cat.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onPrimary,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 110),
+                        child: Text(
+                          cat.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.2,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onPrimary,
+                          ),
                         ),
                       ),
                     ],
