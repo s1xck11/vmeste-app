@@ -7,7 +7,6 @@
     android:padding="10dp"
     android:background="@drawable/widget_bg_glass">
 
-    <!-- Левый блок: часы + погода -->
     <LinearLayout
         android:id="@+id/clock_block"
         android:layout_width="0dp"
@@ -20,29 +19,23 @@
         android:clickable="true"
         android:focusable="true">
 
-        <TextClock
+        <TextView
+            android:id="@+id/clock_time"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:format24Hour="HH:mm"
-            android:format12Hour="h:mm"
+            android:text="--:--"
             android:textSize="38sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF" />
 
-        <TextClock
+        <TextView
+            android:id="@+id/clock_date"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:format24Hour="EEEE, d MMMM"
-            android:format12Hour="EEEE, d MMMM"
+            android:text=""
             android:textSize="11sp"
             android:textColor="#9AA5B1"
-            android:layout_marginTop="2dp" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#26FFFFFF"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="2dp"
             android:layout_marginBottom="10dp" />
 
         <TextView
@@ -75,10 +68,12 @@
             android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Правый блок: свайпаемый стек -->
-    <StackView
-        android:id="@+id/widget_stack"
+    <ListView
+        android:id="@+id/widget_list"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="1.1" />
+        android:layout_weight="1.1"
+        android:divider="@null"
+        android:dividerHeight="0dp"
+        android:scrollbars="none" />
 </LinearLayout>
