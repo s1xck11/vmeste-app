@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
@@ -14,10 +15,11 @@ import es.antonborri.home_widget.HomeWidgetPlugin
 
 abstract class BaseVmesteWidget : AppWidgetProvider() {
     abstract val layoutId: Int
-    abstract val iconEmoji: String
+    abstract val iconRes: Int
     abstract val prefTitle: String
     abstract val prefLines: String
     abstract val prefSub: String
+    abstract val prefFlags: String
     abstract val tabIndex: Int
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -30,9 +32,10 @@ abstract class BaseVmesteWidget : AppWidgetProvider() {
         val title = prefs.getString(prefTitle, "") ?: ""
         val linesRaw = prefs.getString(prefLines, "") ?: ""
         val sub = prefs.getString(prefSub, "") ?: ""
+        val flags = (prefs.getString(prefFlags, "") ?: "").split(",").map { it == "1" }
         val lines = if (linesRaw.isEmpty()) emptyList() else linesRaw.split("\n").filter { it.isNotEmpty() }
 
-        views.setTextViewText(R.id.widget_icon, iconEmoji)
+        views.setImageViewResource(R.id.widget_icon, iconRes)
         views.setTextViewText(R.id.widget_title, title)
         views.setTextViewText(R.id.widget_subtitle, sub)
 
@@ -40,6 +43,7 @@ abstract class BaseVmesteWidget : AppWidgetProvider() {
         for (i in lineIds.indices) {
             if (i < lines.size) {
                 views.setTextViewText(lineIds[i], lines[i])
+                views.setTextColor(lineIds[i], if (flags.getOrElse(i) { false }) Color.parseColor("#FF6B6B") else Color.parseColor("#E8EAED"))
                 views.setViewVisibility(lineIds[i], View.VISIBLE)
             } else {
                 views.setTextViewText(lineIds[i], "")
@@ -60,18 +64,21 @@ abstract class BaseVmesteWidget : AppWidgetProvider() {
 
 class VmesteShiftsWidget : BaseVmesteWidget() {
     override val layoutId = R.layout.widget_shifts
-    override val iconEmoji = "💼"; override val prefTitle = "shifts_title"
-    override val prefLines = "shifts_lines"; override val prefSub = "shifts_sub"; override val tabIndex = 2
+    override val iconRes = R.drawable.ic_w_shift
+    override val prefTitle = "shifts_title"; override val prefLines = "shifts_lines"; override val prefSub = "shifts_sub"
+    override val prefFlags = "shifts_flags"; override val tabIndex = 2
 }
 class VmestePurchasesWidget : BaseVmesteWidget() {
     override val layoutId = R.layout.widget_purchases
-    override val iconEmoji = "🛒"; override val prefTitle = "purchases_title"
-    override val prefLines = "purchases_lines"; override val prefSub = "purchases_sub"; override val tabIndex = 0
+    override val iconRes = R.drawable.ic_w_cart
+    override val prefTitle = "purchases_title"; override val prefLines = "purchases_lines"; override val prefSub = "purchases_sub"
+    override val prefFlags = "purchases_flags"; override val tabIndex = 0
 }
 class VmesteTasksWidget : BaseVmesteWidget() {
     override val layoutId = R.layout.widget_tasks
-    override val iconEmoji = "✅"; override val prefTitle = "tasks_title"
-    override val prefLines = "tasks_lines"; override val prefSub = "tasks_sub"; override val tabIndex = 1
+    override val iconRes = R.drawable.ic_w_tasks
+    override val prefTitle = "tasks_title"; override val prefLines = "tasks_lines"; override val prefSub = "tasks_sub"
+    override val prefFlags = "tasks_flags"; override val tabIndex = 1
 }
 
 class VmesteClockWidget : AppWidgetProvider() {
@@ -80,8 +87,6 @@ class VmesteClockWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_clock)
             val prefs = HomeWidgetPlugin.getData(context)
 
-            // Время и дату рисует нативный TextClock сам (в процессе лаунчера).
-            // Здесь только погода.
             views.setTextViewText(R.id.weather_temp, prefs.getString("clock_weather", "--°") ?: "--°")
             val cond = prefs.getString("clock_condition", "") ?: ""
             val city = prefs.getString("clock_city", "") ?: ""
@@ -116,7 +121,7 @@ class VmesteStackService : RemoteViewsService() {
 }
 
 class StackFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
-    private data class StackCard(val tab: Int, val title: String, val subtitle: String, val lines: List<String>, val isAddExpense: Boolean)
+    private data class StackCard(val tab: Int, val iconRes: Int, val title: String, val subtitle: String, val lines: List<String>, val flags: List<Boolean>, val isAddExpense: Boolean)
     private val items = mutableListOf<StackCard>()
 
     override fun onCreate() {}
@@ -124,23 +129,28 @@ class StackFactory(private val context: Context) : RemoteViewsService.RemoteView
         items.clear()
         val prefs = HomeWidgetPlugin.getData(context)
         fun lines(key: String): List<String> = (prefs.getString(key, "") ?: "").split("\n").filter { it.isNotEmpty() }
-        items.add(StackCard(0, "🛒 ${prefs.getString("purchases_title", "Покупки") ?: "Покупки"}", prefs.getString("purchases_sub", "") ?: "", lines("purchases_lines").take(3), false))
-        items.add(StackCard(1, "✅ ${prefs.getString("tasks_title", "Задачи") ?: "Задачи"}", prefs.getString("tasks_sub", "") ?: "", lines("tasks_lines").take(3), false))
-        items.add(StackCard(2, "💼 Смена сегодня", "", lines("clock_shifts").take(3), false))
-        items.add(StackCard(0, "➕ Добавить расход", "", emptyList(), true))
+        fun flags(key: String): List<Boolean> = (prefs.getString(key, "") ?: "").split(",").map { it == "1" }
+        items.add(StackCard(0, R.drawable.ic_w_cart, prefs.getString("purchases_title", "Покупки") ?: "Покупки", prefs.getString("purchases_sub", "") ?: "", lines("purchases_lines").take(3), flags("purchases_flags"), false))
+        items.add(StackCard(1, R.drawable.ic_w_tasks, prefs.getString("tasks_title", "Задачи") ?: "Задачи", prefs.getString("tasks_sub", "") ?: "", lines("tasks_lines").take(3), flags("tasks_flags"), false))
+        items.add(StackCard(2, R.drawable.ic_w_shift, "Смена сегодня", "", lines("clock_shifts").take(3), emptyList(), false))
+        items.add(StackCard(0, R.drawable.ic_w_plus, "Добавить расход", "", emptyList(), emptyList(), true))
     }
     override fun getCount(): Int = items.size
     override fun getViewAt(position: Int): RemoteViews {
         val card = items[position]
         val views = RemoteViews(context.packageName, R.layout.widget_stack_card)
+        views.setImageViewResource(R.id.card_icon, card.iconRes)
         views.setTextViewText(R.id.card_title, card.title)
         if (card.subtitle.isNotEmpty()) { views.setTextViewText(R.id.card_subtitle, card.subtitle); views.setViewVisibility(R.id.card_subtitle, View.VISIBLE) }
         else views.setViewVisibility(R.id.card_subtitle, View.GONE)
         views.setViewVisibility(R.id.card_add_expense, if (card.isAddExpense) View.VISIBLE else View.GONE)
         val lineIds = intArrayOf(R.id.card_line1, R.id.card_line2, R.id.card_line3)
         for (i in lineIds.indices) {
-            if (i < card.lines.size) { views.setTextViewText(lineIds[i], card.lines[i]); views.setViewVisibility(lineIds[i], View.VISIBLE) }
-            else views.setViewVisibility(lineIds[i], View.GONE)
+            if (i < card.lines.size) {
+                views.setTextViewText(lineIds[i], card.lines[i])
+                views.setTextColor(lineIds[i], if (card.flags.getOrElse(i) { false }) Color.parseColor("#FF6B6B") else Color.parseColor("#E8EAED"))
+                views.setViewVisibility(lineIds[i], View.VISIBLE)
+            } else views.setViewVisibility(lineIds[i], View.GONE)
         }
         if (card.lines.isEmpty() && !card.isAddExpense) { views.setTextViewText(R.id.card_line1, "Пока пусто"); views.setViewVisibility(R.id.card_line1, View.VISIBLE) }
         val fillIn = if (card.isAddExpense) Intent().apply { data = Uri.parse("vmeste://open?action=addExpense") }
