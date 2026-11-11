@@ -1,9 +1,11 @@
 // lib/screens/tasks_screen.dart
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../models/task.dart';
 import '../models/task_category.dart';
+import '../models/partner.dart';
 import '../services/storage_service.dart';
 import '../services/sync_service.dart';
 import '../services/theme_service.dart';
@@ -240,6 +242,31 @@ class TasksScreenState extends State<TasksScreen> {
     return list;
   }
 
+  List<Task> get _allVisible => _tasks.where((t) => !t.archived).toList();
+  int get _doneCount => _allVisible.where((t) => t.done).length;
+  int get _totalCount => _allVisible.length;
+  double get _progress => _totalCount == 0 ? 0 : _doneCount / _totalCount;
+
+  Partner? _partnerFor(String id) {
+    for (final p in widget.storage.partners) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  Color _partnerColor(int index, ColorScheme cs) {
+    const palette = [
+      Color(0xFF5B8DEF),
+      Color(0xFFEC407A),
+      Color(0xFF26A69A),
+      Color(0xFFFFA726),
+      Color(0xFF7E57C2),
+      Color(0xFF66BB6A),
+    ];
+    if (index < 0) return cs.onSurfaceVariant;
+    return palette[index % palette.length];
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -277,6 +304,7 @@ class TasksScreenState extends State<TasksScreen> {
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
+                  SliverToBoxAdapter(child: _buildProgressCard(cs)),
                   SliverToBoxAdapter(child: _buildQuickAdd(cs)),
                   SliverToBoxAdapter(child: _buildCategoryFilter(cs)),
                   if (_filteredTasks.isEmpty)
@@ -294,10 +322,18 @@ class TasksScreenState extends State<TasksScreen> {
                         childCount: _filteredTasks.length,
                         itemBuilder: (ctx, i) {
                           final t = _filteredTasks[i];
+                          final pi = widget.storage.partners.indexWhere((p) => p.id == t.assignee);
+                          final partner = pi >= 0 ? widget.storage.partners[pi] : null;
+                          final avatarText = partner == null
+                              ? '∗'
+                              : (partner.name.trim().isNotEmpty ? partner.name.trim()[0].toUpperCase() : '?');
+                          final avatarColor = _partnerColor(pi, cs);
                           return NoteCard(
                             title: t.text,
                             subtitle: t.deadline.isNotEmpty ? '📅 ${t.deadline}' : null,
                             isHighPriority: t.priority == 'high',
+                            avatarText: avatarText,
+                            avatarColor: avatarColor,
                             onTap: () => _openNoteModal(t),
                           );
                         },
@@ -308,6 +344,95 @@ class TasksScreenState extends State<TasksScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProgressCard(ColorScheme cs) {
+    final percent = (_progress * 100).round();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cs.primaryContainer.withOpacity(0.55), cs.surfaceVariant],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: cs.outline.withOpacity(0.4)),
+        ),
+        child: Row(
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: _progress),
+              duration: const Duration(milliseconds: 450),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                return CustomPaint(
+                  size: const Size(58, 58),
+                  painter: _RingPainter(
+                    progress: value,
+                    track: cs.surface.withOpacity(0.7),
+                    color: cs.primary,
+                  ),
+                  child: SizedBox(
+                    width: 58,
+                    height: 58,
+                    child: Center(
+                      child: Text(
+                        '$percent%',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.0),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Прогресс задач',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.2),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$_doneCount из $_totalCount выполнено',
+                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.3),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _miniBadge(cs, 'Активно ${_activeTasks.length}', cs.primary),
+                      _miniBadge(cs, 'Готово $_doneCount', cs.tertiary),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _miniBadge(ColorScheme cs, String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, height: 1.2),
       ),
     );
   }
@@ -453,6 +578,45 @@ class TasksScreenState extends State<TasksScreen> {
       ),
     );
   }
+}
+
+class _RingPainter extends CustomPainter {
+  final double progress;
+  final Color track;
+  final Color color;
+
+  _RingPainter({required this.progress, required this.track, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 8) / 2;
+    final trackPaint = Paint()
+      ..color = track
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+    final progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, trackPaint);
+    if (progress > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        2 * math.pi * progress.clamp(0.0, 1.0),
+        false,
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.track != track || oldDelegate.color != color;
 }
 
 class _EmptyTasks extends StatelessWidget {
