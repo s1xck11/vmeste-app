@@ -80,10 +80,8 @@ class VmesteClockWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_clock)
             val prefs = HomeWidgetPlugin.getData(context)
 
-            // Часы/дата как ТЕКСТ (TextClock запрещён в RemoteViews) — обновляет Flutter-таймер
-            views.setTextViewText(R.id.clock_time, prefs.getString("clock_time", "--:--") ?: "--:--")
-            views.setTextViewText(R.id.clock_date, prefs.getString("clock_date", "") ?: "")
-
+            // Время и дату рисует нативный TextClock сам (в процессе лаунчера).
+            // Здесь только погода.
             views.setTextViewText(R.id.weather_temp, prefs.getString("clock_weather", "--°") ?: "--°")
             val cond = prefs.getString("clock_condition", "") ?: ""
             val city = prefs.getString("clock_city", "") ?: ""
