@@ -23,10 +23,12 @@ class WidgetService {
   static const String _keyPurchasesLines = 'purchases_lines';
   static const String _keyPurchasesTitle = 'purchases_title';
   static const String _keyPurchasesSub = 'purchases_sub';
+  static const String _keyPurchasesFlags = 'purchases_flags';
 
   static const String _keyTasksLines = 'tasks_lines';
   static const String _keyTasksTitle = 'tasks_title';
   static const String _keyTasksSub = 'tasks_sub';
+  static const String _keyTasksFlags = 'tasks_flags';
 
   static const String _keyClockTime = 'clock_time';
   static const String _keyClockDate = 'clock_date';
@@ -102,25 +104,21 @@ class WidgetService {
           if (pa != pb) return pa.compareTo(pb);
           return a.order.compareTo(b.order);
         });
-      final lines = _buildPurchaseLines(all);
+      final slice = all.take(4).toList();
+      final lines = slice.map((p) {
+        final qty = p.qty > 1 ? '${_trimNum(p.qty)} ${p.unit} · ' : '';
+        return '$qty${p.text}';
+      }).toList();
+      final flags = slice.map((p) => p.priority == 'high' ? '1' : '0').join(',');
       final sub = all.isEmpty ? 'всё куплено' : '${all.length} осталось';
       await HomeWidget.saveWidgetData<String>(_keyPurchasesTitle, 'Покупки');
       await HomeWidget.saveWidgetData<String>(_keyPurchasesLines, lines.join('\n'));
       await HomeWidget.saveWidgetData<String>(_keyPurchasesSub, sub);
+      await HomeWidget.saveWidgetData<String>(_keyPurchasesFlags, flags);
       await HomeWidget.updateWidget(androidName: androidPurchasesName);
     } catch (e, st) {
       _log.error('Widget', 'updatePurchases FAILED', e, st);
     }
-  }
-
-  List<String> _buildPurchaseLines(List<Purchase> all) {
-    final result = <String>[];
-    for (final p in all.take(4)) {
-      final qty = p.qty > 1 ? '${_trimNum(p.qty)} ${p.unit} · ' : '';
-      final mark = p.priority == 'high' ? '🔴 ' : '';
-      result.add('$mark$qty${p.text}');
-    }
-    return result;
   }
 
   Future<void> updateTasks() async {
@@ -136,24 +134,18 @@ class WidgetService {
           if (ra != rb) return ra.compareTo(rb);
           return a.order.compareTo(b.order);
         });
-      final lines = _buildTaskLines(all);
+      final slice = all.take(4).toList();
+      final lines = slice.map((t) => t.text).toList();
+      final flags = slice.map((t) => t.priority == 'high' ? '1' : '0').join(',');
       final sub = all.isEmpty ? 'всё сделано' : '${all.length} активно';
       await HomeWidget.saveWidgetData<String>(_keyTasksTitle, 'Задачи');
       await HomeWidget.saveWidgetData<String>(_keyTasksLines, lines.join('\n'));
       await HomeWidget.saveWidgetData<String>(_keyTasksSub, sub);
+      await HomeWidget.saveWidgetData<String>(_keyTasksFlags, flags);
       await HomeWidget.updateWidget(androidName: androidTasksName);
     } catch (e, st) {
       _log.error('Widget', 'updateTasks FAILED', e, st);
     }
-  }
-
-  List<String> _buildTaskLines(List<Task> all) {
-    final result = <String>[];
-    for (final t in all.take(4)) {
-      final mark = t.priority == 'high' ? '🔴 ' : '';
-      result.add('$mark${t.text}');
-    }
-    return result;
   }
 
   Future<void> updateClock() async {
@@ -180,7 +172,6 @@ class WidgetService {
     }
   }
 
-  /// Только время/дата — вызывается таймером раз в минуту, пока приложение живо.
   Future<void> updateClockTime() async {
     try {
       final now = DateTime.now();
