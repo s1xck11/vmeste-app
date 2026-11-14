@@ -16,6 +16,13 @@ import '../widgets/note_modal.dart';
 import '../widgets/status_line.dart';
 import 'categories_editor_screen.dart';
 
+class _TaskParse {
+  final String text;
+  final String priority;
+  final String deadline;
+  const _TaskParse(this.text, this.priority, this.deadline);
+}
+
 class TasksScreen extends StatefulWidget {
   final StorageService storage;
   final SyncService sync;
@@ -37,6 +44,7 @@ class TasksScreen extends StatefulWidget {
 class TasksScreenState extends State<TasksScreen> {
   final _quickController = TextEditingController();
   String? _selectedCategory;
+  String _viewMode = 'grid';
 
   List<Task> _tasks = [];
   List<TaskCategory> _categories = [];
@@ -69,22 +77,55 @@ class TasksScreenState extends State<TasksScreen> {
   }
 
   String _myName() {
-    return widget.storage.myName.isEmpty
-        ? (widget.storage.myPartnerId ?? '')
-        : widget.storage.myName;
+    return widget.storage.myName.isEmpty ? (widget.storage.myPartnerId ?? '') : widget.storage.myName;
+  }
+
+  String _two(int n) => n < 10 ? '0$n' : '$n';
+
+  String _dateKey(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
+
+  // ==================== УМНЫЙ ВВОД ====================
+
+  _TaskParse _parseSmart(String input) {
+    var rest = input.trim();
+    String priority = 'med';
+    String deadline = '';
+
+    if (RegExp(r'(^|\s)(!|важно|срочно)(\s|$)', caseSensitive: false).hasMatch(rest)) {
+      priority = 'high';
+      rest = rest.replaceAll(RegExp(r'(^|\s)(!|важно|срочно)(\s|$)', caseSensitive: false), ' ');
+    }
+
+    final now = DateTime.now();
+    if (RegExp(r'(^|\s)послезавтра(\s|$)', caseSensitive: false).hasMatch(rest)) {
+      deadline = _dateKey(now.add(const Duration(days: 2)));
+      rest = rest.replaceAll(RegExp(r'(^|\s)послезавтра(\s|$)', caseSensitive: false), ' ');
+    } else if (RegExp(r'(^|\s)завтра(\s|$)', caseSensitive: false).hasMatch(rest)) {
+      deadline = _dateKey(now.add(const Duration(days: 1)));
+      rest = rest.replaceAll(RegExp(r'(^|\s)завтра(\s|$)', caseSensitive: false), ' ');
+    } else if (RegExp(r'(^|\s)сегодня(\s|$)', caseSensitive: false).hasMatch(rest)) {
+      deadline = _dateKey(now);
+      rest = rest.replaceAll(RegExp(r'(^|\s)сегодня(\s|$)', caseSensitive: false), ' ');
+    }
+
+    var text = rest.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.isEmpty) text = input.trim();
+    return _TaskParse(text, priority, deadline);
   }
 
   void _quickAdd() {
-    final text = _quickController.text.trim();
-    if (text.isEmpty) return;
+    final raw = _quickController.text.trim();
+    if (raw.isEmpty) return;
+    final parsed = _parseSmart(raw);
     final now = DateTime.now().millisecondsSinceEpoch;
     final t = Task(
       id: now,
-      text: text,
+      text: parsed.text,
       category: 'home',
-      deadline: '',
+      deadline: parsed.deadline,
       repeat: 'none',
       comment: '',
+      priority: parsed.priority,
       order: _tasks.length,
       archived: false,
       createdAt: now,
@@ -157,10 +198,7 @@ class TasksScreenState extends State<TasksScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (t.comment.isNotEmpty) ...[
-                Text(
-                  t.comment,
-                  style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.5),
-                ),
+                Text(t.comment, style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.5)),
                 const SizedBox(height: 16),
               ],
               if (t.createdByName != null || t.takenByName != null || t.doneByName != null)
@@ -212,6 +250,27 @@ class TasksScreenState extends State<TasksScreen> {
         updatedAt: now,
       ));
     }
+  }
+
+  Future<bool> _confirmDelete(Task t) async {
+    final cs = Theme.of(context).colorScheme;
+    final res = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cs.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Удалить задачу?', style: TextStyle(color: cs.onSurface)),
+        content: Text('"${t.text}" будет удалена у обоих.', style: TextStyle(color: cs.onSurfaceVariant)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Удалить', style: TextStyle(color: cs.error)),
+          ),
+        ],
+      ),
+    );
+    return res ?? false;
   }
 
   void _delete(Task t) {
@@ -281,6 +340,11 @@ class TasksScreenState extends State<TasksScreen> {
             avatarEmoji: widget.storage.myAvatar,
             actions: [
               IconButton(
+                tooltip: _viewMode == 'grid' ? 'Списком' : 'Сеткой',
+                icon: Icon(_viewMode == 'grid' ? Icons.view_agenda_outlined : Icons.grid_view_outlined, color: cs.primary, size: 22),
+                onPressed: () => setState(() => _viewMode = _viewMode == 'grid' ? 'list' : 'grid'),
+              ),
+              IconButton(
                 tooltip: 'Категории',
                 icon: Icon(Icons.tune, color: cs.primary, size: 22),
                 onPressed: () async {
@@ -308,41 +372,96 @@ class TasksScreenState extends State<TasksScreen> {
                   SliverToBoxAdapter(child: _buildQuickAdd(cs)),
                   SliverToBoxAdapter(child: _buildCategoryFilter(cs)),
                   if (_filteredTasks.isEmpty)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _EmptyTasks(),
-                    )
+                    const SliverFillRemaining(hasScrollBody: false, child: _EmptyTasks())
                   else
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 160),
-                      sliver: SliverMasonryGrid.count(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
-                        childCount: _filteredTasks.length,
-                        itemBuilder: (ctx, i) {
-                          final t = _filteredTasks[i];
-                          final pi = widget.storage.partners.indexWhere((p) => p.id == t.assignee);
-                          final partner = pi >= 0 ? widget.storage.partners[pi] : null;
-                          final avatarText = partner == null
-                              ? '∗'
-                              : (partner.name.trim().isNotEmpty ? partner.name.trim()[0].toUpperCase() : '?');
-                          final avatarColor = _partnerColor(pi, cs);
-                          return NoteCard(
-                            title: t.text,
-                            subtitle: t.deadline.isNotEmpty ? '📅 ${t.deadline}' : null,
-                            isHighPriority: t.priority == 'high',
-                            avatarText: avatarText,
-                            avatarColor: avatarColor,
-                            onTap: () => _openNoteModal(t),
-                          );
-                        },
-                      ),
-                    ),
+                    _buildCardsSliver(cs),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardsSliver(ColorScheme cs) {
+    if (_viewMode == 'list') {
+      return SliverPadding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 160),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (ctx, i) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _swipeCard(_filteredTasks[i], cs),
+            ),
+            childCount: _filteredTasks.length,
+          ),
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 160),
+      sliver: SliverMasonryGrid.count(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childCount: _filteredTasks.length,
+        itemBuilder: (ctx, i) => _swipeCard(_filteredTasks[i], cs),
+      ),
+    );
+  }
+
+  Widget _swipeCard(Task t, ColorScheme cs) {
+    final pi = widget.storage.partners.indexWhere((p) => p.id == t.assignee);
+    final partner = pi >= 0 ? widget.storage.partners[pi] : null;
+    final avatarText = partner == null
+        ? '∗'
+        : (partner.name.trim().isNotEmpty ? partner.name.trim()[0].toUpperCase() : '?');
+    final avatarColor = _partnerColor(pi, cs);
+
+    return Dismissible(
+      key: ValueKey('t_${t.id}'),
+      direction: DismissDirection.horizontal,
+      confirmDismiss: (dir) async {
+        if (dir == DismissDirection.startToEnd) {
+          _toggleDone(t);
+          return false;
+        }
+        return await _confirmDelete(t);
+      },
+      onDismissed: (dir) {
+        if (dir == DismissDirection.endToStart) _delete(t);
+      },
+      background: _swipeBg(cs, done: true),
+      secondaryBackground: _swipeBg(cs, done: false),
+      child: NoteCard(
+        title: t.text,
+        subtitle: t.deadline.isNotEmpty ? '📅 ${t.deadline}' : null,
+        isHighPriority: t.priority == 'high',
+        avatarText: avatarText,
+        avatarColor: avatarColor,
+        onTap: () => _openNoteModal(t),
+      ),
+    );
+  }
+
+  Widget _swipeBg(ColorScheme cs, {required bool done}) {
+    final color = done ? cs.tertiary : cs.error;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      alignment: done ? Alignment.centerLeft : Alignment.centerRight,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(done ? Icons.check_circle : Icons.delete_outline, color: color, size: 22),
+          const SizedBox(width: 8),
+          Text(done ? 'Выполнено' : 'Удалить', style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13)),
         ],
       ),
     );
@@ -381,10 +500,7 @@ class TasksScreenState extends State<TasksScreen> {
                     width: 58,
                     height: 58,
                     child: Center(
-                      child: Text(
-                        '$percent%',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.0),
-                      ),
+                      child: Text('$percent%', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.0)),
                     ),
                   ),
                 );
@@ -395,15 +511,9 @@ class TasksScreenState extends State<TasksScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Прогресс задач',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.2),
-                  ),
+                  Text('Прогресс задач', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.2)),
                   const SizedBox(height: 4),
-                  Text(
-                    '$_doneCount из $_totalCount выполнено',
-                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.3),
-                  ),
+                  Text('$_doneCount из $_totalCount выполнено', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.3)),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
@@ -430,18 +540,12 @@ class TasksScreenState extends State<TasksScreen> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withOpacity(0.4)),
       ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, height: 1.2),
-      ),
+      child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color, height: 1.2)),
     );
   }
 
   Widget _buildCategoryFilter(ColorScheme cs) {
-    final categories = _categories.where((c) =>
-      _activeTasks.any((t) => t.category == c.id)
-    ).toList();
-
+    final categories = _categories.where((c) => _activeTasks.any((t) => t.category == c.id)).toList();
     if (categories.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -464,21 +568,12 @@ class TasksScreenState extends State<TasksScreen> {
                   decoration: BoxDecoration(
                     color: selected ? cs.primary : cs.surfaceVariant,
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: selected ? cs.primary : cs.outline.withOpacity(0.5),
-                    ),
+                    border: Border.all(color: selected ? cs.primary : cs.outline.withOpacity(0.5)),
                   ),
-                  child: Text(
-                    'Все',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                      color: selected ? cs.onPrimary : cs.onSurface,
-                    ),
-                  ),
+                  child: Text('Все',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13, height: 1.2, fontWeight: FontWeight.w600, color: selected ? cs.onPrimary : cs.onSurface)),
                 ),
               );
             }
@@ -493,33 +588,21 @@ class TasksScreenState extends State<TasksScreen> {
                 decoration: BoxDecoration(
                   color: selected ? cs.primary : cs.surfaceVariant,
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: selected ? cs.primary : cs.outline.withOpacity(0.5),
-                  ),
+                  border: Border.all(color: selected ? cs.primary : cs.outline.withOpacity(0.5)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 20,
-                      child: Text(cat.emoji, style: const TextStyle(fontSize: 16, height: 1.0), textAlign: TextAlign.center),
-                    ),
+                    SizedBox(width: 20, child: Text(cat.emoji, style: const TextStyle(fontSize: 16, height: 1.0), textAlign: TextAlign.center)),
                     if (selected) ...[
                       const SizedBox(width: 6),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 110),
-                        child: Text(
-                          cat.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.2,
-                            fontWeight: FontWeight.w600,
-                            color: cs.onPrimary,
-                          ),
-                        ),
+                        child: Text(cat.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, height: 1.2, fontWeight: FontWeight.w600, color: cs.onPrimary)),
                       ),
                     ],
                   ],
@@ -539,13 +622,7 @@ class TasksScreenState extends State<TasksScreen> {
         decoration: BoxDecoration(
           color: cs.surfaceVariant,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
         ),
         child: Row(
           children: [
@@ -555,7 +632,7 @@ class TasksScreenState extends State<TasksScreen> {
                 onSubmitted: (_) => _quickAdd(),
                 textInputAction: TextInputAction.done,
                 decoration: InputDecoration(
-                  hintText: 'Что нужно сделать?',
+                  hintText: 'Что нужно сделать? Можно: завтра врач !',
                   border: InputBorder.none,
                   prefixIcon: Icon(Icons.check_circle_outline, color: cs.primary, size: 24),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -564,10 +641,7 @@ class TasksScreenState extends State<TasksScreen> {
             ),
             Container(
               margin: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: cs.primary,
-                borderRadius: BorderRadius.circular(20),
-              ),
+              decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(20)),
               child: IconButton(
                 icon: Icon(Icons.arrow_forward, color: cs.onPrimary, size: 20),
                 onPressed: _quickAdd,
@@ -631,22 +705,13 @@ class _EmptyTasks extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: cs.primaryContainer.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: cs.primaryContainer.withOpacity(0.3), shape: BoxShape.circle),
             child: Icon(Icons.task_alt, size: 56, color: cs.primary),
           ),
           const SizedBox(height: 20),
-          Text(
-            'Все задачи выполнены!',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface),
-          ),
+          Text('Все задачи выполнены!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface)),
           const SizedBox(height: 8),
-          Text(
-            'Или добавь новую, используя поле выше',
-            style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
-          ),
+          Text('Или добавь новую, используя поле выше', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
         ],
       ),
     );

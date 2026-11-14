@@ -10,6 +10,9 @@ class AddPurchaseModal extends StatefulWidget {
   final String initialText;
   final Purchase? initialPurchase;
   final Function(Purchase) onSave;
+  final double? initialQty;
+  final String? initialUnit;
+  final double? initialPrice;
 
   const AddPurchaseModal({
     super.key,
@@ -19,6 +22,9 @@ class AddPurchaseModal extends StatefulWidget {
     this.initialText = '',
     this.initialPurchase,
     required this.onSave,
+    this.initialQty,
+    this.initialUnit,
+    this.initialPrice,
   });
 
   @override
@@ -56,7 +62,24 @@ class _AddPurchaseModalState extends State<AddPurchaseModal> {
       if (widget.categories.isNotEmpty) {
         _categoryId = widget.categories.first.id;
       }
+      if (widget.initialQty != null) {
+        _qtyCtrl.text = _fmt(widget.initialQty!);
+        _showDetails = true;
+      }
+      if (widget.initialUnit != null) {
+        _unit = widget.initialUnit!;
+        _showDetails = true;
+      }
+      if (widget.initialPrice != null && widget.initialPrice! > 0) {
+        _priceCtrl.text = _fmt(widget.initialPrice!);
+        _showDetails = true;
+      }
     }
+  }
+
+  String _fmt(double v) {
+    if (v == v.roundToDouble()) return v.toStringAsFixed(0);
+    return v.toString();
   }
 
   @override

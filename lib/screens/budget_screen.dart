@@ -1,5 +1,6 @@
 // lib/screens/budget_screen.dart
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/budget_category.dart';
@@ -39,7 +40,7 @@ class BudgetScreenState extends State<BudgetScreen> {
   List<Transaction> _transactions = [];
   List<BudgetCategory> _categories = [];
   List<Bank> _banks = [];
-  String? _displayBankId; // null = общий баланс
+  String? _displayBankId;
 
   @override
   void initState() {
@@ -81,13 +82,8 @@ class BudgetScreenState extends State<BudgetScreen> {
         t.date.isBefore(end.add(const Duration(seconds: 1)))).toList();
   }
 
-  double get _incomes => _monthTransactions
-      .where((t) => t.type == 'income')
-      .fold(0.0, (s, t) => s + t.amount);
-
-  double get _expenses => _monthTransactions
-      .where((t) => t.type == 'expense')
-      .fold(0.0, (s, t) => s + t.amount);
+  double get _incomes => _monthTransactions.where((t) => t.type == 'income').fold(0.0, (s, t) => s + t.amount);
+  double get _expenses => _monthTransactions.where((t) => t.type == 'expense').fold(0.0, (s, t) => s + t.amount);
 
   double get _totalBanksBalance {
     double total = 0;
@@ -97,8 +93,7 @@ class BudgetScreenState extends State<BudgetScreen> {
     return total;
   }
 
-  double get _displayBalance =>
-      _displayBankId == null ? _totalBanksBalance : _bankBalance(_displayBankId!);
+  double get _displayBalance => _displayBankId == null ? _totalBanksBalance : _bankBalance(_displayBankId!);
 
   String get _displayLabel {
     if (_displayBankId == null) return 'Общий баланс';
@@ -154,7 +149,6 @@ class BudgetScreenState extends State<BudgetScreen> {
     });
   }
 
-  // ============ ПУБЛИЧНЫЕ МЕТОДЫ ДЛЯ FAB ============
   void openAddModal() => _openAddExpenseModal();
   void openAddIncomeModal() => _openAddIncomeModal();
   void openAddTransferModal() => _openAddTransferModal();
@@ -350,19 +344,9 @@ class BudgetScreenState extends State<BudgetScreen> {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [cs.primary, cs.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: LinearGradient(colors: [cs.primary, cs.secondary], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: cs.primary.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,12 +354,10 @@ class BudgetScreenState extends State<BudgetScreen> {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  _displayLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.9), fontWeight: FontWeight.w500, height: 1.2),
-                ),
+                child: Text(_displayLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, color: cs.onPrimary.withOpacity(0.9), fontWeight: FontWeight.w500, height: 1.2)),
               ),
               const SizedBox(width: 8),
               GestureDetector(
@@ -400,13 +382,7 @@ class BudgetScreenState extends State<BudgetScreen> {
           Text('${_displayBalance.toStringAsFixed(0)} ₽',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w800,
-                color: cs.onPrimary,
-                letterSpacing: -1.2,
-                height: 1.0,
-              )),
+              style: TextStyle(fontSize: 36, fontWeight: FontWeight.w800, color: cs.onPrimary, letterSpacing: -1.2, height: 1.0)),
           const SizedBox(height: 16),
           SizedBox(
             height: 36,
@@ -447,17 +423,10 @@ class BudgetScreenState extends State<BudgetScreen> {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: sel ? cs.onPrimary : cs.onPrimary.withOpacity(0.3)),
         ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.2,
-            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-            color: cs.onPrimary,
-          ),
-        ),
+        child: Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, height: 1.2, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: cs.onPrimary)),
       ),
     );
   }
@@ -468,9 +437,7 @@ class BudgetScreenState extends State<BudgetScreen> {
       children: [
         Text(label, style: TextStyle(fontSize: 12, color: color.withOpacity(0.85), height: 1.2)),
         const SizedBox(height: 4),
-        Text('${amount.toStringAsFixed(0)} ₽',
-            maxLines: 1,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color, height: 1.2)),
+        Text('${amount.toStringAsFixed(0)} ₽', maxLines: 1, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color, height: 1.2)),
       ],
     );
   }
@@ -493,16 +460,10 @@ class BudgetScreenState extends State<BudgetScreen> {
               width: 164,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [cs.surfaceVariant, cs.surfaceVariant.withOpacity(0.7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: LinearGradient(colors: [cs.surfaceVariant, cs.surfaceVariant.withOpacity(0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: sel ? cs.primary : cs.outline.withOpacity(0.5), width: sel ? 2 : 1),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,13 +472,8 @@ class BudgetScreenState extends State<BudgetScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: cs.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        width: 32, height: 32, alignment: Alignment.center,
+                        decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                         child: Text(b.emoji, style: const TextStyle(fontSize: 16, height: 1.0)),
                       ),
                       const SizedBox(width: 8),
@@ -545,19 +501,10 @@ class BudgetScreenState extends State<BudgetScreen> {
   }
 
   Widget _buildTabs(ColorScheme cs) {
-    final tabs = [
-      ('overview', 'Обзор'),
-      ('transactions', 'Транзакции'),
-      ('banks_stats', 'Банки'),
-      ('categories', 'Категории'),
-    ];
+    final tabs = [('overview', 'Обзор'), ('transactions', 'Транзакции'), ('banks_stats', 'Банки'), ('categories', 'Категории')];
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: cs.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withOpacity(0.5)),
-      ),
+      decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(14), border: Border.all(color: cs.outline.withOpacity(0.5))),
       child: Row(
         children: tabs.map((t) {
           final sel = t.$1 == _tab;
@@ -576,12 +523,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                   child: Text(t.$2,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.2,
-                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                        color: sel ? cs.onSurface : cs.onSurfaceVariant,
-                      )),
+                      style: TextStyle(fontSize: 12, height: 1.2, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: sel ? cs.onSurface : cs.onSurfaceVariant)),
                 ),
               ),
             ),
@@ -593,12 +535,8 @@ class BudgetScreenState extends State<BudgetScreen> {
 
   Widget _buildBanksStats(ColorScheme cs) {
     if (_banks.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(32),
-        child: Center(child: Text('Нет банков', style: TextStyle(color: cs.onSurfaceVariant))),
-      );
+      return Padding(padding: const EdgeInsets.all(32), child: Center(child: Text('Нет банков', style: TextStyle(color: cs.onSurfaceVariant))));
     }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -608,19 +546,12 @@ class BudgetScreenState extends State<BudgetScreen> {
             onTap: _openRecurring,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: cs.surfaceVariant,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.outline.withOpacity(0.5)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.repeat, size: 16, color: cs.primary),
-                  const SizedBox(width: 8),
-                  Text('Регулярные платежи', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2)),
-                ],
-              ),
+              decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(12), border: Border.all(color: cs.outline.withOpacity(0.5))),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.repeat, size: 16, color: cs.primary),
+                const SizedBox(width: 8),
+                Text('Регулярные платежи', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2)),
+              ]),
             ),
           ),
         ),
@@ -630,41 +561,24 @@ class BudgetScreenState extends State<BudgetScreen> {
           final expense = bankTx.where((t) => t.type == 'expense' && t.bankId == b.id).fold(0.0, (s, t) => s + t.amount);
           final inTransfer = bankTx.where((t) => t.type == 'transfer' && t.toBankId == b.id).fold(0.0, (s, t) => s + t.amount);
           final outTransfer = bankTx.where((t) => t.type == 'transfer' && t.bankId == b.id).fold(0.0, (s, t) => s + t.amount);
-
           return Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.surfaceVariant,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.outline.withOpacity(0.5)),
-            ),
+            decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16), border: Border.all(color: cs.outline.withOpacity(0.5))),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: cs.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      width: 40, height: 40, alignment: Alignment.center,
+                      decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                       child: Text(b.emoji, style: const TextStyle(fontSize: 20, height: 1.0)),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(b.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
-                    ),
+                    Expanded(child: Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2))),
                     const SizedBox(width: 8),
-                    Text('${_bankBalance(b.id).toStringAsFixed(0)} ₽',
-                        maxLines: 1,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: cs.primary, height: 1.1)),
+                    Text('${_bankBalance(b.id).toStringAsFixed(0)} ₽', maxLines: 1, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: cs.primary, height: 1.1)),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -690,11 +604,153 @@ class BudgetScreenState extends State<BudgetScreen> {
       children: [
         Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, height: 1.2)),
         const SizedBox(height: 4),
-        Text('${amount.toStringAsFixed(0)} ₽',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color, height: 1.2)),
+        Text('${amount.toStringAsFixed(0)} ₽', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color, height: 1.2)),
       ],
+    );
+  }
+
+  // ==================== ДАШБОРД ====================
+
+  Widget _buildDashboard(ColorScheme cs) {
+    final income = _incomes;
+    final expense = _expenses;
+    final net = income - expense;
+    final savingsRate = income > 0 ? (net / income).clamp(0.0, 1.0) : 0.0;
+    final percent = (savingsRate * 100).round();
+
+    final entries = _breakdown().entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final top = entries.take(3).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primaryContainer.withOpacity(0.5), cs.surfaceVariant],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: savingsRate),
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) {
+                  return CustomPaint(
+                    size: const Size(74, 74),
+                    painter: _DonutPainter(
+                      progress: value,
+                      track: cs.surface.withOpacity(0.7),
+                      color: net >= 0 ? cs.tertiary : cs.error,
+                    ),
+                    child: SizedBox(
+                      width: 74,
+                      height: 74,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('$percent%', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.0)),
+                            const SizedBox(height: 2),
+                            Text('сбереж.', style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant, height: 1.0)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Сводка месяца', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cs.onSurface, height: 1.2)),
+                    const SizedBox(height: 6),
+                    Text('${net >= 0 ? '+' : '−'}${net.abs().toStringAsFixed(0)} ₽',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: net >= 0 ? cs.tertiary : cs.error, letterSpacing: -0.5, height: 1.1)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: _dashStat('Доходы', income, cs.tertiary, cs)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _dashStat('Расходы', expense, cs.error, cs)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (top.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text('Топ расходов', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.4)),
+            const SizedBox(height: 10),
+            ...top.map((e) {
+              final cat = _categories.firstWhere(
+                (c) => c.id == e.key,
+                orElse: () => BudgetCategory(id: e.key, name: 'Другое', emoji: '📦', type: 'expense'),
+              );
+              final share = expense > 0 ? e.value / expense : 0.0;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32, height: 32, alignment: Alignment.center,
+                      decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(9)),
+                      child: Text(cat.emoji, style: const TextStyle(fontSize: 15, height: 1.0)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: Text(cat.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2))),
+                              const SizedBox(width: 8),
+                              Text('${e.value.toStringAsFixed(0)} ₽', maxLines: 1, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(value: share, minHeight: 5, backgroundColor: cs.surface, color: cs.primary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _dashStat(String label, double amount, Color color, ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withOpacity(0.35))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant, height: 1.2)),
+          const SizedBox(height: 2),
+          Text('${amount.toStringAsFixed(0)} ₽', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color, height: 1.2)),
+        ],
+      ),
     );
   }
 
@@ -703,8 +759,9 @@ class BudgetScreenState extends State<BudgetScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Финансовое здоровье',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2, letterSpacing: 0.2)),
+        _buildDashboard(cs),
+        const SizedBox(height: 24),
+        Text('Финансовое здоровье', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2, letterSpacing: 0.2)),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(20),
@@ -712,9 +769,7 @@ class BudgetScreenState extends State<BudgetScreen> {
             color: cs.surfaceVariant,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: cs.outline.withOpacity(0.5)),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
-            ],
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: Column(
             children: [
@@ -729,24 +784,18 @@ class BudgetScreenState extends State<BudgetScreen> {
         const SizedBox(height: 24),
         _buildLimitsSection(cs),
         const SizedBox(height: 24),
-        Text('Расходы по категориям',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2, letterSpacing: 0.2)),
+        Text('Расходы по категориям', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2, letterSpacing: 0.2)),
         const SizedBox(height: 10),
         if (_breakdown().isEmpty)
           Container(
             padding: const EdgeInsets.all(40),
-            decoration: BoxDecoration(
-              color: cs.surfaceVariant,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.outline.withOpacity(0.5)),
-            ),
+            decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16), border: Border.all(color: cs.outline.withOpacity(0.5))),
             child: Center(
               child: Column(
                 children: [
                   Icon(Icons.pie_chart_outline, size: 48, color: cs.onSurfaceVariant.withOpacity(0.5)),
                   const SizedBox(height: 12),
-                  Text('Нет расходов за этот месяц',
-                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14, height: 1.3)),
+                  Text('Нет расходов за этот месяц', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14, height: 1.3)),
                 ],
               ),
             ),
@@ -761,21 +810,12 @@ class BudgetScreenState extends State<BudgetScreen> {
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cs.surfaceVariant,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outline.withOpacity(0.5)),
-              ),
+              decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16), border: Border.all(color: cs.outline.withOpacity(0.5))),
               child: Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: cs.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    width: 40, height: 40, alignment: Alignment.center,
+                    decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                     child: Text(cat.emoji, style: const TextStyle(fontSize: 20, height: 1.0)),
                   ),
                   const SizedBox(width: 12),
@@ -785,31 +825,18 @@ class BudgetScreenState extends State<BudgetScreen> {
                       children: [
                         Row(
                           children: [
-                            Expanded(
-                              child: Text(cat.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
-                            ),
+                            Expanded(child: Text(cat.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2))),
                             const SizedBox(width: 8),
-                            Text('${e.value.toStringAsFixed(0)} ₽',
-                                maxLines: 1,
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
+                            Text('${e.value.toStringAsFixed(0)} ₽', maxLines: 1, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
                           ],
                         ),
                         const SizedBox(height: 8),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: percent / 100,
-                            minHeight: 6,
-                            backgroundColor: cs.surface,
-                            color: cs.primary,
-                          ),
+                          child: LinearProgressIndicator(value: percent / 100, minHeight: 6, backgroundColor: cs.surface, color: cs.primary),
                         ),
                         const SizedBox(height: 6),
-                        Text('${percent.toStringAsFixed(0)}% от расходов',
-                            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, height: 1.2)),
+                        Text('${percent.toStringAsFixed(0)}% от расходов', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, height: 1.2)),
                       ],
                     ),
                   ),
@@ -821,7 +848,6 @@ class BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
-  // ============ ЛИМИТЫ ============
   Map<String, double> get _spentByCategory => _breakdown();
 
   List<BudgetCategory> get _categoriesWithLimits =>
@@ -830,33 +856,22 @@ class BudgetScreenState extends State<BudgetScreen> {
   Widget _buildLimitsSection(ColorScheme cs) {
     final limits = _categoriesWithLimits;
     final spent = _spentByCategory;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text('Лимиты',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2, letterSpacing: 0.2)),
-            ),
+            Expanded(child: Text('Лимиты', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2, letterSpacing: 0.2))),
             GestureDetector(
               onTap: _addLimitModal,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add, size: 16, color: cs.primary),
-                    const SizedBox(width: 4),
-                    Text('Добавить',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary, height: 1.2)),
-                  ],
-                ),
+                decoration: BoxDecoration(color: cs.primary.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.add, size: 16, color: cs.primary),
+                  const SizedBox(width: 4),
+                  Text('Добавить', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary, height: 1.2)),
+                ]),
               ),
             ),
           ],
@@ -866,21 +881,14 @@ class BudgetScreenState extends State<BudgetScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: cs.surfaceVariant,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.outline.withOpacity(0.5)),
-            ),
+            decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16), border: Border.all(color: cs.outline.withOpacity(0.5))),
             child: Column(
               children: [
                 Icon(Icons.flag_outlined, size: 36, color: cs.onSurfaceVariant.withOpacity(0.5)),
                 const SizedBox(height: 8),
-                Text('Лимитов пока нет',
-                    style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.3)),
+                Text('Лимитов пока нет', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.3)),
                 const SizedBox(height: 4),
-                Text('Установите лимиты на категории,\nчтобы контролировать расходы',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withOpacity(0.7), height: 1.4)),
+                Text('Установите лимиты на категории,\nчтобы контролировать расходы', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withOpacity(0.7), height: 1.4)),
               ],
             ),
           )
@@ -890,7 +898,6 @@ class BudgetScreenState extends State<BudgetScreen> {
             final percent = spentAmount / cat.monthlyLimit;
             final isOver = percent > 1.0;
             final isWarning = percent >= 0.7 && percent <= 1.0;
-
             Color barColor;
             if (isOver) {
               barColor = cs.error;
@@ -899,7 +906,6 @@ class BudgetScreenState extends State<BudgetScreen> {
             } else {
               barColor = const Color(0xFF4CAF50);
             }
-
             return GestureDetector(
               onTap: () => _editLimitModal(cat),
               child: Container(
@@ -908,10 +914,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                 decoration: BoxDecoration(
                   color: cs.surfaceVariant,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isOver ? cs.error.withOpacity(0.5) : cs.outline.withOpacity(0.5),
-                    width: isOver ? 1.5 : 1,
-                  ),
+                  border: Border.all(color: isOver ? cs.error.withOpacity(0.5) : cs.outline.withOpacity(0.5), width: isOver ? 1.5 : 1),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -919,39 +922,22 @@ class BudgetScreenState extends State<BudgetScreen> {
                     Row(
                       children: [
                         Container(
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: cs.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          width: 40, height: 40, alignment: Alignment.center,
+                          decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                           child: Text(cat.emoji, style: const TextStyle(fontSize: 18, height: 1.0)),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(cat.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
-                        ),
+                        Expanded(child: Text(cat.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2))),
                         if (isOver) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: cs.error.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.warning_amber_rounded, size: 12, color: cs.error),
-                                const SizedBox(width: 4),
-                                Text('Превышен',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.error, height: 1.2)),
-                              ],
-                            ),
+                            decoration: BoxDecoration(color: cs.error.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.warning_amber_rounded, size: 12, color: cs.error),
+                              const SizedBox(width: 4),
+                              Text('Превышен', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: cs.error, height: 1.2)),
+                            ]),
                           ),
                         ],
                       ],
@@ -959,21 +945,14 @@ class BudgetScreenState extends State<BudgetScreen> {
                     const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: percent.clamp(0.0, 1.0),
-                        minHeight: 8,
-                        backgroundColor: cs.surface,
-                        color: barColor,
-                      ),
+                      child: LinearProgressIndicator(value: percent.clamp(0.0, 1.0), minHeight: 8, backgroundColor: cs.surface, color: barColor),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${spentAmount.toStringAsFixed(0)} ₽',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: barColor, height: 1.2)),
-                        Text('${cat.monthlyLimit.toStringAsFixed(0)} ₽',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant, height: 1.2)),
+                        Text('${spentAmount.toStringAsFixed(0)} ₽', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: barColor, height: 1.2)),
+                        Text('${cat.monthlyLimit.toStringAsFixed(0)} ₽', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant, height: 1.2)),
                       ],
                     ),
                   ],
@@ -997,31 +976,18 @@ class BudgetScreenState extends State<BudgetScreen> {
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Container(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            ),
+            decoration: BoxDecoration(color: cs.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 40, height: 4,
-                    decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2)),
-                  ),
-                ),
+                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2)))),
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     Text(cat.emoji, style: const TextStyle(fontSize: 24, height: 1.0)),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: Text('Лимит: ${cat.name}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
-                    ),
+                    Expanded(child: Text('Лимит: ${cat.name}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2))),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -1051,11 +1017,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                           _saveCategory(updated);
                           Navigator.pop(ctx);
                         },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          foregroundColor: cs.error,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), foregroundColor: cs.error, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         child: const Text('Убрать лимит', maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                     ),
@@ -1066,19 +1028,14 @@ class BudgetScreenState extends State<BudgetScreen> {
                         onPressed: () {
                           final val = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
                           if (val <= 0) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Введите сумму больше 0')),
-                            );
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Введите сумму больше 0')));
                             return;
                           }
                           final updated = cat.copyWith(monthlyLimit: val, updatedAt: DateTime.now().millisecondsSinceEpoch);
                           _saveCategory(updated);
                           Navigator.pop(ctx);
                         },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         child: const Text('Сохранить'),
                       ),
                     ),
@@ -1093,17 +1050,11 @@ class BudgetScreenState extends State<BudgetScreen> {
   }
 
   void _addLimitModal() {
-    final categoriesWithoutLimit = _categories
-        .where((c) => c.type == 'expense' && c.monthlyLimit == 0)
-        .toList();
-
+    final categoriesWithoutLimit = _categories.where((c) => c.type == 'expense' && c.monthlyLimit == 0).toList();
     if (categoriesWithoutLimit.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('У всех категорий уже есть лимиты')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('У всех категорий уже есть лимиты')));
       return;
     }
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1113,23 +1064,14 @@ class BudgetScreenState extends State<BudgetScreen> {
         return Container(
           constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
+          decoration: BoxDecoration(color: cs.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: cs.outline.withOpacity(0.5), borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 16),
-              Text('Выберите категорию для лимита',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
+              Text('Выберите категорию для лимита', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2)),
               const SizedBox(height: 16),
               Flexible(
                 child: ListView(
@@ -1138,19 +1080,11 @@ class BudgetScreenState extends State<BudgetScreen> {
                     return ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 2),
                       leading: Container(
-                        width: 40,
-                        height: 40,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: cs.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                        width: 40, height: 40, alignment: Alignment.center,
+                        decoration: BoxDecoration(color: cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
                         child: Text(cat.emoji, style: const TextStyle(fontSize: 18, height: 1.0)),
                       ),
-                      title: Text(cat.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2)),
+                      title: Text(cat.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2)),
                       onTap: () {
                         Navigator.pop(ctx);
                         _editLimitModal(cat);
@@ -1178,32 +1112,16 @@ class BudgetScreenState extends State<BudgetScreen> {
   Widget _healthBar(String label, double percent, Color color, ColorScheme cs) {
     return Row(
       children: [
-        SizedBox(
-          width: 110,
-          child: Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2)),
-        ),
+        SizedBox(width: 110, child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2))),
         const SizedBox(width: 8),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: percent / 100,
-              minHeight: 10,
-              backgroundColor: cs.surface,
-              color: color,
-            ),
+            child: LinearProgressIndicator(value: percent / 100, minHeight: 10, backgroundColor: cs.surface, color: color),
           ),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 44,
-          child: Text('${percent.toStringAsFixed(0)}%',
-              textAlign: TextAlign.right,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color, height: 1.2)),
-        ),
+        SizedBox(width: 44, child: Text('${percent.toStringAsFixed(0)}%', textAlign: TextAlign.right, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color, height: 1.2))),
       ],
     );
   }
@@ -1213,18 +1131,13 @@ class BudgetScreenState extends State<BudgetScreen> {
     if (list.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(40),
-        decoration: BoxDecoration(
-          color: cs.surfaceVariant,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.outline.withOpacity(0.5)),
-        ),
+        decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16), border: Border.all(color: cs.outline.withOpacity(0.5))),
         child: Center(
           child: Column(
             children: [
               Icon(Icons.receipt_long_outlined, size: 48, color: cs.onSurfaceVariant.withOpacity(0.5)),
               const SizedBox(height: 12),
-              Text('Нет транзакций за этот месяц',
-                  style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14, height: 1.3)),
+              Text('Нет транзакций за этот месяц', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 14, height: 1.3)),
             ],
           ),
         ),
@@ -1239,14 +1152,8 @@ class BudgetScreenState extends State<BudgetScreen> {
         final isExpense = t.type == 'expense';
         final isIncome = t.type == 'income';
         final isTransfer = t.type == 'transfer';
-
-        final bank = t.bankId != null
-            ? _banks.firstWhere((b) => b.id == t.bankId, orElse: () => Bank(id: t.bankId!, name: 'Банк'))
-            : null;
-        final toBank = t.toBankId != null
-            ? _banks.firstWhere((b) => b.id == t.toBankId, orElse: () => Bank(id: t.toBankId!, name: 'Банк'))
-            : null;
-
+        final bank = t.bankId != null ? _banks.firstWhere((b) => b.id == t.bankId, orElse: () => Bank(id: t.bankId!, name: 'Банк')) : null;
+        final toBank = t.toBankId != null ? _banks.firstWhere((b) => b.id == t.toBankId, orElse: () => Bank(id: t.toBankId!, name: 'Банк')) : null;
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Material(
@@ -1256,21 +1163,13 @@ class BudgetScreenState extends State<BudgetScreen> {
               onTap: () => _openEditModal(t),
               child: Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cs.surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: cs.outline.withOpacity(0.5)),
-                ),
+                decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16), border: Border.all(color: cs.outline.withOpacity(0.5))),
                 child: Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
+                      width: 44, height: 44, alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: isTransfer
-                            ? cs.secondary.withOpacity(0.1)
-                            : (isIncome ? cs.tertiary.withOpacity(0.1) : cs.primary.withOpacity(0.1)),
+                        color: isTransfer ? cs.secondary.withOpacity(0.1) : (isIncome ? cs.tertiary.withOpacity(0.1) : cs.primary.withOpacity(0.1)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(isTransfer ? '🔄' : cat.emoji, style: const TextStyle(fontSize: 20, height: 1.0)),
@@ -1281,9 +1180,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isTransfer
-                                ? 'Перевод: ${bank?.name} → ${toBank?.name}'
-                                : (t.comment.isEmpty ? cat.name : t.comment),
+                            isTransfer ? 'Перевод: ${bank?.name} → ${toBank?.name}' : (t.comment.isEmpty ? cat.name : t.comment),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface, height: 1.2),
@@ -1302,12 +1199,7 @@ class BudgetScreenState extends State<BudgetScreen> {
                     Text(
                       '${isExpense ? '−' : (isIncome ? '+' : '')}${t.amount.toStringAsFixed(0)} ₽',
                       maxLines: 1,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                        color: isExpense ? cs.error : (isIncome ? cs.tertiary : cs.onSurfaceVariant),
-                      ),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.2, color: isExpense ? cs.error : (isIncome ? cs.tertiary : cs.onSurfaceVariant)),
                     ),
                   ],
                 ),
@@ -1322,17 +1214,14 @@ class BudgetScreenState extends State<BudgetScreen> {
   Widget _buildCategories(ColorScheme cs) {
     final expenses = _categories.where((c) => c.type == 'expense').toList();
     final incomes = _categories.where((c) => c.type == 'income' && c.id.startsWith('income_')).toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Расходы',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.4, height: 1.2)),
+        Text('Расходы', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.4, height: 1.2)),
         const SizedBox(height: 10),
         ...expenses.map((c) => _categoryTile(c, cs)),
         const SizedBox(height: 20),
-        Text('Доходы',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.4, height: 1.2)),
+        Text('Доходы', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onSurfaceVariant, letterSpacing: 0.4, height: 1.2)),
         const SizedBox(height: 10),
         ...incomes.map((c) => _categoryTile(c, cs)),
       ],
@@ -1343,38 +1232,60 @@ class BudgetScreenState extends State<BudgetScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: cs.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outline.withOpacity(0.5)),
-      ),
+      decoration: BoxDecoration(color: cs.surfaceVariant, borderRadius: BorderRadius.circular(16), border: Border.all(color: cs.outline.withOpacity(0.5))),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: c.type == 'income' ? cs.tertiary.withOpacity(0.1) : cs.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            width: 40, height: 40, alignment: Alignment.center,
+            decoration: BoxDecoration(color: c.type == 'income' ? cs.tertiary.withOpacity(0.1) : cs.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
             child: Text(c.emoji, style: const TextStyle(fontSize: 18, height: 1.0)),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(c.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2)),
-          ),
+          Expanded(child: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface, height: 1.2))),
           if (c.monthlyLimit > 0) ...[
             const SizedBox(width: 8),
-            Text('${c.monthlyLimit.toStringAsFixed(0)} ₽/мес',
-                maxLines: 1,
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600, height: 1.2)),
+            Text('${c.monthlyLimit.toStringAsFixed(0)} ₽/мес', maxLines: 1, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600, height: 1.2)),
           ],
         ],
       ),
     );
   }
+}
+
+class _DonutPainter extends CustomPainter {
+  final double progress;
+  final Color track;
+  final Color color;
+
+  _DonutPainter({required this.progress, required this.track, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 9) / 2;
+    final trackPaint = Paint()
+      ..color = track
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+    final progressPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, trackPaint);
+    if (progress > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        2 * math.pi * progress.clamp(0.0, 1.0),
+        false,
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.track != track || oldDelegate.color != color;
 }
