@@ -193,6 +193,7 @@ class _TvGamepadGateState extends State<TvGamepadGate> {
           OskService.instance.show(system: true);
         }
         break;
+      case TvPadButton.r3:
       case TvPadButton.x:
       case TvPadButton.lb:
       case TvPadButton.rb:

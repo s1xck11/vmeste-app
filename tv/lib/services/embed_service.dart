@@ -132,7 +132,10 @@ class EmbedService {
       await Future.delayed(const Duration(milliseconds: 300));
       _enumPid = _pid;
       _enumHits.clear();
-      final cb = NativeCallable<Int32 Function(IntPtr, IntPtr)>.isolateLocal(_enumProc);
+      final cb = NativeCallable<Int32 Function(IntPtr, IntPtr)>.isolateLocal(
+        _enumProc,
+        exceptionalReturn: 0,
+      );
       _Win.enumWindows!(cb.nativeFunction, 0);
       cb.close();
       if (_enumHits.isNotEmpty) _child = _enumHits.first;
