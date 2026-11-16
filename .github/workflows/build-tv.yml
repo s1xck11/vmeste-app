@@ -7,7 +7,9 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # НЕ windows-latest: там Server 2025 без Windows 10 SDK,
+    # который нужен Flutter 3.22 → ошибка генератора VS 2019.
+    runs-on: windows-2022
     defaults:
       run:
         working-directory: tv
