@@ -73,11 +73,14 @@ class _TvBrowserScreenState extends State<TvBrowserScreen> {
       _subs.add(c.loadingState.listen((s) {
         if (mounted) setState(() => _loading = s == LoadingState.loading);
       }));
-      _subs.add(c.canGoBack.listen((v) {
-        if (mounted) setState(() => _canBack = v);
-      }));
-      _subs.add(c.canGoForward.listen((v) {
-        if (mounted) setState(() => _canFwd = v);
+      // В 0.4.0 история приходит одним стримом historyChanged
+      _subs.add(c.historyChanged.listen((h) {
+        if (mounted) {
+          setState(() {
+            _canBack = h.canGoBack;
+            _canFwd = h.canGoForward;
+          });
+        }
       }));
       _subs.add(c.containsFullScreenElementChanged.listen((v) {
         if (mounted) setState(() => _webFs = v);

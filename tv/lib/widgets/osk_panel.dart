@@ -81,7 +81,7 @@ class OskPanel extends StatelessWidget {
               _row([for (final k in row1) _key(k, label: osk.shift && !osk.symbols ? k.toUpperCase() : k)]),
               _row([for (final k in row2) _key(k, label: osk.shift && !osk.symbols ? k.toUpperCase() : k)]),
               _row([
-                _key('shift', icon: Icons.shift_rounded, w: 84, active: osk.shift),
+                _key('shift', icon: Icons.keyboard_capslock_rounded, w: 84, active: osk.shift),
                 for (final k in row3) _key(k, label: osk.shift && !osk.symbols ? k.toUpperCase() : k),
                 _key('back', icon: Icons.backspace_rounded, w: 84),
               ]),

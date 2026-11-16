@@ -22,8 +22,9 @@ dependencies:
   # Геймпад через XInput (dart:ffi)
   ffi: ^2.1.0
 
-  # Окно лаунчера: fullscreen-киоск. 0.5.2 — последняя версия под Flutter 3.22
-  window_manager: 0.5.2
+  # Окно лаунчера: fullscreen-киоск.
+  # 0.3.9 — проверенная под Flutter 3.22 (0.5.x требует Flutter 3.27+)
+  window_manager: 0.3.9
 
   # Edge внутри лаунчера (WebView2)
   webview_windows: 0.4.0
