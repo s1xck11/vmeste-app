@@ -1,6 +1,6 @@
 // tv/lib/screens/tv_home_screen.dart
 //
-// Главный экран: обои, топбар (звук/курсор/настройки/питание),
+// Главный экран: обои, топбар (звук/курсор/обновление/настройки/питание),
 // часы + погода, ряд виджетов «Сегодня», ряд плиток «Приложения».
 
 import 'dart:async';
@@ -15,6 +15,7 @@ import '../services/input_service.dart';
 import '../services/sound_service.dart';
 import '../services/tiles_service.dart';
 import '../services/tv_sync_service.dart';
+import '../services/update_service.dart';
 import '../services/wallpaper_service.dart';
 import '../services/weather_service.dart';
 import '../theme/tv_theme.dart';
@@ -23,6 +24,7 @@ import '../widgets/tv_tile.dart';
 import '../widgets/tv_widget_cards.dart';
 import 'tv_browser_screen.dart';
 import 'tv_detail_screen.dart';
+import 'tv_embed_screen.dart';
 import 'tv_settings_screen.dart';
 
 class TvHomeScreen extends StatefulWidget {
@@ -88,6 +90,15 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
         MaterialPageRoute(
           builder: (_) => TvBrowserScreen(url: tile.target, title: tile.title),
         ),
+      );
+      return;
+    }
+    if (tile.kind == TvTileKind.embed) {
+      if (!mounted) return;
+      SoundService.instance.open();
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TvEmbedScreen(tile: tile)),
       );
       return;
     }
@@ -214,6 +225,20 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
           },
         ),
         const SizedBox(width: 18),
+        AnimatedBuilder(
+          animation: UpdateService.instance,
+          builder: (_, __) => UpdateService.instance.ready
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: TvIconButton(
+                    icon: Icons.system_update_alt_rounded,
+                    tooltip: 'Доступно обновление ${UpdateService.instance.latestTag}',
+                    color: TvColors.success,
+                    onTap: _openSettings,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
         AnimatedBuilder(
           animation: SoundService.instance,
           builder: (_, __) => TvIconButton(

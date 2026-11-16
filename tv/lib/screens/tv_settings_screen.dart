@@ -1,18 +1,21 @@
 // tv/lib/screens/tv_settings_screen.dart
 //
-// Настройки: плитки, группа, погода (город), обои, звук, управление, система.
+// Настройки: плитки, погода, обои, звук/управление, амбиент,
+// обновление, группа, система.
 
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../main.dart' show sync, tiles, showExitDialog;
+import '../services/ambient_service.dart';
 import '../services/hints_service.dart';
 import '../services/input_service.dart';
 import '../services/sound_service.dart';
 import '../services/tiles_service.dart';
+import '../services/update_service.dart';
 import '../services/wallpaper_service.dart';
 import '../services/weather_service.dart';
 import '../theme/tv_theme.dart';
@@ -103,7 +106,7 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(t == null ? 'Новая плитка' : 'Редактировать плитку', style: TvText.cardTitle),
           content: SizedBox(
-            width: 620,
+            width: 660,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -114,7 +117,9 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                   TvTextField(
                     controller: targetC,
                     label: 'Ссылка или путь',
-                    hint: kind == TvTileKind.app ? 'C:\\Games\\game.exe' : 'https://youtube.com',
+                    hint: kind == TvTileKind.app || kind == TvTileKind.embed
+                        ? 'C:\\Games\\game.exe'
+                        : 'https://youtube.com',
                   ),
                   const SizedBox(height: 16),
                   Text('Тип', style: TvText.caption),
@@ -125,9 +130,19 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                     children: [
                       _kindChip(setD, 'Внутри лаунчера', TvTileKind.web, kind, (k) => kind = k),
                       _kindChip(setD, 'В настоящем Edge', TvTileKind.webExternal, kind, (k) => kind = k),
-                      _kindChip(setD, 'Программа / файл', TvTileKind.app, kind, (k) => kind = k),
+                      _kindChip(setD, 'Обычное окно', TvTileKind.app, kind, (k) => kind = k),
+                      _kindChip(setD, 'Окно внутри лаунчера', TvTileKind.embed, kind, (k) => kind = k),
                     ],
                   ),
+                  if (kind == TvTileKind.embed) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Окно программы встроится под панель лаунчера. '
+                      'Админские программы и exclusive-fullscreen игры могут не встроиться — '
+                      'тогда запустятся обычным окном.',
+                      style: TvText.caption.copyWith(color: TvColors.textFaint),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Text('Цвет', style: TvText.caption),
                   const SizedBox(height: 8),
@@ -290,6 +305,8 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
     final wp = WallpaperService.instance;
     final snd = SoundService.instance;
     final weather = WeatherService.instance;
+    final amb = AmbientService.instance;
+    final upd = UpdateService.instance;
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.fromLTRB(TvSpace.screenH, 20, TvSpace.screenH, 0),
@@ -466,6 +483,62 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                   ),
                   const SizedBox(height: 32),
 
+                  const TvSectionTitle('Амбиент'),
+                  AnimatedBuilder(
+                    animation: amb,
+                    builder: (_, __) => Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: TvDecor.card(radius: 14),
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            value: amb.enabled,
+                            onChanged: amb.setEnabled,
+                            activeColor: TvColors.accent,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('Амбиент-режим при простое', style: TvText.body),
+                            subtitle: Text('Живые обои с часами и погодой', style: TvText.caption),
+                          ),
+                          _stepper(
+                            label: 'Простой до амбиента',
+                            value: amb.minutes.toDouble(),
+                            min: 1,
+                            max: 60,
+                            step: 1,
+                            fmt: (v) => '${v.round()} мин',
+                            onChanged: (v) => amb.setMinutes(v.round()),
+                          ),
+                          SwitchListTile(
+                            value: amb.showWeather,
+                            onChanged: amb.setShowWeather,
+                            activeColor: TvColors.accent,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('Показывать погоду', style: TvText.body),
+                          ),
+                          SwitchListTile(
+                            value: amb.particles,
+                            onChanged: amb.setParticles,
+                            activeColor: TvColors.accent,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('Дрейфующие частицы', style: TvText.body),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TvDialogButton(
+                              label: 'Показать амбиент сейчас',
+                              onTap: () {
+                                Navigator.pop(context);
+                                amb.active.value = true;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
                   const TvSectionTitle('Звук и управление'),
                   AnimatedBuilder(
                     animation: snd,
@@ -513,6 +586,84 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                             activeColor: TvColors.accent,
                             contentPadding: EdgeInsets.zero,
                             title: Text('Подсказки управления в углу', style: TvText.body),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  const TvSectionTitle('Обновление'),
+                  AnimatedBuilder(
+                    animation: upd,
+                    builder: (_, __) => Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: TvDecor.card(radius: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Текущая версия: ${upd.currentVersion}', style: TvText.body),
+                          const SizedBox(height: 6),
+                          Text(
+                            upd.ready
+                                ? 'Доступно: ${upd.latestTag}'
+                                : upd.checking
+                                    ? 'Проверяю релизы tv-v*…'
+                                    : 'Обновлений нет',
+                            style: TvText.caption.copyWith(
+                              color: upd.ready ? TvColors.success : TvColors.textDim,
+                            ),
+                          ),
+                          if (upd.error != null) ...[
+                            const SizedBox(height: 6),
+                            Text(upd.error!, style: TvText.caption.copyWith(color: TvColors.danger)),
+                          ],
+                          if (upd.downloading) ...[
+                            const SizedBox(height: 12),
+                            ValueListenableBuilder<double>(
+                              valueListenable: upd.progress,
+                              builder: (_, p, __) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: LinearProgressIndicator(
+                                      value: p,
+                                      minHeight: 8,
+                                      color: TvColors.accent,
+                                      backgroundColor: TvColors.cardHi,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text('${(p * 100).round()}%', style: TvText.caption),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              TvDialogButton(
+                                label: upd.checking ? 'Проверяю…' : 'Проверить',
+                                onTap: upd.checking ? () {} : upd.check,
+                              ),
+                              const SizedBox(width: 10),
+                              if (upd.ready && !upd.downloading)
+                                TvDialogButton(
+                                  label: 'Обновить сейчас',
+                                  primary: true,
+                                  onTap: upd.apply,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            value: upd.autoApply,
+                            onChanged: upd.setAutoApply,
+                            activeColor: TvColors.accent,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text('Обновлять автоматически в амбиенте', style: TvText.body),
+                            subtitle: Text('Проверка раз в 6 часов', style: TvText.caption),
                           ),
                         ],
                       ),
@@ -580,7 +731,7 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Text('Вместе ТВ • 1.1 • синк только чтение', style: TvText.caption),
+                  Text('Вместе ТВ • 1.2 • синк только чтение', style: TvText.caption),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -622,7 +773,13 @@ class _TvSettingsScreenState extends State<TvSettingsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: TvColors.cardHi, borderRadius: BorderRadius.circular(8)),
             child: Text(
-              t.kind == TvTileKind.web ? 'внутри' : t.kind == TvTileKind.webExternal ? 'Edge' : 'exe',
+              t.kind == TvTileKind.web
+                  ? 'внутри'
+                  : t.kind == TvTileKind.webExternal
+                      ? 'Edge'
+                      : t.kind == TvTileKind.embed
+                          ? 'окно внутри'
+                          : 'exe',
               style: TvText.caption,
             ),
           ),

@@ -3,7 +3,8 @@
 // Редактируемые плитки лаунчера:
 // - web         → сайт ВНУТРИ лаунчера (WebView2 = движок Edge)
 // - webExternal → сайт в настоящем Edge (для DRM: Netflix, Кинопоиск)
-// - app         → .exe, .lnk, файл или папка
+// - app         → .exe, .lnk, файл или папка обычным окном
+// - embed       → окно .exe ВНУТРИ лаунчера (SetParent)
 //
 // Хранятся в Hive, переживают перезапуск.
 
@@ -14,7 +15,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
-enum TvTileKind { web, webExternal, app }
+enum TvTileKind { web, webExternal, app, embed }
 
 class TvTile {
   final String id;
@@ -197,7 +198,9 @@ class TilesService extends ChangeNotifier {
 
   String _normalizeTarget(String target, TvTileKind kind) {
     var t = target.trim();
-    if (kind != TvTileKind.app && t.isNotEmpty && !t.contains('://')) {
+    if ((kind == TvTileKind.web || kind == TvTileKind.webExternal) &&
+        t.isNotEmpty &&
+        !t.contains('://')) {
       t = 'https://$t';
     }
     return t;
@@ -205,11 +208,12 @@ class TilesService extends ChangeNotifier {
 
   // ---------- ЗАПУСК ----------
 
-  /// Запуск плитки. Для web ничего не делает — UI сам откроет
-  /// встроенный браузер. Возвращает текст ошибки или null.
+  /// Запуск плитки. web и embed обрабатывает UI (открывает свои экраны).
+  /// Возвращает текст ошибки или null.
   Future<String?> launch(TvTile tile) async {
     switch (tile.kind) {
       case TvTileKind.web:
+      case TvTileKind.embed:
         return null;
       case TvTileKind.webExternal:
         return _openInEdge(tile.target);
@@ -231,7 +235,6 @@ class TilesService extends ChangeNotifier {
         } catch (_) {}
       }
     }
-    // Edge не найден — открываем браузером по умолчанию
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       return null;
@@ -242,8 +245,6 @@ class TilesService extends ChangeNotifier {
 
   Future<String?> _openPath(String path) async {
     try {
-      // explorer открывает exe, ярлыки, файлы и папки штатным
-      // способом — без консольного окна и лишних процессов.
       await Process.start('explorer.exe', [path],
           mode: ProcessStartMode.detached);
       return null;

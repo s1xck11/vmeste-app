@@ -2,7 +2,7 @@
 //
 // Вместе ТВ — лаунчер для телевизора на Windows.
 // Киоск-fullscreen, синк только чтение из main, геймпад + системный курсор,
-// экранная клава, обои, погода, звуки, подсказки.
+// экранная клава, обои, погода, звуки, подсказки, амбиент, автообновление.
 
 import 'dart:async';
 import 'dart:io';
@@ -15,6 +15,8 @@ import 'package:window_manager/window_manager.dart';
 
 import 'screens/tv_home_screen.dart';
 import 'screens/tv_setup_screen.dart';
+import 'services/ambient_service.dart';
+import 'services/embed_service.dart';
 import 'services/gamepad_service.dart';
 import 'services/hints_service.dart';
 import 'services/input_service.dart';
@@ -22,11 +24,13 @@ import 'services/osk_service.dart';
 import 'services/sound_service.dart';
 import 'services/tiles_service.dart';
 import 'services/tv_sync_service.dart';
+import 'services/update_service.dart';
 import 'services/wallpaper_service.dart';
 import 'services/weather_service.dart';
 import 'supabase_config.dart';
 import 'theme/tv_theme.dart';
 import 'widgets/osk_panel.dart';
+import 'widgets/tv_ambient_overlay.dart';
 import 'widgets/tv_focusable.dart';
 import 'widgets/tv_gamepad_gate.dart';
 import 'widgets/tv_hints_overlay.dart';
@@ -54,6 +58,8 @@ Future<void> main() async {
   await WallpaperService.instance.init();
   await SoundService.instance.init();
   await WeatherService.instance.init();
+  await AmbientService.instance.init();
+  await UpdateService.instance.init();
   GamepadService.instance.init();
 
   await windowManager.ensureInitialized();
@@ -114,6 +120,7 @@ Future<void> showExitDialog(BuildContext context) async {
   }
   if (action == 'exit') {
     InputService.instance.setPointerMode(false);
+    if (EmbedService.instance.active.value) EmbedService.instance.detach();
     await windowManager.destroy();
     exit(0);
   }
@@ -151,14 +158,21 @@ class VmesteTvApp extends StatelessWidget {
             },
           ),
           child: TvGamepadGate(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                child ?? const SizedBox.shrink(),
-                const TvHintsOverlay(),
-                const TvPointerOverlay(),
-                const OskOverlay(),
-              ],
+            child: Listener(
+              onPointerDown: (_) => AmbientService.instance.bump(),
+              onPointerMove: (_) => AmbientService.instance.bump(),
+              onPointerHover: (_) => AmbientService.instance.bump(),
+              onPointerSignal: (_) => AmbientService.instance.bump(),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  child ?? const SizedBox.shrink(),
+                  const TvAmbientOverlay(),
+                  const TvHintsOverlay(),
+                  const TvPointerOverlay(),
+                  const OskOverlay(),
+                ],
+              ),
             ),
           ),
         );

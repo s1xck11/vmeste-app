@@ -38,6 +38,9 @@ dependencies:
   # Звуки интерфейса
   audioplayers: 6.1.0
 
+  # Версия exe для автообновления
+  package_info_plus: 8.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

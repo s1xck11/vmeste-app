@@ -1,9 +1,7 @@
 // tv/lib/widgets/tv_gamepad_gate.dart
 //
-// Глобальная обработка геймпада + режим курсора (R3):
-// правый стик водит системной мышью, левый скроллит в любом окне,
-// A клик / X правый клик, крестовина = стрелки системы.
-// Вне режима курсора: фокус, A открыть, B назад, Start домой, Y клава.
+// Глобальная обработка геймпада + режим курсора (R3) + амбиент + embed.
+// Любая кнопка будит амбиент. В embed B открепляет окно.
 
 import 'dart:async';
 
@@ -11,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../main.dart' show navigatorKey;
+import '../services/ambient_service.dart';
+import '../services/embed_service.dart';
 import '../services/gamepad_service.dart';
 import '../services/hints_service.dart';
 import '../services/input_service.dart';
@@ -43,16 +43,18 @@ class _TvGamepadGateState extends State<TvGamepadGate> {
     _sub = GamepadService.instance.buttons.listen(_onButton);
     _stickSub = GamepadService.instance.stick.listen(_onStickDir);
     _rStickListener = () {
-      if (!InputService.instance.pointerMode.value) return;
       final v = GamepadService.instance.rightStick.value;
+      if (v != Offset.zero) AmbientService.instance.bump();
+      if (!InputService.instance.pointerMode.value) return;
       if (v == Offset.zero) return;
       final s = 14 * InputService.instance.sensitivity;
       InputService.instance.moveCursor(v.dx * s, -v.dy * s);
       HintsService.instance.bump();
     };
     _lStickListener = () {
-      if (!InputService.instance.pointerMode.value) return;
       final v = GamepadService.instance.leftStick.value;
+      if (v != Offset.zero) AmbientService.instance.bump();
+      if (!InputService.instance.pointerMode.value) return;
       if (v.dy == 0) {
         _wheelAcc = 0;
         return;
@@ -99,7 +101,19 @@ class _TvGamepadGateState extends State<TvGamepadGate> {
   }
 
   void _onButton(TvPadButton b) {
+    if (AmbientService.instance.active.value) {
+      AmbientService.instance.exit();
+      return;
+    }
+    AmbientService.instance.bump();
     HintsService.instance.bump();
+
+    if (EmbedService.instance.active.value &&
+        (b == TvPadButton.b || b == TvPadButton.back)) {
+      EmbedService.instance.backCallback?.call();
+      return;
+    }
+
     final pointer = InputService.instance.pointerMode.value;
 
     if (b == TvPadButton.r3) {
@@ -188,6 +202,7 @@ class _TvGamepadGateState extends State<TvGamepadGate> {
   }
 
   void _onStickDir(TvStickDir d) {
+    if (AmbientService.instance.active.value) return;
     if (InputService.instance.pointerMode.value) return;
     if (OskService.instance.visible) return;
     switch (d) {
