@@ -19,6 +19,9 @@ dependencies:
   intl: ^0.19.0
   uuid: ^4.4.0
 
+  # Геймпад через XInput (dart:ffi)
+  ffi: ^2.1.0
+
   # Окно лаунчера: fullscreen-киоск. 0.5.2 — последняя версия под Flutter 3.22
   window_manager: 0.5.2
 
