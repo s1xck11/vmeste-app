@@ -1,6 +1,6 @@
 // tv/lib/widgets/osk_panel.dart
 //
-// Экранная клавиатура RU/EN + символы.
+// Экранная клавиатура RU/EN + символы + MODE (сайт / Windows).
 // Водится мышью и геймпадом (крестовина + A).
 
 import 'package:flutter/material.dart';
@@ -86,11 +86,12 @@ class OskPanel extends StatelessWidget {
                 _key('back', icon: Icons.backspace_rounded, w: 84),
               ]),
               _row([
-                _key('lang', label: osk.ru ? 'РУС' : 'ENG', w: 92),
-                _key('page', label: osk.symbols ? 'АБВ' : '?123', w: 92),
+                _key('lang', label: osk.ru ? 'РУС' : 'ENG', w: 88),
+                _key('page', label: osk.symbols ? 'АБВ' : '?123', w: 88),
+                _key('mode', label: osk.systemMode ? 'WIN' : 'САЙТ', w: 88, active: osk.systemMode),
                 _key('space', label: 'пробел', w: null),
-                _key('enter', icon: Icons.keyboard_return_rounded, w: 92),
-                _key('hide', icon: Icons.keyboard_hide_rounded, w: 72),
+                _key('enter', icon: Icons.keyboard_return_rounded, w: 88),
+                _key('hide', icon: Icons.keyboard_hide_rounded, w: 68),
               ]),
             ],
           ),

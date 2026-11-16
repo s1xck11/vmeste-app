@@ -1,7 +1,7 @@
 // tv/lib/screens/tv_home_screen.dart
 //
-// Главный экран в стиле Android TV / Google TV:
-// топбар, часы, ряд виджетов «Сегодня», ряд плиток «Приложения».
+// Главный экран: обои, топбар (звук/курсор/настройки/питание),
+// часы + погода, ряд виджетов «Сегодня», ряд плиток «Приложения».
 
 import 'dart:async';
 
@@ -10,8 +10,13 @@ import 'package:intl/intl.dart';
 
 import '../main.dart' show sync, tiles, showExitDialog;
 import '../services/gamepad_service.dart';
+import '../services/hints_service.dart';
+import '../services/input_service.dart';
+import '../services/sound_service.dart';
 import '../services/tiles_service.dart';
 import '../services/tv_sync_service.dart';
+import '../services/wallpaper_service.dart';
+import '../services/weather_service.dart';
 import '../theme/tv_theme.dart';
 import '../widgets/tv_focusable.dart';
 import '../widgets/tv_tile.dart';
@@ -37,6 +42,12 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
+    HintsService.instance.base([
+      'Крестовина / стик — выбор',
+      'A — открыть, B — назад',
+      'Y — клавиатура, R3 — курсор',
+      'Start — домой',
+    ], isHome: true);
   }
 
   @override
@@ -54,6 +65,7 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
   }
 
   void _openDetail(TvDetailType type) {
+    SoundService.instance.open();
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => TvDetailScreen(type: type)),
@@ -70,6 +82,7 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
   Future<void> _launch(TvTile tile) async {
     if (tile.kind == TvTileKind.web) {
       if (!mounted) return;
+      SoundService.instance.open();
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -80,6 +93,7 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     }
     final err = await tiles.launch(tile);
     if (err != null && mounted) {
+      SoundService.instance.error();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: TvColors.cardHi,
@@ -91,65 +105,71 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(TvSpace.screenH, 20, TvSpace.screenH, 0),
-        child: Column(
-          children: [
-            _topBar(),
-            const SizedBox(height: 18),
-            Expanded(
-              child: ListView(
-                children: [
-                  _hero(),
-                  const SizedBox(height: TvSpace.rowGap),
-                  const TvSectionTitle('Сегодня'),
-                  SizedBox(
-                    height: 250,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        TasksCard(onTap: () => _openDetail(TvDetailType.tasks), autofocus: true),
-                        const SizedBox(width: TvSpace.cardGap),
-                        PurchasesCard(onTap: () => _openDetail(TvDetailType.purchases)),
-                        const SizedBox(width: TvSpace.cardGap),
-                        ShiftsCard(onTap: () => _openDetail(TvDetailType.shifts)),
-                        const SizedBox(width: TvSpace.cardGap),
-                        BudgetCard(onTap: () => _openDetail(TvDetailType.budget)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: TvSpace.rowGap),
-                  TvSectionTitle(
-                    'Приложения',
-                    trailing: TvIconButton(
-                      icon: Icons.add_rounded,
-                      tooltip: 'Добавить плитку',
-                      onTap: _openSettings,
-                    ),
-                  ),
-                  SizedBox(
-                    height: 185,
-                    child: AnimatedBuilder(
-                      animation: tiles,
-                      builder: (_, __) => ListView(
+    return WallpaperService.instance.background(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(TvSpace.screenH, 20, TvSpace.screenH, 0),
+          child: Column(
+            children: [
+              _topBar(),
+              const SizedBox(height: 18),
+              Expanded(
+                child: ListView(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _hero(),
+                    const SizedBox(height: TvSpace.rowGap),
+                    const TvSectionTitle('Сегодня'),
+                    SizedBox(
+                      height: 262,
+                      child: ListView(
+                        clipBehavior: Clip.none,
                         scrollDirection: Axis.horizontal,
                         children: [
-                          for (final t in tiles.tiles)
-                            Padding(
-                              padding: const EdgeInsets.only(right: TvSpace.cardGap),
-                              child: TvTileWidget(tile: t, onTap: () => _launch(t)),
-                            ),
-                          TvTileAdd(onTap: _openSettings),
+                          TasksCard(onTap: () => _openDetail(TvDetailType.tasks), autofocus: true),
+                          const SizedBox(width: TvSpace.cardGap),
+                          PurchasesCard(onTap: () => _openDetail(TvDetailType.purchases)),
+                          const SizedBox(width: TvSpace.cardGap),
+                          ShiftsCard(onTap: () => _openDetail(TvDetailType.shifts)),
+                          const SizedBox(width: TvSpace.cardGap),
+                          BudgetCard(onTap: () => _openDetail(TvDetailType.budget)),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                    const SizedBox(height: TvSpace.rowGap),
+                    TvSectionTitle(
+                      'Приложения',
+                      trailing: TvIconButton(
+                        icon: Icons.add_rounded,
+                        tooltip: 'Добавить плитку',
+                        onTap: _openSettings,
+                      ),
+                    ),
+                    SizedBox(
+                      height: 185,
+                      child: AnimatedBuilder(
+                        animation: tiles,
+                        builder: (_, __) => ListView(
+                          clipBehavior: Clip.none,
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            for (final t in tiles.tiles)
+                              Padding(
+                                padding: const EdgeInsets.only(right: TvSpace.cardGap),
+                                child: TvTileWidget(tile: t, onTap: () => _launch(t)),
+                              ),
+                            TvTileAdd(onTap: _openSettings),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -194,6 +214,40 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
           },
         ),
         const SizedBox(width: 18),
+        AnimatedBuilder(
+          animation: SoundService.instance,
+          builder: (_, __) => TvIconButton(
+            icon: SoundService.instance.enabled
+                ? Icons.volume_up_rounded
+                : Icons.volume_off_rounded,
+            tooltip: SoundService.instance.enabled ? 'Звук включён' : 'Звук выключен',
+            color: SoundService.instance.enabled ? TvColors.text : TvColors.textFaint,
+            onTap: () => SoundService.instance.setEnabled(!SoundService.instance.enabled),
+          ),
+        ),
+        const SizedBox(width: 10),
+        ValueListenableBuilder<bool>(
+          valueListenable: InputService.instance.pointerMode,
+          builder: (_, on, __) => TvIconButton(
+            icon: Icons.mouse_rounded,
+            tooltip: 'Режим курсора (R3)',
+            color: on ? TvColors.accent : TvColors.text,
+            onTap: () {
+              InputService.instance.setPointerMode(!on);
+              HintsService.instance.context(
+                on
+                    ? HintsService.instance.homeLines
+                    : [
+                        'Правый стик — курсор',
+                        'Левый стик — скролл',
+                        'A — клик, X — правый клик',
+                        'R3 — выйти из курсора',
+                      ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
         TvIconButton(
           icon: Icons.settings_rounded,
           tooltip: 'Настройки',
@@ -216,6 +270,11 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
         Text(DateFormat('HH:mm').format(_now), style: TvText.clock),
         const SizedBox(width: 24),
         Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _weatherPill(),
+        ),
+        const SizedBox(width: 24),
+        Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,6 +289,65 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _weatherPill() {
+    final w = WeatherService.instance;
+    return AnimatedBuilder(
+      animation: w,
+      builder: (_, __) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.35),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: TvColors.outline),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(w.icon, size: 36, color: TvColors.warning),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  w.temp == null ? '—°' : '${w.temp!.round()}°',
+                  style: TvText.heroNumber.copyWith(fontSize: 34),
+                ),
+                Text(w.label, style: TvText.caption),
+              ],
+            ),
+            const SizedBox(width: 14),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  w.tmin == null || w.tmax == null
+                      ? w.city
+                      : '${w.tmin!.round()}° / ${w.tmax!.round()}°',
+                  style: TvText.caption,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${w.city} • ${w.wind.round()} км/ч',
+                  style: TvText.caption.copyWith(color: TvColors.textFaint),
+                ),
+              ],
+            ),
+            if (w.loading) ...[
+              const SizedBox(width: 12),
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: TvColors.accent),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

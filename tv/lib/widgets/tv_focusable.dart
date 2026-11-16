@@ -1,11 +1,12 @@
 // tv/lib/widgets/tv_focusable.dart
 //
-// Базовые ТВ-контролы: фокус как на Android TV (белая рамка + зум),
-// работают мышью, клавиатурой и геймпадом.
+// Базовые ТВ-контролы. Рамка фокуса рисуется ПОВЕРХ границы плитки
+// (тот же радиус), поэтому не накладывается на углы и не «рвётся».
 
 import 'package:flutter/material.dart';
 
 import '../services/osk_service.dart';
+import '../services/sound_service.dart';
 import '../theme/tv_theme.dart';
 
 class TvFocusable extends StatefulWidget {
@@ -39,17 +40,25 @@ class _TvFocusableState extends State<TvFocusable> {
     super.dispose();
   }
 
+  void _activate() {
+    SoundService.instance.select();
+    widget.onTap?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final active = _focused || _hovered;
     return FocusableActionDetector(
       focusNode: _node,
       autofocus: widget.autofocus,
-      onFocusChange: (v) => setState(() => _focused = v),
+      onFocusChange: (v) {
+        if (v) SoundService.instance.move();
+        setState(() => _focused = v);
+      },
       onShowHoverHighlight: (v) => setState(() => _hovered = v),
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          widget.onTap?.call();
+          _activate();
           return null;
         }),
       },
@@ -57,32 +66,45 @@ class _TvFocusableState extends State<TvFocusable> {
         behavior: HitTestBehavior.opaque,
         onTap: () {
           _node.requestFocus();
-          widget.onTap?.call();
+          _activate();
         },
         child: AnimatedScale(
           scale: active ? widget.scale : 1.0,
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(widget.radius + 2),
-              border: Border.all(
-                color: active ? TvColors.focus : Colors.transparent,
-                width: TvSpace.focusBorder,
+          child: Stack(
+            children: [
+              widget.child,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: active ? 1 : 0,
+                    duration: const Duration(milliseconds: 140),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(widget.radius),
+                        border: Border.all(
+                          color: TvColors.focus,
+                          width: TvSpace.focusBorder,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: TvColors.accent.withOpacity(0.28),
+                            blurRadius: 22,
+                            spreadRadius: 1,
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.55),
+                            blurRadius: 26,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              boxShadow: active
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.6),
-                        blurRadius: 24,
-                        spreadRadius: 1,
-                      )
-                    ]
-                  : const [],
-            ),
-            child: widget.child,
+            ],
           ),
         ),
       ),
@@ -112,7 +134,7 @@ class TvIconButton extends StatelessWidget {
       width: 52,
       height: 52,
       decoration: BoxDecoration(
-        color: TvColors.card,
+        color: TvColors.card.withOpacity(0.85),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(icon, color: color ?? TvColors.text, size: 26),

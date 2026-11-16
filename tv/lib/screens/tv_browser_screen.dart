@@ -1,8 +1,8 @@
 // tv/lib/screens/tv_browser_screen.dart
 //
 // Edge ВНУТРИ лаунчера (WebView2).
-// Геймпад: LB/RB — назад/вперёд, X — обновить, стик — скролл.
-// Экранная клава печатает прямо в поле сайта через JS.
+// Геймпад: LB/RB назад/вперёд, X обновить, левый стик скроллит страницу,
+// R3 — системный курсор (клики в любом месте страницы), Y — клава.
 
 import 'dart:async';
 import 'dart:convert';
@@ -12,7 +12,10 @@ import 'package:webview_windows/webview_windows.dart';
 
 import '../main.dart' show tiles;
 import '../services/gamepad_service.dart';
+import '../services/hints_service.dart';
+import '../services/input_service.dart';
 import '../services/osk_service.dart';
+import '../services/sound_service.dart';
 import '../services/tiles_service.dart';
 import '../theme/tv_theme.dart';
 import '../widgets/tv_focusable.dart';
@@ -45,6 +48,13 @@ class _TvBrowserScreenState extends State<TvBrowserScreen> {
   @override
   void initState() {
     super.initState();
+    HintsService.instance.base([
+      'LB / RB — назад / вперёд',
+      'X — обновить, B — домой',
+      'Левый стик — скролл страницы',
+      'R3 — курсор и клики',
+      'Y — клавиатура',
+    ]);
     _init();
   }
 
@@ -73,7 +83,6 @@ class _TvBrowserScreenState extends State<TvBrowserScreen> {
       _subs.add(c.loadingState.listen((s) {
         if (mounted) setState(() => _loading = s == LoadingState.loading);
       }));
-      // В 0.4.0 история приходит одним стримом historyChanged
       _subs.add(c.historyChanged.listen((h) {
         if (mounted) {
           setState(() {
@@ -102,6 +111,7 @@ class _TvBrowserScreenState extends State<TvBrowserScreen> {
   void _onPad(TvPadButton b) {
     final c = _c;
     if (c == null) return;
+    if (InputService.instance.pointerMode.value) return;
     switch (b) {
       case TvPadButton.lb:
         c.goBack();
@@ -120,18 +130,19 @@ class _TvBrowserScreenState extends State<TvBrowserScreen> {
   void _onStick(TvStickDir d) {
     final c = _c;
     if (c == null) return;
+    if (InputService.instance.pointerMode.value) return;
     switch (d) {
       case TvStickDir.up:
-        c.executeScript('window.scrollBy({top:-160,behavior:"smooth"})');
+        c.executeScript('window.scrollBy({top:-220,behavior:"smooth"})');
         break;
       case TvStickDir.down:
-        c.executeScript('window.scrollBy({top:160,behavior:"smooth"})');
+        c.executeScript('window.scrollBy({top:220,behavior:"smooth"})');
         break;
       case TvStickDir.left:
-        c.executeScript('window.scrollBy({left:-160,behavior:"smooth"})');
+        c.executeScript('window.scrollBy({left:-220,behavior:"smooth"})');
         break;
       case TvStickDir.right:
-        c.executeScript('window.scrollBy({left:160,behavior:"smooth"})');
+        c.executeScript('window.scrollBy({left:220,behavior:"smooth"})');
         break;
     }
   }
@@ -147,8 +158,6 @@ class _TvBrowserScreenState extends State<TvBrowserScreen> {
     _c?.dispose();
     super.dispose();
   }
-
-  // ---------- JS-инъекция текста в поле сайта ----------
 
   void _oskForWeb() {
     OskService.instance.show(
@@ -224,6 +233,7 @@ class _TvBrowserScreenState extends State<TvBrowserScreen> {
       kind: TvTileKind.webExternal,
     ));
     if (err != null && mounted) {
+      SoundService.instance.error();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: TvColors.cardHi,

@@ -1,8 +1,9 @@
 // tv/lib/widgets/tv_gamepad_gate.dart
 //
-// Глобальная обработка геймпада:
-// крестовина — фокус, A — открыть, B/Back — назад, Start — домой,
-// Y — экранная клава. X/LB/RB отдаются экрану браузера.
+// Глобальная обработка геймпада + режим курсора (R3):
+// правый стик водит системной мышью, левый скроллит в любом окне,
+// A клик / X правый клик, крестовина = стрелки системы.
+// Вне режима курсора: фокус, A открыть, B назад, Start домой, Y клава.
 
 import 'dart:async';
 
@@ -11,7 +12,10 @@ import 'package:flutter/services.dart';
 
 import '../main.dart' show navigatorKey;
 import '../services/gamepad_service.dart';
+import '../services/hints_service.dart';
+import '../services/input_service.dart';
 import '../services/osk_service.dart';
+import '../services/sound_service.dart';
 
 class _BackIntent extends Intent {
   const _BackIntent();
@@ -28,20 +32,120 @@ class TvGamepadGate extends StatefulWidget {
 
 class _TvGamepadGateState extends State<TvGamepadGate> {
   StreamSubscription<TvPadButton>? _sub;
+  StreamSubscription<TvStickDir>? _stickSub;
+  VoidCallback? _rStickListener;
+  VoidCallback? _lStickListener;
+  double _wheelAcc = 0;
 
   @override
   void initState() {
     super.initState();
     _sub = GamepadService.instance.buttons.listen(_onButton);
+    _stickSub = GamepadService.instance.stick.listen(_onStickDir);
+    _rStickListener = () {
+      if (!InputService.instance.pointerMode.value) return;
+      final v = GamepadService.instance.rightStick.value;
+      if (v == Offset.zero) return;
+      final s = 14 * InputService.instance.sensitivity;
+      InputService.instance.moveCursor(v.dx * s, -v.dy * s);
+      HintsService.instance.bump();
+    };
+    _lStickListener = () {
+      if (!InputService.instance.pointerMode.value) return;
+      final v = GamepadService.instance.leftStick.value;
+      if (v.dy == 0) {
+        _wheelAcc = 0;
+        return;
+      }
+      _wheelAcc += -v.dy * 7;
+      if (_wheelAcc.abs() >= 1) {
+        InputService.instance.wheel(_wheelAcc.truncate());
+        _wheelAcc = 0;
+        HintsService.instance.bump();
+      }
+    };
+    GamepadService.instance.rightStick.addListener(_rStickListener!);
+    GamepadService.instance.leftStick.addListener(_lStickListener!);
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _stickSub?.cancel();
+    if (_rStickListener != null) {
+      GamepadService.instance.rightStick.removeListener(_rStickListener!);
+    }
+    if (_lStickListener != null) {
+      GamepadService.instance.leftStick.removeListener(_lStickListener!);
+    }
     super.dispose();
   }
 
+  void _togglePointer() {
+    final on = !InputService.instance.pointerMode.value;
+    InputService.instance.setPointerMode(on);
+    SoundService.instance.open();
+    if (on) {
+      HintsService.instance.context([
+        'Правый стик — курсор',
+        'Левый стик — скролл',
+        'A — клик, X — правый клик',
+        'Крестовина — стрелки',
+        'R3 — выйти из курсора',
+      ]);
+    } else {
+      HintsService.instance.context(HintsService.instance.homeLines);
+    }
+  }
+
   void _onButton(TvPadButton b) {
+    HintsService.instance.bump();
+    final pointer = InputService.instance.pointerMode.value;
+
+    if (b == TvPadButton.r3) {
+      _togglePointer();
+      return;
+    }
+
+    if (pointer) {
+      switch (b) {
+        case TvPadButton.a:
+          InputService.instance.click();
+          SoundService.instance.click();
+          return;
+        case TvPadButton.x:
+          InputService.instance.click(right: true);
+          SoundService.instance.click();
+          return;
+        case TvPadButton.up:
+          InputService.instance.tapKey(InputService.vkUp);
+          return;
+        case TvPadButton.down:
+          InputService.instance.tapKey(InputService.vkDown);
+          return;
+        case TvPadButton.left:
+          InputService.instance.tapKey(InputService.vkLeft);
+          return;
+        case TvPadButton.right:
+          InputService.instance.tapKey(InputService.vkRight);
+          return;
+        case TvPadButton.b:
+        case TvPadButton.back:
+          _togglePointer();
+          return;
+        case TvPadButton.y:
+          OskService.instance.show(system: true);
+          return;
+        case TvPadButton.start:
+          InputService.instance.setPointerMode(false);
+          navigatorKey.currentState?.popUntil((r) => r.isFirst);
+          HintsService.instance.context(HintsService.instance.homeLines);
+          return;
+        default:
+          return;
+      }
+    }
+
     switch (b) {
       case TvPadButton.up:
         _move(TraversalDirection.up);
@@ -66,22 +170,52 @@ class _TvGamepadGateState extends State<TvGamepadGate> {
       case TvPadButton.start:
         if (OskService.instance.visible) OskService.instance.hide();
         navigatorKey.currentState?.popUntil((r) => r.isFirst);
+        HintsService.instance.context(HintsService.instance.homeLines);
         break;
       case TvPadButton.y:
-        OskService.instance.toggle();
+        if (OskService.instance.visible) {
+          OskService.instance.hide();
+        } else {
+          OskService.instance.show(system: true);
+        }
         break;
       case TvPadButton.x:
       case TvPadButton.lb:
       case TvPadButton.rb:
+      case TvPadButton.l3:
+        break;
+    }
+  }
+
+  void _onStickDir(TvStickDir d) {
+    if (InputService.instance.pointerMode.value) return;
+    if (OskService.instance.visible) return;
+    switch (d) {
+      case TvStickDir.up:
+        _move(TraversalDirection.up);
+        break;
+      case TvStickDir.down:
+        _move(TraversalDirection.down);
+        break;
+      case TvStickDir.left:
+        _move(TraversalDirection.left);
+        break;
+      case TvStickDir.right:
+        _move(TraversalDirection.right);
         break;
     }
   }
 
   void _back() {
+    SoundService.instance.back();
     if (OskService.instance.visible) {
       OskService.instance.hide();
-    } else {
-      navigatorKey.currentState?.maybePop();
+      return;
+    }
+    navigatorKey.currentState?.maybePop();
+    final nav = navigatorKey.currentState;
+    if (nav != null && !nav.canPop()) {
+      HintsService.instance.context(HintsService.instance.homeLines);
     }
   }
 

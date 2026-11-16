@@ -1,7 +1,8 @@
 // tv/lib/main.dart
 //
 // Вместе ТВ — лаунчер для телевизора на Windows.
-// Киоск-fullscreen, синк только чтение из main, геймпад, экранная клава.
+// Киоск-fullscreen, синк только чтение из main, геймпад + системный курсор,
+// экранная клава, обои, погода, звуки, подсказки.
 
 import 'dart:async';
 import 'dart:io';
@@ -15,14 +16,21 @@ import 'package:window_manager/window_manager.dart';
 import 'screens/tv_home_screen.dart';
 import 'screens/tv_setup_screen.dart';
 import 'services/gamepad_service.dart';
+import 'services/hints_service.dart';
+import 'services/input_service.dart';
 import 'services/osk_service.dart';
+import 'services/sound_service.dart';
 import 'services/tiles_service.dart';
 import 'services/tv_sync_service.dart';
+import 'services/wallpaper_service.dart';
+import 'services/weather_service.dart';
 import 'supabase_config.dart';
 import 'theme/tv_theme.dart';
 import 'widgets/osk_panel.dart';
 import 'widgets/tv_focusable.dart';
 import 'widgets/tv_gamepad_gate.dart';
+import 'widgets/tv_hints_overlay.dart';
+import 'widgets/tv_pointer_overlay.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final TvSyncService sync = TvSyncService();
@@ -32,12 +40,20 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Hive.initFlutter();
+  await Hive.openBox('vmeste_tv_prefs');
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
 
+  InputService.instance.init();
+  final speed = Hive.box('vmeste_tv_prefs').get('pointer_speed', defaultValue: 1.0);
+  InputService.instance.sensitivity = (speed as num).toDouble();
+
   await tiles.init();
+  await WallpaperService.instance.init();
+  await SoundService.instance.init();
+  await WeatherService.instance.init();
   GamepadService.instance.init();
 
   await windowManager.ensureInitialized();
@@ -97,6 +113,7 @@ Future<void> showExitDialog(BuildContext context) async {
     await windowManager.minimize();
   }
   if (action == 'exit') {
+    InputService.instance.setPointerMode(false);
     await windowManager.destroy();
     exit(0);
   }
@@ -135,8 +152,11 @@ class VmesteTvApp extends StatelessWidget {
           ),
           child: TvGamepadGate(
             child: Stack(
+              fit: StackFit.expand,
               children: [
                 child ?? const SizedBox.shrink(),
+                const TvHintsOverlay(),
+                const TvPointerOverlay(),
                 const OskOverlay(),
               ],
             ),

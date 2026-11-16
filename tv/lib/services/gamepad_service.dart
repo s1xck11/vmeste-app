@@ -1,11 +1,12 @@
 // tv/lib/services/gamepad_service.dart
 //
 // Геймпад через XInput (протокол Xbox) напрямую из dart:ffi.
-// Без плагинов: xinput1_4.dll встроен в Windows 10/11.
-// Крестовина и кнопки → поток buttons, левый стик → поток stick.
+// Крестовина/кнопки → buttons, левый стик → stick (дискретно),
+// оба стика → аналоговые notifiers для курсора и скролла.
 
 import 'dart:async';
 import 'dart:ffi';
+import 'dart:ui' show Offset;
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
@@ -33,7 +34,7 @@ final class _XInputState extends Struct {
   external _XInputGamepad gamepad;
 }
 
-enum TvPadButton { up, down, left, right, a, b, x, y, start, back, lb, rb }
+enum TvPadButton { up, down, left, right, a, b, x, y, start, back, lb, rb, l3, r3 }
 
 enum TvStickDir { up, down, left, right }
 
@@ -42,6 +43,7 @@ class GamepadService {
   static final GamepadService instance = GamepadService._();
 
   static const int _deadzone = 10000;
+  static const double _stickDz = 0.18;
 
   static const Map<int, TvPadButton> _masks = {
     0x0001: TvPadButton.up,
@@ -52,6 +54,8 @@ class GamepadService {
     0x0020: TvPadButton.back,
     0x0100: TvPadButton.lb,
     0x0200: TvPadButton.rb,
+    0x0040: TvPadButton.l3,
+    0x0080: TvPadButton.r3,
     0x1000: TvPadButton.a,
     0x2000: TvPadButton.b,
     0x4000: TvPadButton.x,
@@ -61,6 +65,8 @@ class GamepadService {
   final _buttons = StreamController<TvPadButton>.broadcast();
   final _stick = StreamController<TvStickDir>.broadcast();
   final ValueNotifier<bool> connected = ValueNotifier(false);
+  final ValueNotifier<Offset> leftStick = ValueNotifier(Offset.zero);
+  final ValueNotifier<Offset> rightStick = ValueNotifier(Offset.zero);
 
   Stream<TvPadButton> get buttons => _buttons.stream;
   Stream<TvStickDir> get stick => _stick.stream;
@@ -86,9 +92,15 @@ class GamepadService {
         break;
       } catch (_) {}
     }
-    if (_getState == null) return; // нет XInput — живём мышью/клавой
+    if (_getState == null) return;
     _state = calloc<_XInputState>();
     _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _poll());
+  }
+
+  double _norm(int v) {
+    final n = v / 32767.0;
+    if (n.abs() < _stickDz) return 0;
+    return n.clamp(-1.0, 1.0);
   }
 
   void _poll() {
@@ -97,6 +109,8 @@ class GamepadService {
     if (getState == null || state == null) return;
     bool any = false;
     final now = DateTime.now().millisecondsSinceEpoch;
+    var lAcc = Offset.zero;
+    var rAcc = Offset.zero;
 
     for (int i = 0; i < 4; i++) {
       if (getState(i, state) != 0) {
@@ -115,7 +129,6 @@ class GamepadService {
         if ((pressed & mask) != 0) _buttons.add(btn);
       });
 
-      // Повтор при удержании крестовины
       TvPadButton? hold;
       if ((cur & 0x0001) != 0) {
         hold = TvPadButton.up;
@@ -134,9 +147,11 @@ class GamepadService {
         _dpadNext[i] = now + 140;
       }
 
-      // Левый стик
       final lx = g.sThumbLX;
       final ly = g.sThumbLY;
+      lAcc = Offset(lAcc.dx + _norm(lx), lAcc.dy + _norm(ly));
+      rAcc = Offset(rAcc.dx + _norm(g.sThumbRX), rAcc.dy + _norm(g.sThumbRY));
+
       TvStickDir? dir;
       if (ly.abs() >= lx.abs()) {
         if (ly > _deadzone) {
@@ -162,6 +177,9 @@ class GamepadService {
         _stickNext[i] = now + 140;
       }
     }
+
+    leftStick.value = lAcc;
+    rightStick.value = rAcc;
     if (connected.value != any) connected.value = any;
   }
 
